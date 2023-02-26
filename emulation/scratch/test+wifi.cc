@@ -45,13 +45,17 @@ main (int argc, char *argv[])
   if(mode == "p2p"){
     printf("Now it's p2p+WiFi!\n");
     //创建节点
-    int n = 3;//AP的数量
+    int n = 2;//AP的数量
     int nWifi[n];//每个AP管多少Nodes
     int num = (n-1)*n/2;//AP之间的信道数量
-    NodeContainer APNodes,WifiNodes[n];
-    APNodes.Create (n);
-    for(int i = 0; i < n; i++)
-      WifiNodes[i].Create (nWifi[i]);
+    NodeContainer p2pNodes,wifiStaNodes[n],wifiApNode[n];
+    for(int i = 0; i < n; i++) 
+      nWifi[i] = 1;
+    p2pNodes.Create (n);
+    for(int i = 0; i < n; i++){
+      wifiStaNodes[i].Create (nWifi[i]);
+      wifiApNode[i] = p2pNodes.Get(i);
+    }
 
     //创建AP之间的信道
     PointToPointHelper pointToPoint[num];
@@ -61,12 +65,12 @@ main (int argc, char *argv[])
     }
 
     //在AP的p2p信道上安装NetDevice
-    NetDeviceContainer APdevices[num];
+    NetDeviceContainer p2pDevices[num];
     int p = 0;
     int dev[100][100];
     for(int i = 0; i < n; i++)
       for(int j = i + 1; j < n; j++){
-        APdevices[p] = pointToPoint[p].Install (APNodes.Get(i),APNodes.Get(j));
+        p2pDevices[p] = pointToPoint[p].Install (p2pNodes.Get(i),p2pNodes.Get(j));
         dev[i][j] = p;
         dev[j][i] = p;
         p++;
@@ -88,12 +92,15 @@ main (int argc, char *argv[])
     NetDeviceContainer staDevices[n];
     mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid), "ActiveProbing", BooleanValue(false));
     for(int i = 0; i < n; i++){
-      staDevices[i] = wifi.Install(phy, mac, WifiNodes[i]);
+      staDevices[i] = wifi.Install(phy, mac, wifiStaNodes[i]);
     }
 
-    NetDeviceContainer apDevices;
+    NetDeviceContainer apDevices[n];
     mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue(ssid));
-    apDevices = wifi.Install(phy, mac, APNodes);
+    for(int i = 0; i < n; i++){
+      apDevices[i] = wifi.Install(phy, mac, wifiApNode[i]);
+    }
+
 
     MobilityHelper mobility;
 
@@ -115,33 +122,45 @@ main (int argc, char *argv[])
                               "Bounds",
                               RectangleValue(Rectangle(-50, 50, -50, 50)));
     for(int i = 0; i < n; i++){
-      mobility.Install(WifiNodes[i]);
+      mobility.Install(wifiStaNodes[i]);
     }
 
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-    mobility.Install(APNodes);
-
-
-
-    InternetStackHelper stack;
-    stack.Install (APNodes);
-    for(int i = 0; i < n; i ++){
-      stack.Install (WifiNodes[i]);
+    for(int i = 0; i < n; i++){
+      mobility.Install(wifiApNode[i]);
     }
 
+    printf("HOLAA!!!!!\n");
+
+    InternetStackHelper stack;
+    printf("HOLAA!!!!!\n");
+    for(int i = 0; i < n; i ++){
+      stack.Install (wifiApNode[i]);
+    }
+    printf("HOLAA!!!!!\n");
+    for(int i = 0; i < n; i ++){
+      stack.Install (wifiStaNodes[i]);
+    }
+    printf("HOLAA!!!!!\n");
+
+
     //给NetDevices分配IPv4地址
-    Ipv4AddressHelper APaddress[num];
+    Ipv4AddressHelper P2Paddress[num];
     Ipv4InterfaceContainer interfaces[num];
     for(int i = 0; i < num; i++){
       std::string ip = "10.1." + std::to_string(i+1) + ".0";
-      APaddress[i].SetBase (ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
-      interfaces[i] = APaddress[i].Assign (APdevices[i]);
+      P2Paddress[i].SetBase (ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
+      interfaces[i] = P2Paddress[i].Assign (p2pDevices[i]);
     }
     Ipv4AddressHelper Wifiaddress[n];
+    Ipv4InterfaceContainer APinterfaces[n];
     for(int i = 0; i < n; i++){
       std::string ip = "10.1." + std::to_string(i+1+num) + ".0";
+      std::cout<<"ip = "<<ip<<std::endl;
       Wifiaddress[i].SetBase (ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
       Wifiaddress[i].Assign (staDevices[i]);
+      APinterfaces[i] = Wifiaddress[i].Assign (apDevices[i]);
+      std::cout<<"APinterfaces["<<i<<"].getAddress(0) = "<<APinterfaces[i].GetAddress(0)<<std::endl;
     }
 
 
@@ -153,30 +172,41 @@ main (int argc, char *argv[])
         // Client -> i  Server -> j
         //printf("Client %d ;; Server %d   dev[%d][%d]=%d\n",i,j,i,j,dev[i][j]);
         UdpEchoServerHelper echoServer(port_c);
-        ApplicationContainer serverApps = echoServer.Install (APNodes.Get(j));
+        ApplicationContainer serverApps = echoServer.Install (p2pNodes.Get(j));
         serverApps.Start (Seconds (1.0));
         serverApps.Stop (Seconds (10.0));
 
         int op = (i<j)?0:1;
-        printf("op=%d\n",op);
-        UdpEchoClientHelper echoClient (interfaces[dev[i][j]].GetAddress(op), port_c);
+//        printf("op=%d\n",op);
+        UdpEchoClientHelper echoClient (interfaces[dev[i][j]].GetAddress(1-op), port_c);
         echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
         echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
         echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
 
-        ApplicationContainer clientApps = echoClient.Install (APNodes.Get(i));
+        ApplicationContainer clientApps = echoClient.Install (p2pNodes.Get(i));
         clientApps.Start (Seconds (2.0));
         clientApps.Stop (Seconds (10.0));
         port_c++;
       }
     }
 
-    //给每个AP内的点都安装Client
+    //给每个AP内的点都安装Client，以AP作为Server
     for(int id = 0; id < n; id ++){
       for(int i = 0; i < nWifi[id]; i ++){
-        //?????????????不知道这儿要怎么安装client
-        port_c++;
+        UdpEchoServerHelper echoServer(port_c);
+        ApplicationContainer serverApps = echoServer.Install (wifiApNode[id].Get(0));
+        serverApps.Start (Seconds (1.0));
+        serverApps.Stop (Seconds (10.0));
 
+        UdpEchoClientHelper echoClient (APinterfaces[id].GetAddress(0), port_c);
+        echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
+        echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
+        echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
+
+        ApplicationContainer clientApps = echoClient.Install (wifiStaNodes[id].Get(i));
+        clientApps.Start (Seconds (2.0));
+        clientApps.Stop (Seconds (10.0));
+        port_c++;
       }
     }
 
@@ -189,7 +219,7 @@ main (int argc, char *argv[])
 
 
 
-    else if(mode == "sfu"){
+  else if(mode == "sfu"){
     printf("Now it's sfu!\n");
     //创建节点
     NodeContainer nodes;
@@ -220,16 +250,6 @@ main (int argc, char *argv[])
   //    address.SetBase("10.1.1.0","255.255.255.0");
       interfaces[i] = address[i].Assign (devices[i]);
     }
-
-    //  //Debug：把每个node的每个接口的ip地址打印出来
-    // for(int i = 0; i <= n; i ++){
-    //   Ptr<Ipv4> ippp = nodes.Get(i)->GetObject<Ipv4>();
-    //   int interfacenumber = ippp->GetNInterfaces();
-    //   for(int k = 0; k < interfacenumber; k++){
-    //     Ipv4Address ipaddress = ippp->GetAddress(k,0).GetLocal();
-    //     std::cout<<"Node("<<i<<"),interface("<<k<<")   it's IPAddress ="<<ipaddress<<std::endl;
-    //   }
-    // }
 
     //给所有点与选择转发单元安装CS
     int port_c = 9;
