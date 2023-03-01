@@ -82,28 +82,28 @@ main (int argc, char *argv[])
     //抄一些WifiAP和WifiNodes之间建立联系的代码
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     YansWifiPhyHelper phy;
-    phy.SetChannel(channel.Create());
-
     WifiMacHelper mac;
-    Ssid ssid = Ssid("ns-3-ssid");
-
+    Ssid ssid;
     WifiHelper wifi;
-
     NetDeviceContainer staDevices[n];
-    mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid), "ActiveProbing", BooleanValue(false));
-    for(int i = 0; i < n; i++){
-      staDevices[i] = wifi.Install(phy, mac, wifiStaNodes[i]);
-    }
-
     NetDeviceContainer apDevices[n];
-    mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue(ssid));
+
+    //每次的SSID、PHY要不同
     for(int i = 0; i < n; i++){
+      std::string id = "ssid" + std::to_string(i+1);
+//      std::cout<<id<<std::endl;
+      ssid = Ssid(id);
+      std::cout<<ssid<<std::endl;
+      phy.SetChannel(channel.Create());
+
+      mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid), "ActiveProbing", BooleanValue(false));
+      staDevices[i] = wifi.Install(phy, mac, wifiStaNodes[i]);  
+      mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue(ssid));
       apDevices[i] = wifi.Install(phy, mac, wifiApNode[i]);
     }
 
 
     MobilityHelper mobility;
-
     mobility.SetPositionAllocator("ns3::GridPositionAllocator",
                                   "MinX",
                                   DoubleValue(0.0),
@@ -117,7 +117,6 @@ main (int argc, char *argv[])
                                   UintegerValue(3),
                                   "LayoutType",
                                   StringValue("RowFirst"));
-
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Bounds",
                               RectangleValue(Rectangle(-50, 50, -50, 50)));
@@ -130,18 +129,11 @@ main (int argc, char *argv[])
       mobility.Install(wifiApNode[i]);
     }
 
-    printf("HOLAA!!!!!\n");
-
     InternetStackHelper stack;
-    printf("HOLAA!!!!!\n");
-    for(int i = 0; i < n; i ++){
+    for(int i = 0; i < n; i ++)
       stack.Install (wifiApNode[i]);
-    }
-    printf("HOLAA!!!!!\n");
-    for(int i = 0; i < n; i ++){
+    for(int i = 0; i < n; i ++)
       stack.Install (wifiStaNodes[i]);
-    }
-    printf("HOLAA!!!!!\n");
 
 
     //给NetDevices分配IPv4地址
@@ -154,17 +146,18 @@ main (int argc, char *argv[])
     }
     Ipv4AddressHelper Wifiaddress[n];
     Ipv4InterfaceContainer APinterfaces[n];
+    Ipv4InterfaceContainer Stainterfaces[n];
     for(int i = 0; i < n; i++){
       std::string ip = "10.1." + std::to_string(i+1+num) + ".0";
-      std::cout<<"ip = "<<ip<<std::endl;
+//      std::cout<<"ip = "<<ip<<std::endl;
       Wifiaddress[i].SetBase (ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
-      Wifiaddress[i].Assign (staDevices[i]);
+      Stainterfaces[i] = Wifiaddress[i].Assign (staDevices[i]);
       APinterfaces[i] = Wifiaddress[i].Assign (apDevices[i]);
       std::cout<<"APinterfaces["<<i<<"].getAddress(0) = "<<APinterfaces[i].GetAddress(0)<<std::endl;
     }
 
 
-    //给AP两两之间安装CS
+     //给AP两两之间安装CS
     int port_c = 9;
     for(int i = 0; i < n; i++){
       for(int j = 0; j < n; j++){
@@ -209,8 +202,27 @@ main (int argc, char *argv[])
         port_c++;
       }
     }
+    
+    // //wifiStaNodes[0].Get(0) -> Client
+    // //wifiStaNodes[1].Get(0) -> Server
+    // UdpEchoServerHelper echoServer(port_c);
+    // ApplicationContainer serverApps = echoServer.Install (wifiStaNodes[1].Get(0));
+    // serverApps.Start (Seconds (1.0));
+    // serverApps.Stop (Seconds (10.0));
+
+    // std::cout<<Stainterfaces[1].GetAddress(0)<<std::endl;
+    // UdpEchoClientHelper echoClient (Stainterfaces[1].GetAddress(0), port_c);
+    // echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
+    // echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
+    // echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
+
+    // ApplicationContainer clientApps = echoClient.Install (wifiStaNodes[0].Get(0));
+    // clientApps.Start (Seconds (2.0));
+    // clientApps.Stop (Seconds (10.0));
+    // port_c++;
 
     printf("Successfully Done!!!! [P2P MODE] \n");
+
   }
 
 
@@ -280,11 +292,19 @@ main (int argc, char *argv[])
   }
 
 
-  
-  
   double_t stopTime = 5.0; // in s
   FlowMonitorHelper flowmonHelper;
   flowmonHelper.InstallAll();
+  
+  Ipv4GlobalRoutingHelper::PopulateRoutingTables();
+  // int tracing = 1;
+  // if (tracing) {
+  //   phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
+  //   pointToPoint[0].EnablePcapAll("third");
+  //   phy.EnablePcap("third", apDevices[0].Get(0));
+  //   phy.EnablePcap("third", apDevices[1].Get(0));
+  //   phy.EnablePcap("third-sta", staDevices[0].Get(0));
+  // }
 
   Simulator::Stop(Seconds(stopTime));
   Simulator::Run ();
