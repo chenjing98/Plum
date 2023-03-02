@@ -24,6 +24,8 @@
 #include "ns3/yans-wifi-helper.h"
 #include "ns3/flow-monitor-helper.h"
 
+#include "ns3/videoconf-module.h"
+
 // Default Network Topology
 //
 //   Wifi 10.1.3.0
@@ -98,9 +100,17 @@ ConvertStringToStandardAndBand(std::string version)
     return {standard, band};
 }
 
-int
-main(int argc, char* argv[])
+enum APP_TYPE
 {
+    APP_TYPE_BULK,
+    APP_TYPE_P2P,
+    APP_TYPE_SFU
+};
+
+int main(int argc, char *argv[])
+{
+    LogComponentEnable("VcaServer", LOG_LEVEL_ERROR);
+    LogComponentEnable("VcaClient", LOG_LEVEL_DEBUG);
     bool verbose = true;
     bool tracing = false;
     uint32_t nCsma = 1;
@@ -108,7 +118,7 @@ main(int argc, char* argv[])
     std::string apVersion = "80211a";
     std::string staVersion = "80211n_5GHZ";
     double_t simulationDuration = 5.0; // in s
-    
+    APP_TYPE appType = APP_TYPE_P2P;
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("nCsma", "Number of \"extra\" CSMA nodes/devices", nCsma);
@@ -176,14 +186,14 @@ main(int argc, char* argv[])
     Ssid ssid = Ssid("ns-3-ssid");
 
     WifiHelper wifi;
-    const auto& [staStandard, staBand] = ConvertStringToStandardAndBand(staVersion);
+    const auto &[staStandard, staBand] = ConvertStringToStandardAndBand(staVersion);
     wifi.SetStandard(staStandard);
 
     NetDeviceContainer staDevices;
     mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid), "ActiveProbing", BooleanValue(false));
     staDevices = wifi.Install(phy, mac, wifiStaNodes);
 
-    const auto& [apStandard, apBand] = ConvertStringToStandardAndBand(apVersion);
+    const auto &[apStandard, apBand] = ConvertStringToStandardAndBand(apVersion);
     wifi.SetStandard(apStandard);
     NetDeviceContainer apDevices;
     mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue(ssid));
@@ -237,7 +247,7 @@ main(int argc, char* argv[])
     uint16_t port_dl = 9090;
     Ipv4Address staAddr = wifiStaInterfaces.GetAddress(0);
     Ipv4Address csmaAddr = csmaInterfaces.GetAddress(1);
-    
+
     // Print dev address
     NS_LOG_UNCOND("[NodeDev] STA NodeId= " << wifiStaNodes.Get(0)->GetId() << " Addr= " << wifiStaInterfaces.GetAddress(0));
     NS_LOG_UNCOND("[NodeDev] AP NodeId= " << wifiApNode.Get(0)->GetId() << " Addr= " << wifiApInterfaces.GetAddress(0) << " Addr= " << p2pInterfaces.GetAddress(0));
@@ -246,30 +256,64 @@ main(int argc, char* argv[])
 
     // Application
 
-    BulkSendHelper ulBulkSender ("ns3::TcpSocketFactory", InetSocketAddress{csmaAddr, port_ul});
-    ulBulkSender.SetAttribute("Local", AddressValue(InetSocketAddress{staAddr, port_ul}));
-    ApplicationContainer ulApps = ulBulkSender.Install(wifiStaNodes.Get(nWifi - 1));
-    ulApps.Start(Seconds(0.0));
-    ulApps.Stop(Seconds(simulationDuration - 2));
-    PacketSinkHelper ulSink("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port_ul));
-    ApplicationContainer ulSinkApps = ulSink.Install(csmaNodes.Get(nCsma));
-    ulSinkApps.Start(Seconds(0.0));
-    ulSinkApps.Stop(Seconds(simulationDuration));
+    if (appType == APP_TYPE_BULK)
+    {
+        BulkSendHelper ulBulkSender("ns3::TcpSocketFactory", InetSocketAddress{csmaAddr, port_ul});
+        ulBulkSender.SetAttribute("Local", AddressValue(InetSocketAddress{staAddr, port_ul}));
+        ulBulkSender.SetAttribute("SendSize", UintegerValue(1448));
+        ApplicationContainer ulApps = ulBulkSender.Install(wifiStaNodes.Get(nWifi - 1));
+        ulApps.Start(Seconds(0.0));
+        ulApps.Stop(Seconds(simulationDuration - 2));
+        PacketSinkHelper ulSink("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port_ul));
+        ApplicationContainer ulSinkApps = ulSink.Install(csmaNodes.Get(nCsma));
+        ulSinkApps.Start(Seconds(0.0));
+        ulSinkApps.Stop(Seconds(simulationDuration));
 
-    BulkSendHelper dlBulkSender ("ns3::TcpSocketFactory", InetSocketAddress{staAddr, port_dl});
-    dlBulkSender.SetAttribute("Local", AddressValue(InetSocketAddress{csmaAddr, port_dl}));
-    ApplicationContainer dlApps = dlBulkSender.Install(csmaNodes.Get(nCsma));
-    dlApps.Start(Seconds(0.0));
-    dlApps.Stop(Seconds(simulationDuration - 2));
-    PacketSinkHelper dlSink("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port_dl));
-    ApplicationContainer dlSinkApps = dlSink.Install(wifiStaNodes.Get(nWifi - 1));
-    dlSinkApps.Start(Seconds(0.0));
-    dlSinkApps.Stop(Seconds(simulationDuration));
+        BulkSendHelper dlBulkSender("ns3::TcpSocketFactory", InetSocketAddress{staAddr, port_dl});
+        dlBulkSender.SetAttribute("Local", AddressValue(InetSocketAddress{csmaAddr, port_dl}));
+        dlBulkSender.SetAttribute("SendSize", UintegerValue(1448));
+        ApplicationContainer dlApps = dlBulkSender.Install(csmaNodes.Get(nCsma));
+        dlApps.Start(Seconds(0.0));
+        dlApps.Stop(Seconds(simulationDuration - 2));
+        PacketSinkHelper dlSink("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port_dl));
+        ApplicationContainer dlSinkApps = dlSink.Install(wifiStaNodes.Get(nWifi - 1));
+        dlSinkApps.Start(Seconds(0.0));
+        dlSinkApps.Stop(Seconds(simulationDuration));
+    }
+    else if (appType == APP_TYPE_P2P)
+    {
+        NS_LOG_UNCOND("P2P VCA NodeId " << wifiStaNodes.Get(nWifi - 1)->GetId() << " " << csmaNodes.Get(nCsma)->GetId());
+        Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
+        vcaClientAppLeft->SetFps(30);
+        vcaClientAppLeft->SetBitrate(1000);
+        vcaClientAppLeft->SetLocalAddress(staAddr);
+        vcaClientAppLeft->SetPeerAddress(InetSocketAddress{csmaAddr, port_dl});
+        vcaClientAppLeft->SetLocalUlPort(port_ul);
+        vcaClientAppLeft->SetLocalDlPort(port_dl);
+        vcaClientAppLeft->SetNodeId(wifiStaNodes.Get(nWifi - 1)->GetId());
+        wifiStaNodes.Get(nWifi - 1)->AddApplication(vcaClientAppLeft);
+
+        Ptr<VcaClient> vcaClientAppRight = CreateObject<VcaClient>();
+        vcaClientAppRight->SetFps(30);
+        vcaClientAppRight->SetBitrate(1000);
+        vcaClientAppRight->SetLocalAddress(csmaAddr);
+        vcaClientAppRight->SetPeerAddress(InetSocketAddress{staAddr, port_dl});
+        vcaClientAppRight->SetLocalUlPort(port_ul);
+        vcaClientAppRight->SetLocalDlPort(port_dl);
+        vcaClientAppRight->SetNodeId(csmaNodes.Get(nCsma)->GetId());
+        csmaNodes.Get(nCsma)->AddApplication(vcaClientAppRight);
+    }
+    else if (appType == APP_TYPE_SFU)
+    {
+    }
+    else
+    {
+        NS_LOG_DEBUG("[Simulation] Unsupported application type");
+    }
 
     // Flow Monitor
     FlowMonitorHelper flowmonHelper;
     flowmonHelper.InstallAll();
-
 
     // UdpEchoServer application
     // UdpEchoServerHelper echoServer(9);
