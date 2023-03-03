@@ -321,63 +321,33 @@ main (int argc, char *argv[])
       }
     }
 
-    //给所有点与选择转发单元安装CS
-    int port_c = 9;
-    for(int i = 0; i < n; i++){
-      //Client:AP -> Server:Center
-      if(1) {
-        UdpEchoServerHelper echoServer(port_c);
-        ApplicationContainer serverApps = echoServer.Install (sfuCenter.Get(0));
-        serverApps.Start (Seconds (1.0));
-        serverApps.Stop (Seconds (10.0));
-
-        UdpEchoClientHelper echoClient (interfaces[i].GetAddress(1), port_c);//(i,center)->(0,1)
-        echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
-        echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
-        echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
-
-        ApplicationContainer clientApps = echoClient.Install (wifiApNode[i].Get(0));
-        clientApps.Start (Seconds (2.0));
-        clientApps.Stop (Seconds (10.0));
-        port_c++;
-      }
-
-      //Client:Center -> Server:AP 
-      if(1){
-        UdpEchoServerHelper echoServer(port_c);
-        ApplicationContainer serverApps = echoServer.Install (wifiApNode[i].Get(0));
-        serverApps.Start (Seconds (1.0));
-        serverApps.Stop (Seconds (10.0));
-
-        UdpEchoClientHelper echoClient (interfaces[i].GetAddress(0), port_c);//(i,center)->(0,1)
-        echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
-        echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
-        echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
-
-        ApplicationContainer clientApps = echoClient.Install (sfuCenter.Get(0));
-        clientApps.Start (Seconds (2.0));
-        clientApps.Stop (Seconds (10.0));
-        port_c++;
-      }
-    }
-
-    //给每个AP内的点都安装Client，以AP作为Server
+    //给每个user(WifiSta)装上Client，给Center装上Server
+    uint16_t port_ul = 8080;
+    uint16_t port_dl = 9090;
     for(int id = 0; id < n; id ++){
-      for(int i = 0; i < nWifi[id]; i ++){
-        UdpEchoServerHelper echoServer(port_c);
-        ApplicationContainer serverApps = echoServer.Install (wifiApNode[id].Get(0));
-        serverApps.Start (Seconds (1.0));
-        serverApps.Stop (Seconds (10.0));
+      for(int i = 0; i < nWifi[id]; i++){
+        Ipv4Address serverAddr = interfaces[id].GetAddress(1);//sfuCenter
+        Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
+        NS_LOG_UNCOND("SFU VCA NodeId " << wifiStaNodes[id].Get(i)->GetId() << " " << sfuCenter.Get(0)->GetId());
+        Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
+        vcaClientAppLeft->SetFps(30);
+        vcaClientAppLeft->SetBitrate(1000);
+        vcaClientAppLeft->SetLocalAddress(staAddr);
+        vcaClientAppLeft->SetPeerAddress(InetSocketAddress{serverAddr, port_ul});
+        vcaClientAppLeft->SetLocalUlPort(port_ul);
+        vcaClientAppLeft->SetLocalDlPort(port_dl);
+        vcaClientAppLeft->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
+        wifiStaNodes[id].Get(i)->AddApplication(vcaClientAppLeft);
 
-        UdpEchoClientHelper echoClient (APinterfaces[id].GetAddress(0), port_c);
-        echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
-        echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.0)));
-        echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
+        Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
+        vcaServerApp->SetLocalAddress(serverAddr);
+        vcaServerApp->SetLocalUlPort(port_ul);
+        vcaServerApp->SetPeerDlPort(port_dl);
+        vcaServerApp->SetLocalDlPort(port_dl);
+        sfuCenter.Get(0)->AddApplication(vcaServerApp);
 
-        ApplicationContainer clientApps = echoClient.Install (wifiStaNodes[id].Get(i));
-        clientApps.Start (Seconds (2.0));
-        clientApps.Stop (Seconds (10.0));
-        port_c++;
+        port_ul++;
+        port_dl++;
       }
     }
 
