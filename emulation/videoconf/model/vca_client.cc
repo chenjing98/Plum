@@ -277,6 +277,6 @@ namespace ns3
     VcaClient::OutputStatistics()
     {
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] OutputStatistics");
-    };  
+    };
 
 }; // namespace ns3
