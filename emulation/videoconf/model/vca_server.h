@@ -8,6 +8,9 @@
 #include "ns3/simulator.h"
 #include "ns3/assert.h"
 #include "ns3/socket.h"
+#include <deque>
+#include <vector>
+#include <unordered_map>
 
 namespace ns3
 {
@@ -19,8 +22,10 @@ namespace ns3
         VcaServer();
         ~VcaServer();
 
-        Ptr<Socket> GetSocketUl(void);
-        Ptr<Socket> GetSocketDl(void);
+        void SetLocalAddress(Ipv4Address local);
+        void SetLocalUlPort(uint16_t port);
+        void SetLocalDlPort(uint16_t port);
+        void SetPeerDlPort(uint16_t port);
 
     protected:
         void DoDispose(void);
@@ -70,21 +75,24 @@ namespace ns3
          */
         void HandlePeerError(Ptr<Socket> socket);
 
-        void SendData(Ptr<Socket> socket, uint32_t size);
-        void ReceiveData(Ptr<Packet>);
+        Ptr<Packet> TranscodeFrame(uint8_t socket_id);
+        void SendData(Ptr<Socket> socket);
+        void ReceiveData(Ptr<Packet>, uint8_t);
 
         Ptr<Socket> m_socket_ul;
-        Ptr<Socket> m_socket_dl;
-        std::list<Ptr<Socket>> m_socketList_ul;
-
-        bool m_connected_dl;
+        std::list<Ptr<Socket>> m_socket_list_ul;
+        std::list<Ptr<Socket>> m_socket_list_dl;
+        std::unordered_map<Ptr<Socket>, uint8_t> m_socket_id_map;
+        uint8_t m_socket_id;
+        std::vector<Address> m_peer_list;
+        std::vector<std::deque<Ptr<Packet>>> m_send_buffer_list;
 
         TypeId m_tid;
 
-        Address m_local;
-        Address m_peer;
-
-        uint16_t m_localPort;
+        Ipv4Address m_local;
+        uint16_t m_local_ul_port;
+        uint16_t m_local_dl_port;
+        uint16_t m_peer_dl_port;
 
     }; // class VcaServer
 
