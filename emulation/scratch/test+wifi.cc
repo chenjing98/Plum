@@ -45,7 +45,7 @@ main (int argc, char *argv[])
   if(mode == "p2p"){
     printf("Now it's p2p+WiFi!\n");
     //创建节点
-    int n = 2;//AP的数量
+    int n = 3;//AP的数量
     int nWifi[n];//每个AP管多少Nodes
     int num = (n-1)*n/2;//AP之间的信道数量
     NodeContainer p2pNodes,wifiStaNodes[n],wifiApNode[n];
