@@ -305,6 +305,34 @@ int main(int argc, char *argv[])
     }
     else if (appType == APP_TYPE_SFU)
     {
+        Ipv4Address serverIp = csmaInterfaces.GetAddress(0);
+        NS_LOG_UNCOND("SFU VCA NodeId " << wifiStaNodes.Get(nWifi - 1)->GetId() << " " << csmaNodes.Get(nCsma)->GetId());
+        Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
+        vcaClientAppLeft->SetFps(30);
+        vcaClientAppLeft->SetBitrate(1000);
+        vcaClientAppLeft->SetLocalAddress(staAddr);
+        vcaClientAppLeft->SetPeerAddress(InetSocketAddress{serverIp, port_ul});
+        vcaClientAppLeft->SetLocalUlPort(port_ul);
+        vcaClientAppLeft->SetLocalDlPort(port_dl);
+        vcaClientAppLeft->SetNodeId(wifiStaNodes.Get(nWifi - 1)->GetId());
+        wifiStaNodes.Get(nWifi - 1)->AddApplication(vcaClientAppLeft);
+
+        Ptr<VcaClient> vcaClientAppRight = CreateObject<VcaClient>();
+        vcaClientAppRight->SetFps(30);
+        vcaClientAppRight->SetBitrate(1000);
+        vcaClientAppRight->SetLocalAddress(csmaAddr);
+        vcaClientAppRight->SetPeerAddress(InetSocketAddress{serverIp, port_ul});
+        vcaClientAppRight->SetLocalUlPort(port_ul);
+        vcaClientAppRight->SetLocalDlPort(port_dl);
+        vcaClientAppRight->SetNodeId(csmaNodes.Get(nCsma)->GetId());
+        csmaNodes.Get(nCsma)->AddApplication(vcaClientAppRight);
+
+        Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
+        vcaServerApp->SetLocalAddress(serverIp);
+        vcaServerApp->SetLocalUlPort(port_ul);
+        vcaServerApp->SetPeerDlPort(port_dl);
+        vcaServerApp->SetLocalDlPort(port_dl);
+        csmaNodes.Get(0)->AddApplication(vcaServerApp);
     }
     else
     {
