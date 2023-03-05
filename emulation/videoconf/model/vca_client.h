@@ -9,6 +9,7 @@
 #include "ns3/assert.h"
 #include "ns3/socket.h"
 #include <deque>
+#include <unordered_map>
 
 namespace ns3
 {
@@ -21,11 +22,11 @@ namespace ns3
         ~VcaClient();
 
         void SetLocalAddress(Ipv4Address local);
-        void SetPeerAddress(Address peer);
+        void SetPeerAddress(std::vector<Ipv4Address> peer_list);
         void SetLocalUlPort(uint16_t port);
         void SetLocalDlPort(uint16_t port);
+        void SetPeerPort(uint16_t port);
 
-        Ptr<Socket> GetSocketUl(void);
         Ptr<Socket> GetSocketDl(void);
 
         void SetFps(uint8_t fps);
@@ -60,27 +61,30 @@ namespace ns3
 
         uint32_t m_node_id;
 
-        Ptr<Socket> m_socket_ul;
         Ptr<Socket> m_socket_dl;
 
-        std::list<Ptr<Socket>> m_socketList_dl;
-
-        bool m_connected_ul;
+        std::list<Ptr<Socket>> m_socket_list_ul;
+        std::list<Ptr<Socket>> m_socket_list_dl;
+        std::unordered_map<Ptr<Socket>, uint8_t> m_socket_id_map_ul;
+        uint8_t m_socket_id_ul;
+        std::unordered_map<Ptr<Socket>, uint8_t> m_socket_id_map_dl;
+        uint8_t m_socket_id_dl;
+        std::vector<Ipv4Address> m_peer_list;
 
         TypeId m_tid;
 
         Ipv4Address m_local;
-        Address m_peer;
 
         uint16_t m_local_ul_port;
         uint16_t m_local_dl_port;
+        uint16_t m_peer_ul_port;
 
         uint8_t m_fps;
         uint32_t m_bitrate; // in kbps
 
         EventId m_enc_event;
 
-        std::deque<Ptr<Packet>> m_send_buffer;
+        std::vector<std::deque<Ptr<Packet>>> m_send_buffer_list;
 
     }; // class VcaClient
 

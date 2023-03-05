@@ -14,16 +14,17 @@ namespace ns3
     };
 
     VcaClient::VcaClient()
-        : m_socket_ul(nullptr),
-          m_socket_dl(nullptr),
-          m_socketList_dl(),
-          m_connected_ul(false),
+        : m_socket_dl(nullptr),
+          m_socket_list_ul(),
+          m_socket_list_dl(),
+          m_socket_id_map_ul(),
+          m_socket_id_ul(0),
+          m_peer_list(),
           m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")),
-          m_local_ul_port(0),
           m_fps(0),
           m_bitrate(0),
           m_enc_event(),
-          m_send_buffer(){};
+          m_send_buffer_list(){};
 
     VcaClient::~VcaClient(){};
 
@@ -33,11 +34,6 @@ namespace ns3
     };
 
     // Public helpers
-    Ptr<Socket> VcaClient::GetSocketUl(void)
-    {
-        return m_socket_ul;
-    };
-
     Ptr<Socket> VcaClient::GetSocketDl(void)
     {
         return m_socket_dl;
@@ -58,9 +54,9 @@ namespace ns3
         m_local = local;
     };
 
-    void VcaClient::SetPeerAddress(Address peer)
+    void VcaClient::SetPeerAddress(std::vector<Ipv4Address> peer_list)
     {
-        m_peer = peer;
+        m_peer_list = peer_list;
     };
 
     void VcaClient::SetLocalUlPort(uint16_t port)
@@ -71,6 +67,11 @@ namespace ns3
     void VcaClient::SetLocalDlPort(uint16_t port)
     {
         m_local_dl_port = port;
+    };
+
+    void VcaClient::SetPeerPort(uint16_t port)
+    {
+        m_peer_ul_port = port;
     };
 
     void VcaClient::SetNodeId(uint32_t node_id)
@@ -84,22 +85,32 @@ namespace ns3
         m_enc_event = Simulator::ScheduleNow(&VcaClient::EncodeFrame, this);
 
         // Create the socket if not already
-        if (!m_socket_ul)
-        {
-            m_socket_ul = Socket::CreateSocket(GetNode(), m_tid);
 
-            if (m_socket_ul->Bind(InetSocketAddress{m_local, m_local_ul_port}) == -1)
+        for (auto peer_ip : m_peer_list)
+        {
+            Address peer_addr = InetSocketAddress{peer_ip, m_peer_ul_port};
+
+            Ptr<Socket> socket_ul = Socket::CreateSocket(GetNode(), m_tid);
+
+            if (socket_ul->Bind(InetSocketAddress{m_local, m_local_ul_port}) == -1)
             {
                 NS_FATAL_ERROR("Failed to bind socket");
             }
 
-            m_socket_ul->Connect(m_peer);
-            m_socket_ul->ShutdownRecv();
-            m_socket_ul->SetConnectCallback(
+            socket_ul->Connect(peer_addr);
+            socket_ul->ShutdownRecv();
+            socket_ul->SetConnectCallback(
                 MakeCallback(&VcaClient::ConnectionSucceededUl, this),
                 MakeCallback(&VcaClient::ConnectionFailedUl, this));
-            m_socket_ul->SetSendCallback(
+            socket_ul->SetSendCallback(
                 MakeCallback(&VcaClient::DataSendUl, this));
+            m_socket_list_ul.push_back(socket_ul);
+            m_socket_id_map_ul[socket_ul] = m_socket_id_ul;
+
+            m_socket_id_ul += 1;
+            m_local_ul_port += 1;
+
+            m_send_buffer_list.push_back(std::deque<Ptr<Packet>>{});
         }
 
         if (!m_socket_dl)
@@ -121,12 +132,6 @@ namespace ns3
                 MakeCallback(&VcaClient::HandlePeerClose, this),
                 MakeCallback(&VcaClient::HandlePeerError, this));
         }
-
-        if (m_connected_ul)
-        {
-            // send data
-            SendData(m_socket_ul);
-        }
     };
 
     void VcaClient::StopApplication()
@@ -137,10 +142,17 @@ namespace ns3
             Simulator::Cancel(m_enc_event);
         }
 
-        while (!m_socketList_dl.empty())
+        while (!m_socket_list_ul.empty())
+        { // these are connected sockets, close them
+            Ptr<Socket> connectedSocket = m_socket_list_ul.front();
+            m_socket_list_ul.pop_front();
+            connectedSocket->Close();
+        }
+
+        while (!m_socket_list_dl.empty())
         { // these are accepted sockets, close them
-            Ptr<Socket> acceptedSocket = m_socketList_dl.front();
-            m_socketList_dl.pop_front();
+            Ptr<Socket> acceptedSocket = m_socket_list_dl.front();
+            m_socket_list_dl.pop_front();
             acceptedSocket->Close();
         }
         if (m_socket_dl)
@@ -148,18 +160,12 @@ namespace ns3
             m_socket_dl->Close();
             m_socket_dl->SetRecvCallback(MakeNullCallback<void, Ptr<Socket>>());
         }
-        if (m_socket_ul)
-        {
-            m_socket_ul->Close();
-            m_connected_ul = false;
-        }
     };
 
     // Private helpers
     void VcaClient::ConnectionSucceededUl(Ptr<Socket> socket)
     {
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Uplink connection succeeded");
-        m_connected_ul = true;
 
         SendData(socket);
     };
@@ -172,10 +178,8 @@ namespace ns3
     void VcaClient::DataSendUl(Ptr<Socket> socket)
     {
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Uplink datasend");
-        if (m_connected_ul)
-        {
-            SendData(socket);
-        }
+
+        SendData(socket);
     };
 
     void VcaClient::HandleRead(Ptr<Socket> socket)
@@ -209,7 +213,9 @@ namespace ns3
     {
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] HandleAccept");
         socket->SetRecvCallback(MakeCallback(&VcaClient::HandleRead, this));
-        m_socketList_dl.push_back(socket);
+        m_socket_list_dl.push_back(socket);
+        m_socket_id_map_dl[socket] = m_socket_id_dl;
+        m_socket_id_dl += 1;
     };
 
     void
@@ -229,15 +235,18 @@ namespace ns3
     VcaClient::SendData(Ptr<Socket> socket)
     {
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] SendData");
-        if (!m_send_buffer.empty())
+
+        uint8_t socket_id_up = m_socket_id_map_ul[socket];
+        std::deque<Ptr<Packet>> send_buffer = m_send_buffer_list[socket_id_up];
+        if (!send_buffer.empty())
         {
-            Ptr<Packet> packet = m_send_buffer.front();
+            Ptr<Packet> packet = send_buffer.front();
             int actual = socket->Send(packet);
             if (actual > 0)
             {
-                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][Send] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << m_send_buffer.size() - 1);
+                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][Send] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << send_buffer.size() - 1 << " DstIp= " << m_peer_list[socket_id_up]);
 
-                m_send_buffer.pop_front();
+                send_buffer.pop_front();
             }
             else
             {
@@ -265,7 +274,10 @@ namespace ns3
         for (uint32_t data_ptr = 0; data_ptr < frame_size; data_ptr += payloadSize)
         {
             Ptr<Packet> packet = Create<Packet>(std::min(payloadSize, frame_size - data_ptr));
-            m_send_buffer.push_back(packet);
+            for (auto send_buffer : m_send_buffer_list)
+            {
+                send_buffer.push_back(packet);
+            }
         }
 
         // Schedule next frame's encoding
