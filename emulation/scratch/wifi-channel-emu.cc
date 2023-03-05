@@ -109,7 +109,7 @@ enum APP_TYPE
 
 int main(int argc, char *argv[])
 {
-    LogComponentEnable("VcaServer", LOG_LEVEL_ERROR);
+    LogComponentEnable("VcaServer", LOG_LEVEL_DEBUG);
     LogComponentEnable("VcaClient", LOG_LEVEL_DEBUG);
     bool verbose = true;
     bool tracing = false;
@@ -287,9 +287,10 @@ int main(int argc, char *argv[])
         vcaClientAppLeft->SetFps(30);
         vcaClientAppLeft->SetBitrate(1000);
         vcaClientAppLeft->SetLocalAddress(staAddr);
-        vcaClientAppLeft->SetPeerAddress(InetSocketAddress{csmaAddr, port_dl});
+        vcaClientAppLeft->SetPeerAddress(std::vector<Ipv4Address>{csmaAddr});
         vcaClientAppLeft->SetLocalUlPort(port_ul);
         vcaClientAppLeft->SetLocalDlPort(port_dl);
+        vcaClientAppLeft->SetPeerPort(port_dl);
         vcaClientAppLeft->SetNodeId(wifiStaNodes.Get(nWifi - 1)->GetId());
         wifiStaNodes.Get(nWifi - 1)->AddApplication(vcaClientAppLeft);
 
@@ -297,9 +298,10 @@ int main(int argc, char *argv[])
         vcaClientAppRight->SetFps(30);
         vcaClientAppRight->SetBitrate(1000);
         vcaClientAppRight->SetLocalAddress(csmaAddr);
-        vcaClientAppRight->SetPeerAddress(InetSocketAddress{staAddr, port_dl});
+        vcaClientAppRight->SetPeerAddress(std::vector<Ipv4Address>{staAddr});
         vcaClientAppRight->SetLocalUlPort(port_ul);
         vcaClientAppRight->SetLocalDlPort(port_dl);
+        vcaClientAppRight->SetPeerPort(port_dl);
         vcaClientAppRight->SetNodeId(csmaNodes.Get(nCsma)->GetId());
         csmaNodes.Get(nCsma)->AddApplication(vcaClientAppRight);
     }
@@ -311,9 +313,10 @@ int main(int argc, char *argv[])
         vcaClientAppLeft->SetFps(30);
         vcaClientAppLeft->SetBitrate(1000);
         vcaClientAppLeft->SetLocalAddress(staAddr);
-        vcaClientAppLeft->SetPeerAddress(InetSocketAddress{serverIp, port_ul});
+        vcaClientAppLeft->SetPeerAddress(std::vector<Ipv4Address>{serverIp});
         vcaClientAppLeft->SetLocalUlPort(port_ul);
         vcaClientAppLeft->SetLocalDlPort(port_dl);
+        vcaClientAppLeft->SetPeerPort(port_ul);
         vcaClientAppLeft->SetNodeId(wifiStaNodes.Get(nWifi - 1)->GetId());
         wifiStaNodes.Get(nWifi - 1)->AddApplication(vcaClientAppLeft);
 
@@ -321,9 +324,10 @@ int main(int argc, char *argv[])
         vcaClientAppRight->SetFps(30);
         vcaClientAppRight->SetBitrate(1000);
         vcaClientAppRight->SetLocalAddress(csmaAddr);
-        vcaClientAppRight->SetPeerAddress(InetSocketAddress{serverIp, port_ul});
+        vcaClientAppRight->SetPeerAddress(std::vector<Ipv4Address>{serverIp});
         vcaClientAppRight->SetLocalUlPort(port_ul);
         vcaClientAppRight->SetLocalDlPort(port_dl);
+        vcaClientAppRight->SetPeerPort(port_ul);
         vcaClientAppRight->SetNodeId(csmaNodes.Get(nCsma)->GetId());
         csmaNodes.Get(nCsma)->AddApplication(vcaClientAppRight);
 

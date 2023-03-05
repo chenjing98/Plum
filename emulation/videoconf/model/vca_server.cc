@@ -163,7 +163,8 @@ namespace ns3
         socket->SetRecvCallback(MakeCallback(&VcaServer::HandleRead, this));
         m_socket_list_ul.push_back(socket);
 
-        m_peer_list.push_back(from);
+        Ipv4Address peer_ip = InetSocketAddress::ConvertFrom(from).GetIpv4();
+        m_peer_list.push_back(peer_ip);
 
         // Create downlink socket as well
         Ptr<Socket> socket_dl = Socket::CreateSocket(GetNode(), m_tid);
@@ -173,7 +174,7 @@ namespace ns3
             NS_FATAL_ERROR("Failed to bind socket");
         }
 
-        socket_dl->Connect(InetSocketAddress{InetSocketAddress::ConvertFrom(from).GetIpv4(), m_peer_dl_port}); // note here while setting client dl port number
+        socket_dl->Connect(InetSocketAddress{peer_ip, m_peer_dl_port}); // note here while setting client dl port number
         socket_dl->ShutdownRecv();
         socket_dl->SetConnectCallback(
             MakeCallback(&VcaServer::ConnectionSucceededDl, this),
