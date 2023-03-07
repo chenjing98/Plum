@@ -157,35 +157,23 @@ main (int argc, char *argv[])
       std::cout<<"APinterfaces["<<i<<"].getAddress(0) = "<<APinterfaces[i].GetAddress(0)<<std::endl;
     }
 
-    //给AP的每对peer装上Client
+    //给AP的每个User装上Client
     uint16_t port_ul = 8080;
     uint16_t port_dl = 9090;
-    for(int i = 0; i < n; i++){
-      for(int j = 0; j < n; j++){
-        if(i == j) continue;
-        int op = i<j?0:1;
-        Ipv4Address leftAddr = interfaces[dev[i][j]].GetAddress(op);//i
-        Ipv4Address rightAddr = interfaces[dev[i][j]].GetAddress(1-op);//j        
+    for(int id = 0; id < n; id++){
+      for(int i = 0; i < nWifi[id]; i++){
+        Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
+        Ipv4Address APAddr = APinterfaces[id].GetAddress(0);
 
         Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
         vcaClientAppLeft->SetFps(30);
         vcaClientAppLeft->SetBitrate(1000);
-        vcaClientAppLeft->SetLocalAddress(leftAddr);
-        vcaClientAppLeft->SetPeerAddress(InetSocketAddress{rightAddr, port_dl});
+        vcaClientAppLeft->SetLocalAddress(staAddr);
+        vcaClientAppLeft->SetPeerAddress(std::vector<Ipv4Address>{APAddr});
         vcaClientAppLeft->SetLocalUlPort(port_ul);
         vcaClientAppLeft->SetLocalDlPort(port_dl);
-        vcaClientAppLeft->SetNodeId(p2pNodes.Get(i)->GetId());
-        p2pNodes.Get(i)->AddApplication(vcaClientAppLeft);
-
-        Ptr<VcaClient> vcaClientAppRight = CreateObject<VcaClient>();
-        vcaClientAppRight->SetFps(30);
-        vcaClientAppRight->SetBitrate(1000);
-        vcaClientAppRight->SetLocalAddress(rightAddr);
-        vcaClientAppRight->SetPeerAddress(InetSocketAddress{leftAddr, port_dl});
-        vcaClientAppRight->SetLocalUlPort(port_ul);
-        vcaClientAppRight->SetLocalDlPort(port_dl);
-        vcaClientAppRight->SetNodeId(p2pNodes.Get(j)->GetId());
-        p2pNodes.Get(j)->AddApplication(vcaClientAppRight);
+        vcaClientAppLeft->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
+        wifiStaNodes[id].Get(i)->AddApplication(vcaClientAppLeft);
 
         port_ul++;
         port_dl++;
@@ -333,7 +321,7 @@ main (int argc, char *argv[])
         vcaClientAppLeft->SetFps(30);
         vcaClientAppLeft->SetBitrate(1000);
         vcaClientAppLeft->SetLocalAddress(staAddr);
-        vcaClientAppLeft->SetPeerAddress(InetSocketAddress{serverAddr, port_ul});
+        vcaClientAppLeft->SetPeerAddress(std::vector<Ipv4Address>{serverAddr});
         vcaClientAppLeft->SetLocalUlPort(port_ul);
         vcaClientAppLeft->SetLocalDlPort(port_dl);
         vcaClientAppLeft->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
