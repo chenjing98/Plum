@@ -81,8 +81,10 @@ namespace ns3
 
         uint8_t m_fps;
         uint32_t m_bitrate; // in kbps
-
+        
         EventId m_enc_event;
+        
+        uint32_t m_total_packet_bit;
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_list;
 

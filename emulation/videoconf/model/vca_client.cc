@@ -24,6 +24,7 @@ namespace ns3
           m_fps(0),
           m_bitrate(0),
           m_enc_event(),
+          m_total_packet_bit(0),
           m_send_buffer_list(){};
 
     VcaClient::~VcaClient(){};
@@ -189,6 +190,7 @@ namespace ns3
         Address from;
         while ((packet = socket->RecvFrom(from)))
         {
+            m_total_packet_bit += packet->GetSize()*8;
             if (packet->GetSize() == 0)
             { // EOF
                 NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][ReceivePkt] PktSize(B)= 0");
@@ -288,7 +290,9 @@ namespace ns3
     void
     VcaClient::OutputStatistics()
     {
-        NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] OutputStatistics");
+        double average_throughput;
+        average_throughput = 1.0*m_total_packet_bit/Simulator::Now().GetMilliSeconds();
+        NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] OutputStatistics  total_bit= "<<m_total_packet_bit<<", Time= "<<Simulator::Now().GetMilliSeconds()<<", throughput= "<<average_throughput);
     };
 
 }; // namespace ns3
