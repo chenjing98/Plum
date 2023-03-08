@@ -30,14 +30,14 @@ NS_LOG_COMPONENT_DEFINE ("TestScriptExample");
 int
 main (int argc, char *argv[])
 {
+//  LogComponentEnable("VcaServer", LOG_LEVEL_ALL);
+//  LogComponentEnable("VcaClient", LOG_LEVEL_LOGIC);
+  
   CommandLine cmd (__FILE__);
   std::string mode = "p2p";
   cmd.AddValue("mode","p2p or sfu mode",mode);
   cmd.Parse (argc, argv);
-  
   Time::SetResolution (Time::NS);
-  LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
-  LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
 
   
 
@@ -68,12 +68,12 @@ main (int argc, char *argv[])
     //在AP的p2p信道上安装NetDevice
     NetDeviceContainer p2pDevices[num];
     int p = 0;
-    int dev[100][100];
+//    int dev[100][100];
     for(int i = 0; i < n; i++)
       for(int j = i + 1; j < n; j++){
         p2pDevices[p] = pointToPoint[p].Install (p2pNodes.Get(i),p2pNodes.Get(j));
-        dev[i][j] = p;
-        dev[j][i] = p;
+//        dev[i][j] = p;
+//        dev[j][i] = p;
         p++;
       }
     // for(int i=0;i<n;i++)
@@ -94,7 +94,7 @@ main (int argc, char *argv[])
       std::string id = "ssid" + std::to_string(i+1);
 //      std::cout<<id<<std::endl;
       ssid = Ssid(id);
-      std::cout<<ssid<<std::endl;
+//      std::cout<<ssid<<std::endl;
       phy.SetChannel(channel.Create());
 
       mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid), "ActiveProbing", BooleanValue(false));
@@ -158,25 +158,36 @@ main (int argc, char *argv[])
     }
 
     //给AP的每个User装上Client
-    uint16_t port_ul = 8080;
-    uint16_t port_dl = 9090;
+    std::vector<Ipv4Address> staAddr_all;
     for(int id = 0; id < n; id++){
       for(int i = 0; i < nWifi[id]; i++){
         Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
-        Ipv4Address APAddr = APinterfaces[id].GetAddress(0);
+        staAddr_all.push_back(staAddr);
+      }
+    }
+
+    uint16_t port_ul = 81;
+    uint16_t port_dl = 80;
+    for(int id = 0; id < n; id++){
+      for(int i = 0; i < nWifi[id]; i++){
+        Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
+//        Ipv4Address APAddr = APinterfaces[id].GetAddress(0);
+        std::vector<Ipv4Address> peerAddr;
+        for(auto item:staAddr_all)
+          if(staAddr!=item) peerAddr.push_back(item);
+        for(auto item:peerAddr)
+          std::cout<<"item:"<<item<<std::endl;
 
         Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
         vcaClientAppLeft->SetFps(30);
         vcaClientAppLeft->SetBitrate(1000);
         vcaClientAppLeft->SetLocalAddress(staAddr);
-        vcaClientAppLeft->SetPeerAddress(std::vector<Ipv4Address>{APAddr});
+        vcaClientAppLeft->SetPeerAddress(peerAddr);
         vcaClientAppLeft->SetLocalUlPort(port_ul);
         vcaClientAppLeft->SetLocalDlPort(port_dl);
+        vcaClientAppLeft->SetPeerPort(port_dl);//to other's port_dl
         vcaClientAppLeft->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientAppLeft);
-
-        port_ul++;
-        port_dl++;
       }
     }
 
@@ -310,11 +321,18 @@ main (int argc, char *argv[])
     }
 
     //给每个user(WifiSta)装上Client，给Center装上Server
-    uint16_t port_ul = 8080;
-    uint16_t port_dl = 9090;
+    uint16_t client_ul = 82;
+    uint16_t client_dl = 80;
+    uint16_t client_peer = 81;
+    Ipv4Address serverAddr = interfaces[0].GetAddress(1);//sfuCenter
+    Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
+    vcaServerApp->SetLocalAddress(serverAddr);
+    vcaServerApp->SetLocalUlPort(client_peer);
+    vcaServerApp->SetPeerDlPort(client_ul);
+    vcaServerApp->SetLocalDlPort(client_dl);
+    sfuCenter.Get(0)->AddApplication(vcaServerApp);
     for(int id = 0; id < n; id ++){
       for(int i = 0; i < nWifi[id]; i++){
-        Ipv4Address serverAddr = interfaces[id].GetAddress(1);//sfuCenter
         Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
         NS_LOG_UNCOND("SFU VCA NodeId " << wifiStaNodes[id].Get(i)->GetId() << " " << sfuCenter.Get(0)->GetId());
         Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
@@ -322,20 +340,11 @@ main (int argc, char *argv[])
         vcaClientAppLeft->SetBitrate(1000);
         vcaClientAppLeft->SetLocalAddress(staAddr);
         vcaClientAppLeft->SetPeerAddress(std::vector<Ipv4Address>{serverAddr});
-        vcaClientAppLeft->SetLocalUlPort(port_ul);
-        vcaClientAppLeft->SetLocalDlPort(port_dl);
+        vcaClientAppLeft->SetLocalUlPort(client_ul);
+        vcaClientAppLeft->SetLocalDlPort(client_dl);
+        vcaClientAppLeft->SetPeerPort(client_peer);
         vcaClientAppLeft->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientAppLeft);
-
-        Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
-        vcaServerApp->SetLocalAddress(serverAddr);
-        vcaServerApp->SetLocalUlPort(port_ul);
-        vcaServerApp->SetPeerDlPort(port_dl);
-        vcaServerApp->SetLocalDlPort(port_dl);
-        sfuCenter.Get(0)->AddApplication(vcaServerApp);
-
-        port_ul++;
-        port_dl++;
       }
     }
 
