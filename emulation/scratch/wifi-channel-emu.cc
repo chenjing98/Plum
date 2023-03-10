@@ -251,10 +251,16 @@ int main(int argc, char *argv[])
     Ipv4Address csmaAddr = csmaInterfaces.GetAddress(nCsma);
 
     // Print dev address
-    NS_LOG_UNCOND("[NodeDev] STA NodeId= " << wifiStaNodes.Get(0)->GetId() << " Addr= " << wifiStaInterfaces.GetAddress(0));
+    for (uint32_t i = 0; i < nWifi; i++)
+    {
+        NS_LOG_UNCOND("[NodeDev] STA NodeId= " << wifiStaNodes.Get(i)->GetId() << " Addr= " << wifiStaInterfaces.GetAddress(i));
+    }
     NS_LOG_UNCOND("[NodeDev] AP NodeId= " << wifiApNode.Get(0)->GetId() << " Addr= " << wifiApInterfaces.GetAddress(0) << " Addr= " << p2pInterfaces.GetAddress(0));
-    NS_LOG_UNCOND("[NodeDev] CSMA1 NodeId= " << p2pNodes.Get(1)->GetId() << " Addr= " << p2pInterfaces.GetAddress(1) << " Addr= " << csmaInterfaces.GetAddress(0));
-    NS_LOG_UNCOND("[NodeDev] CSMA2 NodeId= " << csmaNodes.Get(0)->GetId() << " Addr= " << csmaInterfaces.GetAddress(1));
+    NS_LOG_UNCOND("[NodeDev] P2P NodeId= " << p2pNodes.Get(1)->GetId() << " Addr= " << p2pInterfaces.GetAddress(1) << " Addr= " << csmaInterfaces.GetAddress(0));
+    for (uint32_t i = 0; i < nCsma; i++)
+    {
+        NS_LOG_UNCOND("[NodeDev] CSMA NodeId= " << csmaNodes.Get(i)->GetId() << " Addr= " << csmaInterfaces.GetAddress(i + 1));
+    }
 
     // Application
 
