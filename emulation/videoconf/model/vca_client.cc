@@ -237,20 +237,21 @@ namespace ns3
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] SendData");
 
         uint8_t socket_id_up = m_socket_id_map_ul[socket];
-        std::deque<Ptr<Packet>> send_buffer = m_send_buffer_list[socket_id_up];
-        if (!send_buffer.empty())
+
+        NS_LOG_DEBUG("[VcaClient][SendData] SendBufSize " << m_send_buffer_list[socket_id_up].size());
+        if (!m_send_buffer_list[socket_id_up].empty())
         {
-            Ptr<Packet> packet = send_buffer.front();
+            Ptr<Packet> packet = m_send_buffer_list[socket_id_up].front();
             int actual = socket->Send(packet);
             if (actual > 0)
             {
-                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][Send] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << send_buffer.size() - 1 << " DstIp= " << m_peer_list[socket_id_up]);
+                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][Send][Sock" << (uint16_t)socket_id_up << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << m_send_buffer_list[socket_id_up].size() - 1 << " DstIp= " << m_peer_list[socket_id_up]);
 
-                send_buffer.pop_front();
+                m_send_buffer_list[socket_id_up].pop_front();
             }
             else
             {
-                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] SendData failed");
+                NS_LOG_DEBUG("[VcaClient][Send][Node" << m_node_id << "][Sock" << (uint16_t)socket_id_up << "] SendData failed");
             }
         }
     };
@@ -264,7 +265,7 @@ namespace ns3
     void
     VcaClient::EncodeFrame()
     {
-        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " Bitrate=" << m_bitrate);
+        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " Bitrate= " << m_bitrate);
 
         // Calculate packets in the frame
         uint32_t frame_size = m_bitrate * 1000 / 8 / m_fps;
@@ -273,10 +274,11 @@ namespace ns3
         // Produce packets
         for (uint32_t data_ptr = 0; data_ptr < frame_size; data_ptr += payloadSize)
         {
-            Ptr<Packet> packet = Create<Packet>(std::min(payloadSize, frame_size - data_ptr));
-            for (auto send_buffer : m_send_buffer_list)
+            for (uint8_t i = 0; i < m_send_buffer_list.size(); i++)
             {
-                send_buffer.push_back(packet);
+                Ptr<Packet> packet = Create<Packet>(std::min(payloadSize, frame_size - data_ptr));
+                m_send_buffer_list[i].push_back(packet);
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_list[i].size());
             }
         }
 
