@@ -190,12 +190,16 @@ namespace ns3
         Address from;
         while ((packet = socket->RecvFrom(from)))
         {
-            m_total_packet_bit += packet->GetSize()*8;
             if (packet->GetSize() == 0)
             { // EOF
                 NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][ReceivePkt] PktSize(B)= 0");
                 break;
             }
+
+            m_total_packet_bit += packet->GetSize()*8;
+            int now_second = Simulator::Now().GetSeconds();
+            if(packet->GetSize()*8 < m_min_packet_bit[now_second] || m_min_packet_bit[now_second] == 0)
+                m_min_packet_bit[now_second] = packet->GetSize()*8;
 
             if (InetSocketAddress::IsMatchingType(from))
             {
@@ -290,9 +294,18 @@ namespace ns3
     void
     VcaClient::OutputStatistics()
     {
+        // Calculate average_throughput
         double average_throughput;
-        average_throughput = 1.0*m_total_packet_bit/Simulator::Now().GetMilliSeconds();
+        average_throughput = 1.0*m_total_packet_bit/Simulator::Now().GetSeconds();
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] OutputStatistics  total_bit= "<<m_total_packet_bit<<", Time= "<<Simulator::Now().GetMilliSeconds()<<", throughput= "<<average_throughput);
+
+        // Calculate min packet size (per second)
+        
+        int now_second = Simulator::Now().GetSeconds();
+        for(int i = 0; i < now_second; i++)
+        {
+            NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Statistics  minPacketsize[ "<<i<<"] = "<<m_min_packet_bit[i]);
+        }
     };
 
 }; // namespace ns3

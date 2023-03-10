@@ -11,6 +11,7 @@
 #include <deque>
 #include <unordered_map>
 
+const uint32_t N_SECONDS = 1000;
 namespace ns3
 {
 
@@ -85,6 +86,7 @@ namespace ns3
         EventId m_enc_event;
         
         uint32_t m_total_packet_bit;
+        uint32_t m_min_packet_bit[N_SECONDS];
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_list;
 
