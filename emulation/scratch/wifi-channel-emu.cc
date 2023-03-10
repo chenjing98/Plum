@@ -245,8 +245,9 @@ int main(int argc, char *argv[])
 
     uint16_t port_ul = 8080;
     uint16_t port_dl = 9090;
-    Ipv4Address staAddr = wifiStaInterfaces.GetAddress(0);
-    Ipv4Address csmaAddr = csmaInterfaces.GetAddress(1);
+    uint16_t port_csma_out = 10;
+    Ipv4Address staAddr = wifiStaInterfaces.GetAddress(nWifi - 1);
+    Ipv4Address csmaAddr = csmaInterfaces.GetAddress(nCsma);
 
     // Print dev address
     NS_LOG_UNCOND("[NodeDev] STA NodeId= " << wifiStaNodes.Get(0)->GetId() << " Addr= " << wifiStaInterfaces.GetAddress(0));
@@ -256,31 +257,46 @@ int main(int argc, char *argv[])
 
     // Application
 
-    if (appType == APP_TYPE_BULK)
-    {
-        BulkSendHelper ulBulkSender("ns3::TcpSocketFactory", InetSocketAddress{csmaAddr, port_ul});
-        ulBulkSender.SetAttribute("Local", AddressValue(InetSocketAddress{staAddr, port_ul}));
-        ulBulkSender.SetAttribute("SendSize", UintegerValue(1448));
-        ApplicationContainer ulApps = ulBulkSender.Install(wifiStaNodes.Get(nWifi - 1));
-        ulApps.Start(Seconds(0.0));
-        ulApps.Stop(Seconds(simulationDuration - 2));
+        // upstream
+        for (uint32_t i = 0; i < nWifi; i++)
+        {
+            BulkSendHelper ulBulkSender("ns3::TcpSocketFactory", InetSocketAddress{csmaAddr, port_ul});
+            ulBulkSender.SetAttribute("Local", AddressValue(InetSocketAddress{wifiStaInterfaces.GetAddress(i), port_ul}));
+            ulBulkSender.SetAttribute("SendSize", UintegerValue(1448));
+            ApplicationContainer ulApps = ulBulkSender.Install(wifiStaNodes.Get(i));
+            ulApps.Start(Seconds(0.0));
+            ulApps.Stop(Seconds(simulationDuration - 2));
+        }
+
         PacketSinkHelper ulSink("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port_ul));
         ApplicationContainer ulSinkApps = ulSink.Install(csmaNodes.Get(nCsma));
         ulSinkApps.Start(Seconds(0.0));
         ulSinkApps.Stop(Seconds(simulationDuration));
 
-        BulkSendHelper dlBulkSender("ns3::TcpSocketFactory", InetSocketAddress{staAddr, port_dl});
-        dlBulkSender.SetAttribute("Local", AddressValue(InetSocketAddress{csmaAddr, port_dl}));
-        dlBulkSender.SetAttribute("SendSize", UintegerValue(1448));
-        ApplicationContainer dlApps = dlBulkSender.Install(csmaNodes.Get(nCsma));
-        dlApps.Start(Seconds(0.0));
-        dlApps.Stop(Seconds(simulationDuration - 2));
-        PacketSinkHelper dlSink("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port_dl));
-        ApplicationContainer dlSinkApps = dlSink.Install(wifiStaNodes.Get(nWifi - 1));
-        dlSinkApps.Start(Seconds(0.0));
-        dlSinkApps.Stop(Seconds(simulationDuration));
-    }
-    else if (appType == APP_TYPE_P2P)
+        // downstream
+        for (uint32_t i = 0; i < nWifi; i++)
+        {
+            if (i == 0)
+            {
+                continue;
+            }
+            for (uint32_t j = 0; j < nCsma; j++)
+            {
+                BulkSendHelper dlBulkSender("ns3::TcpSocketFactory", InetSocketAddress{wifiStaInterfaces.GetAddress(i), port_dl});
+                dlBulkSender.SetAttribute("Local", AddressValue(InetSocketAddress{csmaInterfaces.GetAddress(j + 1), port_csma_out}));
+                dlBulkSender.SetAttribute("SendSize", UintegerValue(1448));
+                ApplicationContainer dlApps = dlBulkSender.Install(csmaNodes.Get(j + 1));
+                dlApps.Start(Seconds(0.0));
+                dlApps.Stop(Seconds(simulationDuration - 2));
+            }
+
+            PacketSinkHelper dlSink("ns3::TcpSocketFactory", InetSocketAddress(Ipv4Address::GetAny(), port_dl));
+            ApplicationContainer dlSinkApps = dlSink.Install(wifiStaNodes.Get(i));
+            dlSinkApps.Start(Seconds(0.0));
+            dlSinkApps.Stop(Seconds(simulationDuration));
+
+            port_csma_out++;
+        }
     {
         NS_LOG_UNCOND("P2P VCA NodeId " << wifiStaNodes.Get(nWifi - 1)->GetId() << " " << csmaNodes.Get(nCsma)->GetId());
         Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
