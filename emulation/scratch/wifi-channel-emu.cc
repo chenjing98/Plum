@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
     std::string apVersion = "80211a";
     std::string staVersion = "80211n_5GHZ";
     double_t simulationDuration = 5.0; // in s
-    APP_TYPE appType = APP_TYPE_P2P;
+    uint8_t appType = 0;
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("nCsma", "Number of \"extra\" CSMA nodes/devices", nCsma);
@@ -134,6 +134,7 @@ int main(int argc, char *argv[])
     cmd.AddValue("simTime", "Total simulation time in s", simulationDuration);
     cmd.AddValue("verbose", "Tell echo applications to log if true", verbose);
     cmd.AddValue("tracing", "Enable pcap tracing", tracing);
+    cmd.AddValue("appType", "Application type: 0 for bulk, 1 for p2p, 2 for sfu", appType);
 
     cmd.Parse(argc, argv);
 
@@ -257,6 +258,8 @@ int main(int argc, char *argv[])
 
     // Application
 
+    if (static_cast<APP_TYPE>(appType) == APP_TYPE_BULK)
+    {
         // upstream
         for (uint32_t i = 0; i < nWifi; i++)
         {
@@ -297,6 +300,8 @@ int main(int argc, char *argv[])
 
             port_csma_out++;
         }
+    }
+    else if (static_cast<APP_TYPE>(appType) == APP_TYPE_P2P)
     {
         NS_LOG_UNCOND("P2P VCA NodeId " << wifiStaNodes.Get(nWifi - 1)->GetId() << " " << csmaNodes.Get(nCsma)->GetId());
         Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
@@ -321,7 +326,7 @@ int main(int argc, char *argv[])
         vcaClientAppRight->SetNodeId(csmaNodes.Get(nCsma)->GetId());
         csmaNodes.Get(nCsma)->AddApplication(vcaClientAppRight);
     }
-    else if (appType == APP_TYPE_SFU)
+    else if (static_cast<APP_TYPE>(appType) == APP_TYPE_SFU)
     {
         Ipv4Address serverIp = csmaInterfaces.GetAddress(0);
         NS_LOG_UNCOND("SFU VCA NodeId " << wifiStaNodes.Get(nWifi - 1)->GetId() << " " << csmaNodes.Get(nCsma)->GetId());

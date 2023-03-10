@@ -244,7 +244,7 @@ namespace ns3
 
         uint8_t socket_id_up = m_socket_id_map_ul[socket];
 
-        NS_LOG_DEBUG("[VcaClient][SendData] SendBufSize " << m_send_buffer_list[socket_id_up].size());
+        NS_LOG_LOGIC("[VcaClient][SendData] SendBufSize " << m_send_buffer_list[socket_id_up].size());
         if (!m_send_buffer_list[socket_id_up].empty())
         {
             Ptr<Packet> packet = m_send_buffer_list[socket_id_up].front();
