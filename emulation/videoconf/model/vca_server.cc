@@ -207,18 +207,18 @@ namespace ns3
     {
         NS_LOG_LOGIC("[VcaServer] SendData");
         uint8_t socket_id = m_socket_id_map[socket];
-        auto send_buffer = m_send_buffer_list[socket_id];
-        NS_LOG_DEBUG("sock id " << (uint16_t)socket_id << " send buffer size " << send_buffer.size());
 
-        if (!send_buffer.empty())
+        NS_LOG_DEBUG("sock id " << (uint16_t)socket_id << " send buffer size " << m_send_buffer_list[socket_id].size());
+
+        if (!m_send_buffer_list[socket_id].empty())
         {
-            Ptr<Packet> packet = send_buffer.front();
+            Ptr<Packet> packet = m_send_buffer_list[socket_id].front();
             int actual = socket->Send(packet);
             if (actual > 0)
             {
-                NS_LOG_DEBUG("[VcaServer][Send] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << send_buffer.size() - 1);
+                NS_LOG_DEBUG("[VcaServer][Send] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << m_send_buffer_list[socket_id].size() - 1);
 
-                send_buffer.pop_front();
+                m_send_buffer_list[socket_id].pop_front();
             }
             else
             {
