@@ -30,14 +30,17 @@ NS_LOG_COMPONENT_DEFINE ("TestScriptExample");
 int
 main (int argc, char *argv[])
 {
-//  LogComponentEnable("VcaServer", LOG_LEVEL_ALL);
-//  LogComponentEnable("VcaClient", LOG_LEVEL_LOGIC);
+  LogComponentEnable("VcaServer", LOG_LEVEL_LOGIC);
+  LogComponentEnable("VcaClient", LOG_LEVEL_LOGIC);
   
   CommandLine cmd (__FILE__);
   std::string mode = "p2p";
   cmd.AddValue("mode","p2p or sfu mode",mode);
   cmd.Parse (argc, argv);
   Time::SetResolution (Time::NS);
+
+  
+  double_t simulationDuration = 5.0; // in s
 
   
 
@@ -188,6 +191,10 @@ main (int argc, char *argv[])
         vcaClientAppLeft->SetPeerPort(port_dl);//to other's port_dl
         vcaClientAppLeft->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientAppLeft);
+        std::cout<<"[id="<<id<<",i="<<i<<"] info:"<<wifiStaNodes[id].Get(i)->GetId()<<std::endl;
+
+        vcaClientAppLeft->SetStartTime(Seconds(0.0));
+        vcaClientAppLeft->SetStopTime(Seconds(simulationDuration));
       }
     }
 
@@ -331,6 +338,9 @@ main (int argc, char *argv[])
     vcaServerApp->SetPeerDlPort(client_ul);
     vcaServerApp->SetLocalDlPort(client_dl);
     sfuCenter.Get(0)->AddApplication(vcaServerApp);
+    vcaServerApp->SetStartTime(Seconds(0.0));
+    vcaServerApp->SetStopTime(Seconds(simulationDuration));
+    
     for(int id = 0; id < n; id ++){
       for(int i = 0; i < nWifi[id]; i++){
         Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
@@ -345,6 +355,9 @@ main (int argc, char *argv[])
         vcaClientAppLeft->SetPeerPort(client_peer);
         vcaClientAppLeft->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientAppLeft);
+
+        vcaClientAppLeft->SetStartTime(Seconds(0.0));
+        vcaClientAppLeft->SetStopTime(Seconds(simulationDuration));
       }
     }
 
@@ -352,7 +365,6 @@ main (int argc, char *argv[])
   }
 
 
-  double_t stopTime = 5.0; // in s
   FlowMonitorHelper flowmonHelper;
   flowmonHelper.InstallAll();
   
@@ -366,7 +378,7 @@ main (int argc, char *argv[])
   //   phy.EnablePcap("third-sta", staDevices[0].Get(0));
   // }
 
-  Simulator::Stop(Seconds(stopTime));
+  Simulator::Stop(Seconds(simulationDuration+1));
   Simulator::Run ();
   flowmonHelper.SerializeToXmlFile("test-emulation.flowmon", true, true);
   Simulator::Destroy ();

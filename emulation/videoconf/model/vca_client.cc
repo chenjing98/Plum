@@ -137,6 +137,7 @@ namespace ns3
 
     void VcaClient::StopApplication()
     {
+//        std::cout<<"Hola!!!\n";
         OutputStatistics();
         if (m_enc_event.IsRunning())
         {
@@ -196,8 +197,10 @@ namespace ns3
                 break;
             }
 
+            //Statistics: total_packet_bit
             m_total_packet_bit += packet->GetSize()*8;
-            int now_second = Simulator::Now().GetSeconds();
+            //Statistics: min_packet_bit per sec
+            int now_second = floor(Simulator::Now().GetSeconds());  // 0~1s -> XX[0];  1~2s -> XX[1] ...
             if(packet->GetSize()*8 < m_min_packet_bit[now_second] || m_min_packet_bit[now_second] == 0)
                 m_min_packet_bit[now_second] = packet->GetSize()*8;
 
@@ -300,7 +303,7 @@ namespace ns3
         double average_throughput;
         average_throughput = 1.0*m_total_packet_bit/Simulator::Now().GetSeconds();
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] OutputStatistics  total_bit= "<<m_total_packet_bit<<", Time= "<<Simulator::Now().GetMilliSeconds()<<", throughput= "<<average_throughput);
-
+ 
         // Calculate min packet size (per second)
         
         int now_second = Simulator::Now().GetSeconds();
