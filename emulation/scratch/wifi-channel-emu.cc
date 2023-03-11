@@ -109,8 +109,8 @@ enum APP_TYPE
 
 int main(int argc, char *argv[])
 {
-    LogComponentEnable("VcaServer", LOG_LEVEL_DEBUG);
-    LogComponentEnable("VcaClient", LOG_LEVEL_DEBUG);
+    LogComponentEnable("VcaServer", LOG_LEVEL_LOGIC);
+    LogComponentEnable("VcaClient", LOG_LEVEL_LOGIC);
     bool verbose = true;
     bool tracing = false;
     uint32_t nCsma = 1;
@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
     std::string apVersion = "80211a";
     std::string staVersion = "80211n_5GHZ";
     double_t simulationDuration = 5.0; // in s
-    uint8_t appType = 0;
+    uint8_t appType = 1;
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("nCsma", "Number of \"extra\" CSMA nodes/devices", nCsma);
@@ -331,6 +331,11 @@ int main(int argc, char *argv[])
         vcaClientAppRight->SetPeerPort(port_dl);
         vcaClientAppRight->SetNodeId(csmaNodes.Get(nCsma)->GetId());
         csmaNodes.Get(nCsma)->AddApplication(vcaClientAppRight);
+        
+        vcaClientAppLeft->SetStartTime(Seconds(0.0));
+        vcaClientAppLeft->SetStopTime(Seconds(simulationDuration));
+        vcaClientAppRight->SetStartTime(Seconds(0.0));
+        vcaClientAppRight->SetStopTime(Seconds(simulationDuration));
     }
     else if (static_cast<APP_TYPE>(appType) == APP_TYPE_SFU)
     {
@@ -392,7 +397,7 @@ int main(int argc, char *argv[])
 
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    Simulator::Stop(Seconds(simulationDuration));
+    Simulator::Stop(Seconds(simulationDuration+1));
 
     if (tracing)
     {

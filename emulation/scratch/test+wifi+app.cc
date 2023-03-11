@@ -30,8 +30,8 @@ NS_LOG_COMPONENT_DEFINE ("TestScriptExample");
 int
 main (int argc, char *argv[])
 {
-//  LogComponentEnable("VcaServer", LOG_LEVEL_ALL);
-//  LogComponentEnable("VcaClient", LOG_LEVEL_LOGIC);
+  LogComponentEnable("VcaServer", LOG_LEVEL_LOGIC);
+  LogComponentEnable("VcaClient", LOG_LEVEL_LOGIC);
   
   CommandLine cmd (__FILE__);
   std::string mode = "p2p";
@@ -40,13 +40,16 @@ main (int argc, char *argv[])
   Time::SetResolution (Time::NS);
 
   
+  double_t simulationDuration = 5.0; // in s
+
+  
 
 
   
   if(mode == "p2p"){
     printf("Now it's p2p+WiFi!\n");
     //创建节点
-    int n = 3;//AP的数量
+    int n = 2;//AP的数量
     int nWifi[n];//每个AP管多少Nodes
     int num = (n-1)*n/2;//AP之间的信道数量
     NodeContainer p2pNodes,wifiStaNodes[n],wifiApNode[n];
@@ -188,6 +191,10 @@ main (int argc, char *argv[])
         vcaClientAppLeft->SetPeerPort(port_dl);//to other's port_dl
         vcaClientAppLeft->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientAppLeft);
+        std::cout<<"[id="<<id<<",i="<<i<<"] info:"<<wifiStaNodes[id].Get(i)->GetId()<<std::endl;
+
+        vcaClientAppLeft->SetStartTime(Seconds(0.0));
+        vcaClientAppLeft->SetStopTime(Seconds(simulationDuration));
       }
     }
 
@@ -321,17 +328,21 @@ main (int argc, char *argv[])
     }
 
     //给每个user(WifiSta)装上Client，给Center装上Server
-    uint16_t client_ul = 82;
+    uint16_t client_ul = 81;
     uint16_t client_dl = 80;
     uint16_t client_peer = 81;
-    Ipv4Address serverAddr = interfaces[0].GetAddress(1);//sfuCenter
-    Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
-    vcaServerApp->SetLocalAddress(serverAddr);
-    vcaServerApp->SetLocalUlPort(client_peer);
-    vcaServerApp->SetPeerDlPort(client_ul);
-    vcaServerApp->SetLocalDlPort(client_dl);
-    sfuCenter.Get(0)->AddApplication(vcaServerApp);
+    
     for(int id = 0; id < n; id ++){
+      Ipv4Address serverAddr = interfaces[id].GetAddress(1);//sfuCenter
+      Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
+      vcaServerApp->SetLocalAddress(serverAddr);
+      vcaServerApp->SetLocalUlPort(client_peer);
+      vcaServerApp->SetPeerDlPort(client_dl);
+      vcaServerApp->SetLocalDlPort(client_dl);
+      sfuCenter.Get(0)->AddApplication(vcaServerApp);
+      vcaServerApp->SetStartTime(Seconds(0.0));
+      vcaServerApp->SetStopTime(Seconds(simulationDuration));
+
       for(int i = 0; i < nWifi[id]; i++){
         Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
         NS_LOG_UNCOND("SFU VCA NodeId " << wifiStaNodes[id].Get(i)->GetId() << " " << sfuCenter.Get(0)->GetId());
@@ -345,6 +356,9 @@ main (int argc, char *argv[])
         vcaClientAppLeft->SetPeerPort(client_peer);
         vcaClientAppLeft->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientAppLeft);
+
+        vcaClientAppLeft->SetStartTime(Seconds(0.0));
+        vcaClientAppLeft->SetStopTime(Seconds(simulationDuration));
       }
     }
 
@@ -352,7 +366,6 @@ main (int argc, char *argv[])
   }
 
 
-  double_t stopTime = 5.0; // in s
   FlowMonitorHelper flowmonHelper;
   flowmonHelper.InstallAll();
   
@@ -366,7 +379,7 @@ main (int argc, char *argv[])
   //   phy.EnablePcap("third-sta", staDevices[0].Get(0));
   // }
 
-  Simulator::Stop(Seconds(stopTime));
+  Simulator::Stop(Seconds(simulationDuration+1));
   Simulator::Run ();
   flowmonHelper.SerializeToXmlFile("test-emulation.flowmon", true, true);
   Simulator::Destroy ();
