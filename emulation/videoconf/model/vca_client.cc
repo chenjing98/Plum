@@ -25,7 +25,8 @@ namespace ns3
           m_bitrate(0),
           m_enc_event(),
           m_total_packet_bit(0),
-          m_send_buffer_list(){};
+          m_send_buffer_list(),
+          m_is_my_wifi_access_bottleneck(false){};
 
     VcaClient::~VcaClient(){};
 
@@ -196,10 +197,10 @@ namespace ns3
                 break;
             }
 
-            m_total_packet_bit += packet->GetSize()*8;
+            m_total_packet_bit += packet->GetSize() * 8;
             int now_second = Simulator::Now().GetSeconds();
-            if(packet->GetSize()*8 < m_min_packet_bit[now_second] || m_min_packet_bit[now_second] == 0)
-                m_min_packet_bit[now_second] = packet->GetSize()*8;
+            if (packet->GetSize() * 8 < m_min_packet_bit[now_second] || m_min_packet_bit[now_second] == 0)
+                m_min_packet_bit[now_second] = packet->GetSize() * 8;
 
             if (InetSocketAddress::IsMatchingType(from))
             {
@@ -298,16 +299,40 @@ namespace ns3
     {
         // Calculate average_throughput
         double average_throughput;
-        average_throughput = 1.0*m_total_packet_bit/Simulator::Now().GetSeconds();
-        NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] OutputStatistics  total_bit= "<<m_total_packet_bit<<", Time= "<<Simulator::Now().GetMilliSeconds()<<", throughput= "<<average_throughput);
+        average_throughput = 1.0 * m_total_packet_bit / Simulator::Now().GetSeconds();
+        NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] OutputStatistics  total_bit= " << m_total_packet_bit << ", Time= " << Simulator::Now().GetMilliSeconds() << ", throughput= " << average_throughput);
 
         // Calculate min packet size (per second)
-        
+
         int now_second = Simulator::Now().GetSeconds();
-        for(int i = 0; i < now_second; i++)
+        for (int i = 0; i < now_second; i++)
         {
-            NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Statistics  minPacketsize[ "<<i<<"] = "<<m_min_packet_bit[i]);
+            NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Statistics  minPacketsize[ " << i << "] = " << m_min_packet_bit[i]);
         }
     };
+
+    float
+    VcaClient::DecideDlParam()
+    {
+        NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] DecideDlParam");
+        return 0.5;
+    };
+
+    void
+    VcaClient::DecideBottleneckPosition()
+    {
+        if (true) // TODO
+        {
+            m_is_my_wifi_access_bottleneck = true;
+
+            float dl_lambda = DecideDlParam();
+
+            for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
+            {
+                Ptr<TcpSocketBase> dl_socket = DynamicCast<TcpSocketBase, Socket>(*it);
+                dl_socket->SetRwndLambda(dl_lambda);
+            }
+        }
+    }
 
 }; // namespace ns3

@@ -27,6 +27,7 @@ ns3_scratch="${current_dir}/${ns3_folder}/ns-${ns3_ver}/scratch"
 
 app_folder="videoconf"
 scratch_folder="scratch"
+socket_control_folder="socket-control"
 
 # creat soft link
 if [ ! -d "${current_dir}/${app_folder}" ]
@@ -47,6 +48,9 @@ else
     ##find -wholename "${current_dir}/scratch/*.cc" -exec ln -s -f -v {} "${ns3_scratch}" \;
     ln -s -v ${current_dir}/${scratch_folder}/* ${ns3_scratch}/
 fi
+
+# create soft link for tcp-socket-base]
+cp ${socket_control_folder}/* ${ns3_src}/internet/model/
 
 # create folder for pcap
 echo "Creating folder for pcap..."

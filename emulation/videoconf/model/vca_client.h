@@ -58,6 +58,9 @@ namespace ns3
 
         void EncodeFrame();
 
+        void DecideBottleneckPosition();
+        float DecideDlParam();
+
         void OutputStatistics();
 
         uint32_t m_node_id;
@@ -89,6 +92,8 @@ namespace ns3
         uint32_t m_min_packet_bit[N_SECONDS];
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_list;
+
+        bool m_is_my_wifi_access_bottleneck;
 
     }; // class VcaClient
 
