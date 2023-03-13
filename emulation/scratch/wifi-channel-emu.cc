@@ -107,10 +107,15 @@ enum APP_TYPE
     APP_TYPE_SFU
 };
 
+enum LOG_LEVEL
+{
+    ERROR,
+    DEBUG,
+    LOGIC
+};
+
 int main(int argc, char *argv[])
 {
-    LogComponentEnable("VcaServer", LOG_LEVEL_LOGIC);
-    LogComponentEnable("VcaClient", LOG_LEVEL_LOGIC);
     bool verbose = true;
     bool tracing = false;
     uint32_t nCsma = 1;
@@ -119,6 +124,7 @@ int main(int argc, char *argv[])
     std::string staVersion = "80211n_5GHZ";
     double_t simulationDuration = 5.0; // in s
     uint8_t appType = 1;
+    uint8_t logLevel = 0;
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("nCsma", "Number of \"extra\" CSMA nodes/devices", nCsma);
@@ -135,8 +141,25 @@ int main(int argc, char *argv[])
     cmd.AddValue("verbose", "Tell echo applications to log if true", verbose);
     cmd.AddValue("tracing", "Enable pcap tracing", tracing);
     cmd.AddValue("appType", "Application type: 0 for bulk, 1 for p2p, 2 for sfu", appType);
+    cmd.AddValue("logLevel", "Log level: 0 for error, 1 for debug, 2 for logic", logLevel);
 
     cmd.Parse(argc, argv);
+
+    if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::ERROR)
+    {
+        LogComponentEnable("VcaServer", LOG_LEVEL_ERROR);
+        LogComponentEnable("VcaClient", LOG_LEVEL_ERROR);
+    }
+    else if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::DEBUG)
+    {
+        LogComponentEnable("VcaServer", LOG_LEVEL_DEBUG);
+        LogComponentEnable("VcaClient", LOG_LEVEL_DEBUG);
+    }
+    else if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::LOGIC)
+    {
+        LogComponentEnable("VcaServer", LOG_LEVEL_LOGIC);
+        LogComponentEnable("VcaClient", LOG_LEVEL_LOGIC);
+    }
 
     // The underlying restriction of 18 is due to the grid position
     // allocator's configuration; the grid layout will exceed the
@@ -146,12 +169,6 @@ int main(int argc, char *argv[])
         std::cout << "nWifi should be 18 or less; otherwise grid layout exceeds the bounding box"
                   << std::endl;
         return 1;
-    }
-
-    if (verbose)
-    {
-        LogComponentEnable("UdpEchoClientApplication", LOG_LEVEL_INFO);
-        LogComponentEnable("UdpEchoServerApplication", LOG_LEVEL_INFO);
     }
 
     NodeContainer p2pNodes;
@@ -331,7 +348,7 @@ int main(int argc, char *argv[])
         vcaClientAppRight->SetPeerPort(port_dl);
         vcaClientAppRight->SetNodeId(csmaNodes.Get(nCsma)->GetId());
         csmaNodes.Get(nCsma)->AddApplication(vcaClientAppRight);
-        
+
         vcaClientAppLeft->SetStartTime(Seconds(0.0));
         vcaClientAppLeft->SetStopTime(Seconds(simulationDuration));
         vcaClientAppRight->SetStartTime(Seconds(0.0));
@@ -397,7 +414,7 @@ int main(int argc, char *argv[])
 
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    Simulator::Stop(Seconds(simulationDuration+1));
+    Simulator::Stop(Seconds(simulationDuration + 1));
 
     if (tracing)
     {
