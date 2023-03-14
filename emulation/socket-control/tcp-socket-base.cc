@@ -324,6 +324,8 @@ TcpSocketBase::TcpSocketBase()
 
     ok = m_tcb->TraceConnectWithoutContext("RTT", MakeCallback(&TcpSocketBase::UpdateRtt, this));
     NS_ASSERT(ok == true);
+
+    m_rWndLambda = 1.0;
 }
 
 TcpSocketBase::TcpSocketBase(const TcpSocketBase& sock)
@@ -376,7 +378,8 @@ TcpSocketBase::TcpSocketBase(const TcpSocketBase& sock)
       m_pacingTimer(Timer::CANCEL_ON_DESTROY),
       m_ecnEchoSeq(sock.m_ecnEchoSeq),
       m_ecnCESeq(sock.m_ecnCESeq),
-      m_ecnCWRSeq(sock.m_ecnCWRSeq)
+      m_ecnCWRSeq(sock.m_ecnCWRSeq),
+      m_rWndLambda(sock.m_rWndLambda)
 {
     NS_LOG_FUNCTION(this);
     NS_LOG_LOGIC("Invoked the copy constructor");
