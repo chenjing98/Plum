@@ -303,14 +303,14 @@ namespace ns3
         // Calculate average_throughput
         double average_throughput;
         average_throughput = 1.0 * m_total_packet_bit / Simulator::Now().GetSeconds();
-        NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] OutputStatistics  total_bit= " << m_total_packet_bit << ", Time= " << Simulator::Now().GetMilliSeconds() << ", throughput= " << average_throughput);
+        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] OutputStatistics  total_bit= " << m_total_packet_bit << ", Time= " << Simulator::Now().GetMilliSeconds() << ", throughput= " << average_throughput);
 
         // Calculate min packet size (per second)
 
         int now_second = Simulator::Now().GetSeconds();
         for (int i = 0; i < now_second; i++)
         {
-            NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Statistics  minPacketsize[ " << i << "] = " << m_min_packet_bit[i]);
+            NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Statistics  minPacketsize[ " << i << "] = " << m_min_packet_bit[i]);
         }
     };
 

@@ -145,6 +145,7 @@ int main(int argc, char *argv[])
 
     cmd.Parse(argc, argv);
 
+    // set log level
     if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::ERROR)
     {
         LogComponentEnable("VcaServer", LOG_LEVEL_ERROR);
