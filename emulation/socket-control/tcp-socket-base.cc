@@ -4684,6 +4684,12 @@ TcpSocketBase::SetRwndLambda(float lambda)
     m_rWndLambda = lambda;
 }
 
+Ptr<TcpSocketState>
+TcpSocketBase::GetTcb()
+{
+    return m_tcb;
+}
+
 // RttHistory methods
 RttHistory::RttHistory(SequenceNumber32 s, uint32_t c, Time t)
     : seq(s),

@@ -42,6 +42,8 @@ int main(int argc, char *argv[])
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
 
+  Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
+
   // set log level
   if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::ERROR)
   {

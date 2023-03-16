@@ -58,6 +58,7 @@ namespace ns3
         void ReceiveData(Ptr<Packet> packet);
 
         void EncodeFrame();
+        void UpdateEncodeBitrate();
 
         void DecideBottleneckPosition();
         float DecideDlParam();
@@ -89,6 +90,7 @@ namespace ns3
         uint32_t m_max_bitrate; // in kbps
         
         EventId m_enc_event;
+        std::vector<uint64_t> m_cc_rate;
         
         uint32_t m_total_packet_bit;
         uint32_t m_min_packet_bit[N_SECONDS];

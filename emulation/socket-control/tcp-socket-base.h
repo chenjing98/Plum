@@ -1396,6 +1396,8 @@ class TcpSocketBase : public TcpSocket
   public:
     void SetRwndLambda(float lambda); //!< Set the Rwnd lambda
 
+    Ptr<TcpSocketState> GetTcb(); //!< Get the TCB
+
   private:
     float m_rWndLambda; //!< Rwnd lambda
 };
