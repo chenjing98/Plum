@@ -308,13 +308,13 @@ namespace ns3
     VcaClient::UpdateEncodeBitrate()
     {
         m_cc_rate.clear();
-        for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
+        for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
         {
-            Ptr<TcpSocketBase> dl_socket = DynamicCast<TcpSocketBase, Socket>(*it);
+            Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
 
-            if (dl_socket->GetTcb()->m_pacing)
+            if (ul_socket->GetTcb()->m_pacing)
             {
-                uint64_t bitrate = dl_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
+                uint64_t bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
                 m_cc_rate.push_back(bitrate);
                 NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate  FlowBitrate= " << bitrate);
             }
