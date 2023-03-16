@@ -138,7 +138,6 @@ namespace ns3
 
     void VcaClient::StopApplication()
     {
-//        std::cout<<"Hola!!!\n";
         OutputStatistics();
         if (m_enc_event.IsRunning())
         {
@@ -200,8 +199,8 @@ namespace ns3
 
             m_total_packet_bit += packet->GetSize() * 8;
             // int now_second = Simulator::Now().GetSeconds();
-            //Statistics: min_packet_bit per sec
-            int now_second = floor(Simulator::Now().GetSeconds());  // 0~1s -> XX[0];  1~2s -> XX[1] ...
+            // Statistics: min_packet_bit per sec
+            int now_second = floor(Simulator::Now().GetSeconds()); // 0~1s -> XX[0];  1~2s -> XX[1] ...
             if (packet->GetSize() * 8 < m_min_packet_bit[now_second] || m_min_packet_bit[now_second] == 0)
                 m_min_packet_bit[now_second] = packet->GetSize() * 8;
 

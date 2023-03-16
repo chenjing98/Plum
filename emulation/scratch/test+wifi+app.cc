@@ -20,9 +20,9 @@ NS_LOG_COMPONENT_DEFINE("MulticastEmulation");
 
 enum LOG_LEVEL
 {
-    ERROR,
-    DEBUG,
-    LOGIC
+  ERROR,
+  DEBUG,
+  LOGIC
 };
 
 int main(int argc, char *argv[])
@@ -41,24 +41,23 @@ int main(int argc, char *argv[])
 
   // set log level
   if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::ERROR)
-    {
-        LogComponentEnable("VcaServer", LOG_LEVEL_ERROR);
-        LogComponentEnable("VcaClient", LOG_LEVEL_ERROR);
-        LogComponentEnable("MulticastEmulation", LOG_LEVEL_ERROR);
-    }
-    else if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::DEBUG)
-    {
-        LogComponentEnable("VcaServer", LOG_LEVEL_DEBUG);
-        LogComponentEnable("VcaClient", LOG_LEVEL_DEBUG);
-        LogComponentEnable("MulticastEmulation", LOG_LEVEL_DEBUG);
-    }
-    else if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::LOGIC)
-    {
-        LogComponentEnable("VcaServer", LOG_LEVEL_LOGIC);
-        LogComponentEnable("VcaClient", LOG_LEVEL_LOGIC);
-        LogComponentEnable("MulticastEmulation", LOG_LEVEL_LOGIC);
-    }
-
+  {
+    LogComponentEnable("VcaServer", LOG_LEVEL_ERROR);
+    LogComponentEnable("VcaClient", LOG_LEVEL_ERROR);
+    LogComponentEnable("MulticastEmulation", LOG_LEVEL_ERROR);
+  }
+  else if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::DEBUG)
+  {
+    LogComponentEnable("VcaServer", LOG_LEVEL_DEBUG);
+    LogComponentEnable("VcaClient", LOG_LEVEL_DEBUG);
+    LogComponentEnable("MulticastEmulation", LOG_LEVEL_DEBUG);
+  }
+  else if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::LOGIC)
+  {
+    LogComponentEnable("VcaServer", LOG_LEVEL_LOGIC);
+    LogComponentEnable("VcaClient", LOG_LEVEL_LOGIC);
+    LogComponentEnable("MulticastEmulation", LOG_LEVEL_LOGIC);
+  }
 
   if (mode == "p2p")
   {
@@ -207,20 +206,20 @@ int main(int argc, char *argv[])
         for (auto item : peerAddr)
           NS_LOG_DEBUG("item:" << item);
 
-        Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
-        vcaClientAppLeft->SetFps(30);
-        vcaClientAppLeft->SetBitrate(1000);
-        vcaClientAppLeft->SetLocalAddress(staAddr);
-        vcaClientAppLeft->SetPeerAddress(peerAddr);
-        vcaClientAppLeft->SetLocalUlPort(port_ul);
-        vcaClientAppLeft->SetLocalDlPort(port_dl);
-        vcaClientAppLeft->SetPeerPort(port_dl); // to other's port_dl
-        vcaClientAppLeft->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
-        wifiStaNodes[id].Get(i)->AddApplication(vcaClientAppLeft);
+        Ptr<VcaClient> vcaClientApp = CreateObject<VcaClient>();
+        vcaClientApp->SetFps(30);
+        vcaClientApp->SetBitrate(1000);
+        vcaClientApp->SetLocalAddress(staAddr);
+        vcaClientApp->SetPeerAddress(peerAddr);
+        vcaClientApp->SetLocalUlPort(port_ul);
+        vcaClientApp->SetLocalDlPort(port_dl);
+        vcaClientApp->SetPeerPort(port_dl); // to other's port_dl
+        vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
+        wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
         NS_LOG_DEBUG("[id=" << id << ",i=" << i << "] info:" << wifiStaNodes[id].Get(i)->GetId());
 
-        vcaClientAppLeft->SetStartTime(Seconds(0.0));
-        vcaClientAppLeft->SetStopTime(Seconds(simulationDuration));
+        vcaClientApp->SetStartTime(Seconds(0.0));
+        vcaClientApp->SetStopTime(Seconds(simulationDuration));
       }
     }
 
@@ -248,7 +247,7 @@ int main(int argc, char *argv[])
     PointToPointHelper pointToPoint[n];
     for (int i = 0; i < n; i++)
     {
-      pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("50Mbps"));
+      pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("10Mbps"));
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("20ms"));
     }
 
@@ -374,19 +373,19 @@ int main(int argc, char *argv[])
       {
         Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
         NS_LOG_UNCOND("SFU VCA NodeId " << wifiStaNodes[id].Get(i)->GetId() << " " << sfuCenter.Get(0)->GetId());
-        Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
-        vcaClientAppLeft->SetFps(30);
-        vcaClientAppLeft->SetBitrate(1000);
-        vcaClientAppLeft->SetLocalAddress(staAddr);
-        vcaClientAppLeft->SetPeerAddress(std::vector<Ipv4Address>{serverAddr});
-        vcaClientAppLeft->SetLocalUlPort(client_ul);
-        vcaClientAppLeft->SetLocalDlPort(client_dl);
-        vcaClientAppLeft->SetPeerPort(client_peer);
-        vcaClientAppLeft->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
-        wifiStaNodes[id].Get(i)->AddApplication(vcaClientAppLeft);
+        Ptr<VcaClient> vcaClientApp = CreateObject<VcaClient>();
+        vcaClientApp->SetFps(30);
+        vcaClientApp->SetBitrate(1000);
+        vcaClientApp->SetLocalAddress(staAddr);
+        vcaClientApp->SetPeerAddress(std::vector<Ipv4Address>{serverAddr});
+        vcaClientApp->SetLocalUlPort(client_ul);
+        vcaClientApp->SetLocalDlPort(client_dl);
+        vcaClientApp->SetPeerPort(client_peer);
+        vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
+        wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
 
-        vcaClientAppLeft->SetStartTime(Seconds(0.0));
-        vcaClientAppLeft->SetStopTime(Seconds(simulationDuration));
+        vcaClientApp->SetStartTime(Seconds(0.0));
+        vcaClientApp->SetStopTime(Seconds(simulationDuration));
       }
     }
 
