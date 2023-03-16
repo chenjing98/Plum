@@ -51,6 +51,11 @@ namespace ns3
         m_bitrate = bitrate;
     };
 
+    void VcaClient::SetMaxBitrate(uint32_t bitrate)
+    {
+        m_max_bitrate = bitrate;
+    };
+
     void VcaClient::SetLocalAddress(Ipv4Address local)
     {
         m_local = local;

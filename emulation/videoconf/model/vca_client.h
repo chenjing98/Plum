@@ -32,6 +32,7 @@ namespace ns3
 
         void SetFps(uint8_t fps);
         void SetBitrate(uint32_t bitrate);
+        void SetMaxBitrate(uint32_t bitrate);
 
         void SetNodeId(uint32_t node_id);
 
@@ -85,6 +86,7 @@ namespace ns3
 
         uint8_t m_fps;
         uint32_t m_bitrate; // in kbps
+        uint32_t m_max_bitrate; // in kbps
         
         EventId m_enc_event;
         

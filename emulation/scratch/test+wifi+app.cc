@@ -31,11 +31,14 @@ int main(int argc, char *argv[])
   std::string mode = "p2p";
   uint8_t logLevel = 0;
   double_t simulationDuration = 20.0; // in s
+  uint32_t maxBitrate = 10000;        // in kbps
 
   CommandLine cmd(__FILE__);
   cmd.AddValue("mode", "p2p or sfu mode", mode);
   cmd.AddValue("logLevel", "Log level: 0 for error, 1 for debug, 2 for logic", logLevel);
   cmd.AddValue("simTime", "Total simulation time in s", simulationDuration);
+  cmd.AddValue("maxBitrate", "Max bitrate in kbps", maxBitrate);
+
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
 
@@ -215,6 +218,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetLocalDlPort(port_dl);
         vcaClientApp->SetPeerPort(port_dl); // to other's port_dl
         vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
+        vcaClientApp->SetMaxBitrate(maxBitrate);
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
         NS_LOG_DEBUG("[id=" << id << ",i=" << i << "] info:" << wifiStaNodes[id].Get(i)->GetId());
 
@@ -382,6 +386,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetLocalDlPort(client_dl);
         vcaClientApp->SetPeerPort(client_peer);
         vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
+        vcaClientApp->SetMaxBitrate(maxBitrate);
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
 
         vcaClientApp->SetStartTime(Seconds(0.0));
