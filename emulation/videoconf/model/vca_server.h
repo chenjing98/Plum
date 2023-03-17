@@ -29,6 +29,8 @@ namespace ns3
         void SetLocalDlPort(uint16_t port);
         void SetPeerDlPort(uint16_t port);
 
+        void SetNodeId(uint32_t node_id);
+
     protected:
         void DoDispose(void);
 
@@ -80,6 +82,8 @@ namespace ns3
         Ptr<Packet> TranscodeFrame(uint8_t socket_id);
         void SendData(Ptr<Socket> socket);
         void ReceiveData(Ptr<Packet>, uint8_t);
+
+        uint32_t m_node_id;
 
         Ptr<Socket> m_socket_ul;
         std::list<Ptr<Socket>> m_socket_list_ul;

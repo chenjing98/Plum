@@ -58,6 +58,12 @@ namespace ns3
         m_peer_dl_port = port;
     };
 
+    void
+    VcaServer::SetNodeId(uint32_t node_id)
+    {
+        m_node_id = node_id;
+    };
+
     // Application Methods
     void
     VcaServer::StartApplication()
@@ -146,6 +152,7 @@ namespace ns3
             if (InetSocketAddress::IsMatchingType(from))
             {
                 NS_LOG_LOGIC("[VcaServer][ReceivedPkt] Time= " << Simulator::Now().GetSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
+
                 ReceiveData(packet, m_socket_id_map[socket]);
             }
             else if (Inet6SocketAddress::IsMatchingType(from))
@@ -159,7 +166,7 @@ namespace ns3
     void
     VcaServer::HandleAccept(Ptr<Socket> socket, const Address &from)
     {
-        NS_LOG_LOGIC("[VcaServer] HandleAccept");
+        NS_LOG_LOGIC("[VcaServer][Node" << m_node_id << "] HandleAccept");
         socket->SetRecvCallback(MakeCallback(&VcaServer::HandleRead, this));
         m_socket_list_ul.push_back(socket);
 
@@ -181,6 +188,7 @@ namespace ns3
             MakeCallback(&VcaServer::ConnectionFailedDl, this));
         socket_dl->SetSendCallback(
             MakeCallback(&VcaServer::DataSendDl, this));
+
         m_socket_list_dl.push_back(socket_dl);
         m_socket_id_map[socket_dl] = m_socket_id;
         m_socket_id += 1;

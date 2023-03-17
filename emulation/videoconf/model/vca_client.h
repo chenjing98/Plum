@@ -88,12 +88,12 @@ namespace ns3
         uint16_t m_peer_ul_port;
 
         uint8_t m_fps;
-        uint32_t m_bitrate; // in kbps
+        uint32_t m_bitrate;     // in kbps
         uint32_t m_max_bitrate; // in kbps
         
         EventId m_enc_event;
         std::vector<uint64_t> m_cc_rate;
-        
+
         uint32_t m_total_packet_bit;
         uint32_t m_min_packet_bit[N_SECONDS];
 

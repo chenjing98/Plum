@@ -363,17 +363,7 @@ int main(int argc, char *argv[])
     uint16_t client_dl = 80;
     uint16_t client_peer = 81;
 
-    for (int id = 0; id < n; id++)
-    {
-      Ipv4Address serverAddr = interfaces[id].GetAddress(1); // sfuCenter
-      Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
-      vcaServerApp->SetLocalAddress(serverAddr);
-      vcaServerApp->SetLocalUlPort(client_peer);
-      vcaServerApp->SetPeerDlPort(client_dl);
-      vcaServerApp->SetLocalDlPort(client_dl);
-      sfuCenter.Get(0)->AddApplication(vcaServerApp);
-      vcaServerApp->SetStartTime(Seconds(0.0));
-      vcaServerApp->SetStopTime(Seconds(simulationDuration));
+    vcaServerApp->SetNodeId(sfuCenter.Get(0)->GetId());
 
       for (int i = 0; i < nWifi[id]; i++)
       {
