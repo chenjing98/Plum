@@ -365,20 +365,32 @@ namespace ns3
     };
 
     float
-    VcaClient::DecideDlParam()
+    VcaClient::DecideDlParam(uint8_t type)
+    //type(0) decrease
+    //type(1) recover
     {
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] DecideDlParam");
-        return 0.5;
+        if(type == 0) return 0.5;
+        else if(type == 1) return 1;
     };
 
     void
     VcaClient::DecideBottleneckPosition()
     {
-        if (true) // TODO
+        uint64_t m_design_rate = m_max_bitrate;
+        uint64_t m_real_rate = m_cc_rate.back();
+        uint8_t m_type = -1;
+        //decide decrease rate
+        if(m_real_rate >= m_design_rate) m_type = 0;
+        //decide recover rate
+        if(m_real_rate < m_design_rate*0.8) m_type = 1;
+
+
+        if (m_type == 0 || m_type == 1) // TODO
         {
             m_is_my_wifi_access_bottleneck = true;
 
-            float dl_lambda = DecideDlParam();
+            float dl_lambda = DecideDlParam(m_type);
 
             for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
             {
