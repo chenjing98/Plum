@@ -11,6 +11,8 @@
 #include <deque>
 #include <unordered_map>
 
+#include "prot-header.h"
+
 const uint32_t N_SECONDS = 1000;
 namespace ns3
 {

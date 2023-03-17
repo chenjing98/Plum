@@ -12,6 +12,8 @@
 #include <vector>
 #include <unordered_map>
 
+#include "prot-header.h"
+
 namespace ns3
 {
 
