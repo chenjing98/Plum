@@ -196,6 +196,10 @@ namespace ns3
         m_local_dl_port += 1;
 
         m_send_buffer_list.push_back(std::deque<Ptr<Packet>>{});
+
+        m_target_frame_size.push_back(1e7 / 8 / 20);
+        m_frame_size_forwarded.push_back(0);
+        m_prev_frame_id.push_back(0);
     };
 
     void
@@ -265,6 +269,32 @@ namespace ns3
         uint32_t pkt_id = app_header.GetPacketId();
 
         NS_LOG_DEBUG("[VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize());
+
+        if (frame_id == m_prev_frame_id[socket_id])
+        {
+            // packets of the same frame
+            if (m_frame_size_forwarded[socket_id] < m_target_frame_size[socket_id])
+            {
+                // have not reach the target transcode bitrate, forward the packet
+                m_frame_size_forwarded[socket_id] += packet->GetSize();
+                return packet;
+            }
+            else
+            {
+                // have reach the target transcode bitrate, drop the packet
+                return nullptr;
+            }
+        }
+        else if (frame_id > m_prev_frame_id[socket_id])
+        {
+            // packets of a new frame
+            m_prev_frame_id[socket_id] = frame_id;
+            m_frame_size_forwarded[socket_id] = packet->GetSize();
+            return packet;
+        }
+
+        // packets of a previous frame, drop the packet
+        return nullptr;
     };
 
 }; // namespace ns3
