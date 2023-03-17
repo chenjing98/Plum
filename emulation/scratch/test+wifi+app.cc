@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
   {
     NS_LOG_ERROR("[Scratch] P2P mode emulation started.");
     // 创建节点
-    int n = 2;    // AP的数量
+    int n = 3;    // AP的数量
     int nWifi[n]; // 每个AP管多少Nodes
     NodeContainer p2pNodes, sfuCenter, wifiStaNodes[n], wifiApNode[n];
     for (int i = 0; i < n; i++)
@@ -359,11 +359,23 @@ int main(int argc, char *argv[])
     }
 
     // 给每个user(WifiSta)装上Client，给Center装上Server
-    uint16_t client_ul = 81;
-    uint16_t client_dl = 80;
-    uint16_t client_peer = 81;
+    uint16_t client_ul = 80;
+    uint16_t client_dl = 8080; // dl_port may increase in VcaServer, make sure it doesn't overlap with ul_port
+    uint16_t client_peer = 80;
 
+    Ipv4Address serverAddr = interfaces[0].GetAddress(1); // sfuCenter
+    Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
+    vcaServerApp->SetLocalAddress(serverAddr);
+    vcaServerApp->SetLocalUlPort(client_peer);
+    vcaServerApp->SetPeerDlPort(client_dl);
+    vcaServerApp->SetLocalDlPort(client_dl);
     vcaServerApp->SetNodeId(sfuCenter.Get(0)->GetId());
+    sfuCenter.Get(0)->AddApplication(vcaServerApp);
+    vcaServerApp->SetStartTime(Seconds(0.0));
+    vcaServerApp->SetStopTime(Seconds(simulationDuration));
+
+    for (int id = 0; id < n; id++)
+    {
 
       for (int i = 0; i < nWifi[id]; i++)
       {
