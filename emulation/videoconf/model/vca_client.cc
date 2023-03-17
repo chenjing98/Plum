@@ -358,10 +358,25 @@ namespace ns3
         // Calculate min packet size (per second)
 
         int now_second = Simulator::Now().GetSeconds();
+        /*
         for (int i = 0; i < now_second; i++)
         {
             NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Statistics  minPacketsize[ " << i << "] = " << m_min_packet_bit[i]);
         }
+        */
+        std::sort(m_min_packet_bit+0,m_min_packet_bit+now_second-1);
+        uint64_t m_sum_minpac = 0;
+        for (int i = 0; i < now_second; i++)
+        {
+            m_sum_minpac += m_min_packet_bit[i];
+        }
+        //Median
+        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Median] = " << m_min_packet_bit[now_second/2]);
+        //Mean
+        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Mean] = " << m_sum_minpac/now_second);
+        //95per
+        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [95per] = " << m_min_packet_bit[(int)(now_second*0.95)]);
+
     };
 
     float
@@ -371,7 +386,7 @@ namespace ns3
     {
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] DecideDlParam");
         if(type == 0) return 0.5;
-        else if(type == 1) return 1;
+        return 1;
     };
 
     void

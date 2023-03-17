@@ -10,6 +10,7 @@
 #include "ns3/socket.h"
 #include <deque>
 #include <unordered_map>
+#include <algorithm>
 
 #include "prot-header.h"
 
