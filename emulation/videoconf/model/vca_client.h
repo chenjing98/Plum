@@ -38,7 +38,7 @@ namespace ns3
 
         void SetNodeId(uint32_t node_id);
 
-        static const uint32_t payloadSize = 1448;
+        static const uint32_t payloadSize = 530; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 6B(VCA header)
 
     protected:
         void DoDispose(void);
@@ -90,7 +90,8 @@ namespace ns3
         uint8_t m_fps;
         uint32_t m_bitrate;     // in kbps
         uint32_t m_max_bitrate; // in kbps
-        
+        uint16_t m_frame_id;
+
         EventId m_enc_event;
         std::vector<uint64_t> m_cc_rate;
 

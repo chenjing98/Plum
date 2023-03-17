@@ -79,7 +79,7 @@ namespace ns3
          */
         void HandlePeerError(Ptr<Socket> socket);
 
-        Ptr<Packet> TranscodeFrame(uint8_t socket_id);
+        Ptr<Packet> TranscodeFrame(uint8_t socket_id, Ptr<Packet> packet);
         void SendData(Ptr<Socket> socket);
         void ReceiveData(Ptr<Packet>, uint8_t);
 

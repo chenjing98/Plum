@@ -238,22 +238,33 @@ namespace ns3
     void
     VcaServer::ReceiveData(Ptr<Packet> packet, uint8_t socket_id)
     {
-        for (auto &socket : m_socket_list_dl)
+        for (auto socket : m_socket_list_dl)
         {
             uint8_t other_socket_id = m_socket_id_map[socket];
+
             if (other_socket_id == socket_id)
                 continue;
 
-            Ptr<Packet> packet_dl = TranscodeFrame(socket_id);
+            Ptr<Packet> packet_dl = TranscodeFrame(socket_id, packet);
+
+            if (packet_dl == nullptr)
+                continue;
+
             m_send_buffer_list[other_socket_id].push_back(packet_dl);
             // SendData(socket);
         }
     };
 
     Ptr<Packet>
-    VcaServer::TranscodeFrame(uint8_t socket_id)
+    VcaServer::TranscodeFrame(uint8_t socket_id, Ptr<Packet> packet)
     {
-        return Create<Packet>(100);
+        VcaAppProtHeader app_header = VcaAppProtHeader();
+        packet->RemoveHeader(app_header);
+
+        uint16_t frame_id = app_header.GetFrameId();
+        uint32_t pkt_id = app_header.GetPacketId();
+
+        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize());
     };
 
 }; // namespace ns3

@@ -21,8 +21,10 @@ namespace ns3
           m_socket_id_ul(0),
           m_peer_list(),
           m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")),
-          m_fps(0),
+          m_fps(20),
           m_bitrate(0),
+          m_max_bitrate(10000),
+          m_frame_id(0),
           m_enc_event(),
           m_total_packet_bit(0),
           m_send_buffer_list(),
@@ -288,16 +290,29 @@ namespace ns3
         uint32_t frame_size = m_bitrate * 1000 / 8 / m_fps;
         // uint16_t num_pkt_in_frame = frame_size / payloadSize + (frame_size % payloadSize != 0);
 
+        uint32_t pkt_id_in_frame = 0;
+
         // Produce packets
         for (uint32_t data_ptr = 0; data_ptr < frame_size; data_ptr += payloadSize)
         {
             for (uint8_t i = 0; i < m_send_buffer_list.size(); i++)
             {
-                Ptr<Packet> packet = Create<Packet>(std::min(payloadSize, frame_size - data_ptr));
+                VcaAppProtHeader app_header = VcaAppProtHeader(m_frame_id, pkt_id_in_frame);
+
+                uint32_t packet_size = std::min(payloadSize, frame_size - data_ptr);
+
+                Ptr<Packet> packet = Create<Packet>(packet_size);
+                packet->AddHeader(app_header);
+
                 m_send_buffer_list[i].push_back(packet);
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_list[i].size());
+
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_list[i].size() << " PktSize= " << packet_size);
             }
+
+            pkt_id_in_frame++;
         }
+
+        m_frame_id++;
 
         // Schedule next frame's encoding
         Time next_enc_frame = MicroSeconds(1e6 / m_fps);
