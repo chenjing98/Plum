@@ -288,16 +288,19 @@ namespace ns3
 
         NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " Bitrate= " << m_bitrate);
 
-        // Calculate packets in the frame
-        uint32_t frame_size = m_bitrate * 1000 / 8 / m_fps;
-        // uint16_t num_pkt_in_frame = frame_size / payloadSize + (frame_size % payloadSize != 0);
-
-        uint32_t pkt_id_in_frame = 0;
-
         // Produce packets
-        for (uint32_t data_ptr = 0; data_ptr < frame_size; data_ptr += payloadSize)
+        for (uint8_t i = 0; i < m_send_buffer_list.size(); i++)
         {
-            for (uint8_t i = 0; i < m_send_buffer_list.size(); i++)
+            // Calculate packets in the frame
+            // uint16_t num_pkt_in_frame = frame_size / payloadSize + (frame_size % payloadSize != 0);
+            std::cout<<"size = "<<m_cc_rate.size()<<"   i = "<<i<<std::endl;
+            uint32_t frame_size = m_cc_rate[i] / 8 / m_fps;
+            uint32_t pkt_id_in_frame = 0;
+            std::cout<<"time "<<Simulator::Now().GetMicroSeconds()<<" bitrate["<<i<<"] = "<<m_cc_rate[i]/1000<<std::endl;
+
+            if(frame_size == 0) frame_size = m_bitrate*1000/8/m_fps;
+
+            for (uint32_t data_ptr = 0; data_ptr < frame_size; data_ptr += payloadSize)
             {
                 VcaAppProtHeader app_header = VcaAppProtHeader(m_frame_id, pkt_id_in_frame);
 
@@ -315,6 +318,7 @@ namespace ns3
         }
 
         m_frame_id++;
+        DecideBottleneckPosition();
 
         // Schedule next frame's encoding
         Time next_enc_frame = MicroSeconds(1e6 / m_fps);
@@ -337,16 +341,20 @@ namespace ns3
             }
             else
             {
+                uint64_t bitrate = ul_socket->GetTcb()->m_cWnd*8/40;
+                m_cc_rate.push_back(bitrate);
                 NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate meets non-pacing CCA");
                 // TODO: Get cc rate for non-pacing CCAs
             }
         }
 
-        if (!m_cc_rate.empty())
-        {
-            m_bitrate = (*std::max_element(m_cc_rate.begin(), m_cc_rate.end())) / 1000;
-            m_bitrate = std::min(m_bitrate, m_max_bitrate);
-        }
+        std::cout<<"size = "<<m_cc_rate.size()<<std::endl;
+
+        // if (!m_cc_rate.empty())
+        // {
+        //     m_bitrate = (*std::max_element(m_cc_rate.begin(), m_cc_rate.end())) / 1000;
+        //     m_bitrate = std::min(m_bitrate, m_max_bitrate);
+        // }
     };
 
     void
@@ -381,23 +389,24 @@ namespace ns3
     VcaClient::DecideDlParam()
     {
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] DecideDlParam");
-        if(m_is_my_wifi_access_bottleneck == true) return 0.5;
+        if(m_is_my_wifi_access_bottleneck == true) return 0.01;
         return 1;
     };
 
     void
     VcaClient::DecideBottleneckPosition()
     {
+        return;
         uint64_t m_design_rate = m_max_bitrate;
         uint64_t m_real_rate = 0;
         bool m_changed = 0;
         for(auto m_temp : m_cc_rate)
             m_real_rate += m_temp;
-        std::cout<<"m_real_rate = "<<m_real_rate<<std::endl;
-        std::cout<<"m_design_rate = "<<m_design_rate<<std::endl;
+//        std::cout<<"m_real_rate = "<<m_real_rate<<std::endl;
+//        std::cout<<"m_design_rate = "<<m_design_rate<<std::endl;
         
         //decide decrease rate
-        if(m_real_rate >= m_design_rate*0.8)
+        if(m_real_rate >= m_design_rate)
         {
             if(m_is_my_wifi_access_bottleneck == false)
             {
@@ -406,7 +415,7 @@ namespace ns3
             }
         }
         //decide recover rate
-        if(m_real_rate < m_design_rate*0.5)
+        if(m_real_rate < m_design_rate*0.8)
         {
             if(m_is_my_wifi_access_bottleneck == true)
             {
@@ -419,7 +428,7 @@ namespace ns3
         //  i.e., here we can't decrease lamda continuously
         if (m_changed) 
         {
-            std::cout<<"Let's Change the lamda. IsBottleneck = "<<m_is_my_wifi_access_bottleneck<<std::endl;
+//            std::cout<<Simulator::Now().GetMilliSeconds()<<" Let's Change the lamda. IsBottleneck = "<<m_is_my_wifi_access_bottleneck<<std::endl;
             float dl_lambda = DecideDlParam();
 
             for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)

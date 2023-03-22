@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 
   std::string mode = "p2p";
   uint8_t logLevel = 0;
-  double_t simulationDuration = 20.0; // in s
+  double_t simulationDuration = 10.0; // in s
   uint32_t maxBitrate = 10000;        // in kbps
 
   CommandLine cmd(__FILE__);
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < num; i++)
     {
       pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("5Mbps"));
-      pointToPoint[i].SetChannelAttribute("Delay", StringValue("2ms"));
+      pointToPoint[i].SetChannelAttribute("Delay", StringValue("20ms"));
     }
 
     // 在AP的p2p信道上安装NetDevice
