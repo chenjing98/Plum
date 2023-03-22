@@ -273,7 +273,7 @@ namespace ns3
         if (frame_id == m_prev_frame_id[socket_id])
         {
             // packets of the same frame
-            if (m_frame_size_forwarded[socket_id] < m_target_frame_size[socket_id])
+            if (m_frame_size_forwarded[socket_id] < m_target_frame_size[socket_id]) // TODO: update m_target_frame_size in a periodically invoked function
             {
                 // have not reach the target transcode bitrate, forward the packet
                 m_frame_size_forwarded[socket_id] += packet->GetSize();
