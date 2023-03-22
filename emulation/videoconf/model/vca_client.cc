@@ -207,7 +207,7 @@ namespace ns3
             m_total_packet_bit += packet->GetSize() * 8;
             // int now_second = Simulator::Now().GetSeconds();
             // Statistics: min_packet_bit per sec
-            int now_second = floor(Simulator::Now().GetSeconds()); // 0~1s -> XX[0];  1~2s -> XX[1] ...
+            uint32_t now_second = floor(Simulator::Now().GetSeconds()); // 0~1s -> XX[0];  1~2s -> XX[1] ...
             while(m_min_packet_bit.size() < now_second+1) 
                 m_min_packet_bit.push_back(0);
             if (packet->GetSize() * 8 < m_min_packet_bit[now_second] || m_min_packet_bit[now_second] == 0)
@@ -359,6 +359,11 @@ namespace ns3
 
         // Calculate min packet size (per second)
         int m_length = m_min_packet_bit.size();
+        if(m_length == 0)
+        {
+            NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat Sec = 0 so there is no data.");
+            return;
+        }
         std::sort(m_min_packet_bit.begin(),m_min_packet_bit.end());
         uint64_t m_sum_minpac = 0;
         for (auto pac : m_min_packet_bit)
@@ -388,8 +393,11 @@ namespace ns3
         bool m_changed = 0;
         for(auto m_temp : m_cc_rate)
             m_real_rate += m_temp;
+        std::cout<<"m_real_rate = "<<m_real_rate<<std::endl;
+        std::cout<<"m_design_rate = "<<m_design_rate<<std::endl;
+        
         //decide decrease rate
-        if(m_real_rate >= m_design_rate)
+        if(m_real_rate >= m_design_rate*0.8)
         {
             if(m_is_my_wifi_access_bottleneck == false)
             {
@@ -398,7 +406,7 @@ namespace ns3
             }
         }
         //decide recover rate
-        if(m_real_rate < m_design_rate*0.8)
+        if(m_real_rate < m_design_rate*0.5)
         {
             if(m_is_my_wifi_access_bottleneck == true)
             {
@@ -411,6 +419,7 @@ namespace ns3
         //  i.e., here we can't decrease lamda continuously
         if (m_changed) 
         {
+            std::cout<<"Let's Change the lamda. IsBottleneck = "<<m_is_my_wifi_access_bottleneck<<std::endl;
             float dl_lambda = DecideDlParam();
 
             for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
