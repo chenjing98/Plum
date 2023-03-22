@@ -63,7 +63,7 @@ namespace ns3
         void UpdateEncodeBitrate();
 
         void DecideBottleneckPosition();
-        float DecideDlParam(uint8_t type);
+        float DecideDlParam();
 
         void OutputStatistics();
 

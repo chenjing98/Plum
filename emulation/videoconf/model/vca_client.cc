@@ -373,12 +373,10 @@ namespace ns3
     };
 
     float
-    VcaClient::DecideDlParam(uint8_t type)
-    //type(0) decrease
-    //type(1) recover
+    VcaClient::DecideDlParam()
     {
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] DecideDlParam");
-        if(type == 0) return 0.5;
+        if(m_is_my_wifi_access_bottleneck == true) return 0.5;
         return 1;
     };
 
@@ -386,19 +384,34 @@ namespace ns3
     VcaClient::DecideBottleneckPosition()
     {
         uint64_t m_design_rate = m_max_bitrate;
-        uint64_t m_real_rate = m_cc_rate.back();
-        uint8_t m_type = -1;
+        uint64_t m_real_rate = 0;
+        bool m_changed = 0;
+        for(auto m_temp : m_cc_rate)
+            m_real_rate += m_temp;
         //decide decrease rate
-        if(m_real_rate >= m_design_rate) m_type = 0;
-        //decide recover rate
-        if(m_real_rate < m_design_rate*0.8) m_type = 1;
-
-
-        if (m_type == 0 || m_type == 1) // TODO
+        if(m_real_rate >= m_design_rate)
         {
-            m_is_my_wifi_access_bottleneck = true;
+            if(m_is_my_wifi_access_bottleneck == false)
+            {
+                m_is_my_wifi_access_bottleneck = true;
+                m_changed = true;
+            }
+        }
+        //decide recover rate
+        if(m_real_rate < m_design_rate*0.8)
+        {
+            if(m_is_my_wifi_access_bottleneck == true)
+            {
+                m_is_my_wifi_access_bottleneck = false;
+                m_changed = true;
+            }
+        }
 
-            float dl_lambda = DecideDlParam(m_type);
+        //Notice: modify lamda only when the status changes
+        //  i.e., here we can't decrease lamda continuously
+        if (m_changed) 
+        {
+            float dl_lambda = DecideDlParam();
 
             for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
             {
