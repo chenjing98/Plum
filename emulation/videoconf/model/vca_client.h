@@ -14,7 +14,6 @@
 
 #include "prot-header.h"
 
-const uint32_t N_SECONDS = 1000;
 namespace ns3
 {
 
@@ -97,7 +96,7 @@ namespace ns3
         std::vector<uint64_t> m_cc_rate;
 
         uint32_t m_total_packet_bit;
-        uint32_t m_min_packet_bit[N_SECONDS];
+        std::vector<uint32_t> m_min_packet_bit;
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_list;
 

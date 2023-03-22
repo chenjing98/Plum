@@ -208,6 +208,8 @@ namespace ns3
             // int now_second = Simulator::Now().GetSeconds();
             // Statistics: min_packet_bit per sec
             int now_second = floor(Simulator::Now().GetSeconds()); // 0~1s -> XX[0];  1~2s -> XX[1] ...
+            while(m_min_packet_bit.size() < now_second+1) 
+                m_min_packet_bit.push_back(0);
             if (packet->GetSize() * 8 < m_min_packet_bit[now_second] || m_min_packet_bit[now_second] == 0)
                 m_min_packet_bit[now_second] = packet->GetSize() * 8;
 
@@ -364,12 +366,10 @@ namespace ns3
             NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Statistics  minPacketsize[ " << i << "] = " << m_min_packet_bit[i]);
         }
         */
-        std::sort(m_min_packet_bit+0,m_min_packet_bit+now_second-1);
+        std::sort(m_min_packet_bit.begin(),m_min_packet_bit.end());
         uint64_t m_sum_minpac = 0;
-        for (int i = 0; i < now_second; i++)
-        {
-            m_sum_minpac += m_min_packet_bit[i];
-        }
+        for (auto pac : m_min_packet_bit)
+            m_sum_minpac += pac;
         //Median
         NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Median] = " << m_min_packet_bit[now_second/2]);
         //Mean
