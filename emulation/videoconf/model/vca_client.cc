@@ -343,7 +343,11 @@ namespace ns3
             }
             else
             {
-                uint64_t bitrate = ul_socket->GetTcb()->m_cWnd*8/40;
+                // Get cc rate for non-pacing CCAs
+                uint32_t cwnd = ul_socket->GetTcb()->m_cWnd.Get();
+                uint32_t rwnd = ul_socket->GetRwnd();
+                uint64_t bitrate = std::min(cwnd, rwnd) * 8 / 40; // 40ms is the minRTT, if link dalay is changed, this should be changed accordingly
+                bitrate = (uint64_t)(1.1 * (float)bitrate);
                 m_cc_rate.push_back(bitrate);
                 NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate FlowBitrate= " << bitrate / 1000 << " cwnd= " << cwnd << " rwnd= " << rwnd);
             }
