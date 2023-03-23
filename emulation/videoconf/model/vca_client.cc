@@ -116,6 +116,9 @@ namespace ns3
             m_socket_list_ul.push_back(socket_ul);
             m_socket_id_map_ul[socket_ul] = m_socket_id_ul;
 
+            NS_LOG_DEBUG("[VcaClient][" << m_node_id << "]"
+                                         << " uplink socket " << socket_ul);
+
             m_socket_id_ul += 1;
             m_local_ul_port += 1;
 
@@ -208,19 +211,19 @@ namespace ns3
             // int now_second = Simulator::Now().GetSeconds();
             // Statistics: min_packet_bit per sec
             uint32_t now_second = floor(Simulator::Now().GetSeconds()); // 0~1s -> XX[0];  1~2s -> XX[1] ...
-            while(m_min_packet_bit.size() < now_second+1) 
+            while (m_min_packet_bit.size() < now_second + 1)
                 m_min_packet_bit.push_back(0);
             if (packet->GetSize() * 8 < m_min_packet_bit[now_second] || m_min_packet_bit[now_second] == 0)
                 m_min_packet_bit[now_second] = packet->GetSize() * 8;
 
             if (InetSocketAddress::IsMatchingType(from))
             {
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
+                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
                 ReceiveData(packet);
             }
             else if (Inet6SocketAddress::IsMatchingType(from))
             {
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << Inet6SocketAddress::ConvertFrom(from).GetIpv6() << " SrcPort= " << Inet6SocketAddress::ConvertFrom(from).GetPort());
+                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << Inet6SocketAddress::ConvertFrom(from).GetIpv6() << " SrcPort= " << Inet6SocketAddress::ConvertFrom(from).GetPort());
                 ReceiveData(packet);
             }
         }
@@ -232,6 +235,7 @@ namespace ns3
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] HandleAccept");
         socket->SetRecvCallback(MakeCallback(&VcaClient::HandleRead, this));
         m_socket_list_dl.push_back(socket);
+        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] HandleAccept: " << socket);
         m_socket_id_map_dl[socket] = m_socket_id_dl;
         m_socket_id_dl += 1;
     };
@@ -286,19 +290,17 @@ namespace ns3
         // Update bitrate based on current CCA
         UpdateEncodeBitrate();
 
-        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " Bitrate= " << m_bitrate);
-
         // Produce packets
         for (uint8_t i = 0; i < m_send_buffer_list.size(); i++)
         {
             // Calculate packets in the frame
             // uint16_t num_pkt_in_frame = frame_size / payloadSize + (frame_size % payloadSize != 0);
-            std::cout<<"size = "<<m_cc_rate.size()<<"   i = "<<i<<std::endl;
             uint32_t frame_size = m_cc_rate[i] / 8 / m_fps;
             uint32_t pkt_id_in_frame = 0;
-            std::cout<<"time "<<Simulator::Now().GetMicroSeconds()<<" bitrate["<<i<<"] = "<<m_cc_rate[i]/1000<<std::endl;
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " m_bitrate= " << m_bitrate << " realtimeBitrate[" << (uint16_t)i << "]= " << m_cc_rate[i] / 1000);
 
-            if(frame_size == 0) frame_size = m_bitrate*1000/8/m_fps;
+            if (frame_size == 0)
+                frame_size = m_bitrate * 1000 / 8 / m_fps;
 
             for (uint32_t data_ptr = 0; data_ptr < frame_size; data_ptr += payloadSize)
             {
@@ -337,18 +339,15 @@ namespace ns3
             {
                 uint64_t bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
                 m_cc_rate.push_back(bitrate);
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate  FlowBitrate= " << bitrate);
+                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate FlowBitrate= " << bitrate / 1000);
             }
             else
             {
                 uint64_t bitrate = ul_socket->GetTcb()->m_cWnd*8/40;
                 m_cc_rate.push_back(bitrate);
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate meets non-pacing CCA");
-                // TODO: Get cc rate for non-pacing CCAs
+                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate FlowBitrate= " << bitrate / 1000 << " cwnd= " << cwnd << " rwnd= " << rwnd);
             }
         }
-
-        std::cout<<"size = "<<m_cc_rate.size()<<std::endl;
 
         // if (!m_cc_rate.empty())
         // {
@@ -367,68 +366,70 @@ namespace ns3
 
         // Calculate min packet size (per second)
         int m_length = m_min_packet_bit.size();
-        if(m_length == 0)
+        if (m_length == 0)
         {
             NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat Sec = 0 so there is no data.");
             return;
         }
-        std::sort(m_min_packet_bit.begin(),m_min_packet_bit.end());
+        std::sort(m_min_packet_bit.begin(), m_min_packet_bit.end());
         uint64_t m_sum_minpac = 0;
         for (auto pac : m_min_packet_bit)
             m_sum_minpac += pac;
-        //Median
-        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Median] = " << m_min_packet_bit[m_length/2]);
-        //Mean
-        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Mean] = " << m_sum_minpac/m_length);
-        //95per
-        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [95per] = " << m_min_packet_bit[(int)(m_length*0.95)]);
-
+        // Median
+        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Median] = " << m_min_packet_bit[m_length / 2]);
+        // Mean
+        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Mean] = " << m_sum_minpac / m_length);
+        // 95per
+        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [95per] = " << m_min_packet_bit[(int)(m_length * 0.95)]);
     };
 
     float
     VcaClient::DecideDlParam()
     {
-        NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] DecideDlParam");
-        if(m_is_my_wifi_access_bottleneck == true) return 0.01;
-        return 1;
+        if (m_is_my_wifi_access_bottleneck == true)
+        {
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] DecideDlParam: 0.01");
+            return 0.01;
+        }
+        else
+        {
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] DecideDlParam: 1");
+            return 1;
+        }
     };
 
     void
     VcaClient::DecideBottleneckPosition()
     {
-        return;
         uint64_t m_design_rate = m_max_bitrate;
         uint64_t m_real_rate = 0;
         bool m_changed = 0;
-        for(auto m_temp : m_cc_rate)
+        for (auto m_temp : m_cc_rate)
             m_real_rate += m_temp;
-//        std::cout<<"m_real_rate = "<<m_real_rate<<std::endl;
-//        std::cout<<"m_design_rate = "<<m_design_rate<<std::endl;
-        
-        //decide decrease rate
-        if(m_real_rate >= m_design_rate)
+
+        // decide to decrease rate
+        if (m_real_rate >= m_design_rate)
         {
-            if(m_is_my_wifi_access_bottleneck == false)
+            if (m_is_my_wifi_access_bottleneck == false)
             {
                 m_is_my_wifi_access_bottleneck = true;
                 m_changed = true;
             }
         }
-        //decide recover rate
-        if(m_real_rate < m_design_rate*0.8)
+        // decide recover rate
+        if (m_real_rate < m_design_rate * 0.8)
         {
-            if(m_is_my_wifi_access_bottleneck == true)
+            if (m_is_my_wifi_access_bottleneck == true)
             {
                 m_is_my_wifi_access_bottleneck = false;
                 m_changed = true;
             }
         }
 
-        //Notice: modify lamda only when the status changes
-        //  i.e., here we can't decrease lamda continuously
-        if (m_changed) 
+        // Notice: modify lambda only when the status changes
+        //   i.e., here we can't decrease lambda continuously
+        if (m_changed)
         {
-//            std::cout<<Simulator::Now().GetMilliSeconds()<<" Let's Change the lamda. IsBottleneck = "<<m_is_my_wifi_access_bottleneck<<std::endl;
             float dl_lambda = DecideDlParam();
 
             for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
