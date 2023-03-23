@@ -4684,6 +4684,12 @@ TcpSocketBase::SetRwndLambda(float lambda)
     m_rWndLambda = lambda;
 }
 
+uint32_t
+TcpSocketBase::GetRwnd()
+{
+    return m_rWnd.Get();
+}
+
 Ptr<TcpSocketState>
 TcpSocketBase::GetTcb()
 {
