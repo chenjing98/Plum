@@ -21,7 +21,8 @@ namespace ns3
           m_socket_id(0),
           m_peer_list(),
           m_send_buffer_list(),
-          m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")){};
+          m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")),
+          m_fps(20){};
 
     VcaServer::~VcaServer(){};
 
@@ -68,6 +69,7 @@ namespace ns3
     void
     VcaServer::StartApplication()
     {
+        m_enc_event = Simulator::ScheduleNow(&VcaServer::UpdateRate, this);
 
         // Create the socket if not already
         if (!m_socket_ul)
@@ -94,6 +96,10 @@ namespace ns3
     void
     VcaServer::StopApplication()
     {
+        if (m_enc_event.IsRunning())
+        {
+            Simulator::Cancel(m_enc_event);
+        }
         while (!m_socket_list_ul.empty())
         { // these are accepted sockets, close them
             Ptr<Socket> acceptedSocket = m_socket_list_ul.front();
@@ -111,6 +117,31 @@ namespace ns3
             m_socket_list_dl.pop_front();
             connectedSocket->Close();
         }
+    };
+
+    void
+    VcaServer::UpdateRate()
+    {
+        for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
+        {
+            Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
+            Address peerAddress;
+            *it -> GetPeerName(peerAddress);
+            uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+            if (ul_socket->GetTcb()->m_pacing)
+            {
+                uint64_t bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
+                m_target_frame_size[socket_id] = bitrate / 8 / m_fps;
+            }
+            else
+            {
+                uint64_t bitrate = ul_socket->GetTcb()->m_cWnd*8/40;
+                m_target_frame_size[socket_id] = bitrate / 8 / m_fps;
+            }
+        }
+
+        Time next_enc_frame = MicroSeconds(1e6 / m_fps);
+        m_enc_event = Simulator::Schedule(next_enc_frame, &VcaServer::UpdateRate, this);
     };
 
     // private helpers

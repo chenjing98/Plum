@@ -83,6 +83,8 @@ namespace ns3
         void SendData(Ptr<Socket> socket);
         void ReceiveData(Ptr<Packet>, uint8_t);
 
+        void UpdateRate();
+
         uint32_t m_node_id;
 
         Ptr<Socket> m_socket_ul;
@@ -103,6 +105,8 @@ namespace ns3
         uint16_t m_local_dl_port;
         uint16_t m_peer_dl_port;
 
+        uint8_t m_fps;
+        EventId m_enc_event;
     }; // class VcaServer
 
 }; // namespace ns3
