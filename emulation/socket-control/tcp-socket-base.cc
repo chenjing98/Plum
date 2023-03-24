@@ -3519,7 +3519,11 @@ TcpSocketBase::AdvertisedWindowSize(bool scale) const
                     << m_maxWinSize << "; possibly to avoid overflow of the 16-bit integer");
     }
     NS_LOG_LOGIC("Returning AdvertisedWindowSize of " << static_cast<uint16_t>(w));
-    return static_cast<uint16_t>(w);
+    uint32_t scaled_rwnd = std::round((float)w * m_rWndLambda);
+    NS_LOG_DEBUG("[TcpSocket][Node" << m_node->GetId() << "] Time= "
+                                     << Simulator::Now().GetMilliSeconds() << " OriginalrWnd= " << w
+                                     << " ScaledrWnd= " << static_cast<uint16_t>(scaled_rwnd));
+    return static_cast<uint16_t>(scaled_rwnd);
 }
 
 // Receipt of new packet, put into Rx buffer
@@ -4386,8 +4390,8 @@ TcpSocketBase::UpdateWindowSize(const TcpHeader& header)
     NS_LOG_INFO("Received (scaled) window is " << receivedWindow << " bytes");
     if (m_state < ESTABLISHED)
     {
-        m_rWnd = std::round((float)receivedWindow * m_rWndLambda);
-        // m_rWnd = receivedWindow;
+        // m_rWnd = std::round((float)receivedWindow * m_rWndLambda);
+        m_rWnd = receivedWindow;
         NS_LOG_LOGIC("State less than ESTABLISHED; updating rWnd to " << m_rWnd);
         return;
     }
@@ -4416,8 +4420,11 @@ TcpSocketBase::UpdateWindowSize(const TcpHeader& header)
     }
     if (update == true)
     {
-
-        m_rWnd = std::round((float)receivedWindow * m_rWndLambda);
+        // m_rWnd = std::round((float)receivedWindow * m_rWndLambda);
+        m_rWnd = receivedWindow;
+        NS_LOG_UNCOND("[TcpSocket][Node" << m_node->GetId()
+                                         << "] Time= " << Simulator::Now().GetMilliSeconds()
+                                         << " rWnd= " << m_rWnd << " cWnd= " << m_tcb->m_cWnd);
         NS_LOG_LOGIC("updating rWnd to " << m_rWnd);
     }
 }
@@ -4682,6 +4689,12 @@ void
 TcpSocketBase::SetRwndLambda(float lambda)
 {
     m_rWndLambda = lambda;
+}
+
+uint32_t
+TcpSocketBase::GetRwnd()
+{
+    return m_rWnd.Get();
 }
 
 Ptr<TcpSocketState>
