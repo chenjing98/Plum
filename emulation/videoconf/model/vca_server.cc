@@ -126,8 +126,10 @@ namespace ns3
         {
             Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
             Address peerAddress;
-            *it -> GetPeerName(peerAddress);
+            Ptr<Socket> socket = *it;
+            socket -> GetPeerName(peerAddress);
             uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+//            uint8_t socket_id = 1;
             if (ul_socket->GetTcb()->m_pacing)
             {
                 uint64_t bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
@@ -180,16 +182,19 @@ namespace ns3
                 break;
             }
 
+            Address peerAddress;
+            socket -> GetPeerName(peerAddress);
+            uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
             if (InetSocketAddress::IsMatchingType(from))
             {
                 NS_LOG_LOGIC("[VcaServer][ReceivedPkt] Time= " << Simulator::Now().GetSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
 
-                ReceiveData(packet, m_socket_id_map[socket]);
+                ReceiveData(packet, socket_id);
             }
             else if (Inet6SocketAddress::IsMatchingType(from))
             {
                 NS_LOG_LOGIC("[VcaServer][ReceivedPkt] Time= " << Simulator::Now().GetSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << Inet6SocketAddress::ConvertFrom(from).GetIpv6() << " SrcPort= " << Inet6SocketAddress::ConvertFrom(from).GetPort());
-                ReceiveData(packet, m_socket_id_map[socket]);
+                ReceiveData(packet, socket_id);
             }
         }
     };
@@ -221,7 +226,8 @@ namespace ns3
             MakeCallback(&VcaServer::DataSendDl, this));
 
         m_socket_list_dl.push_back(socket_dl);
-        m_socket_id_map[socket_dl] = m_socket_id;
+//        m_socket_id_map[socket_dl] = m_socket_id;
+        m_socket_id_map[Ipv4Address::ConvertFrom(from).Get()] = m_socket_id;
         m_socket_id += 1;
 
         m_local_dl_port += 1;
@@ -249,7 +255,9 @@ namespace ns3
     VcaServer::SendData(Ptr<Socket> socket)
     {
         NS_LOG_LOGIC("[VcaServer] SendData");
-        uint8_t socket_id = m_socket_id_map[socket];
+        Address peerAddress;
+        socket -> GetPeerName(peerAddress);
+        uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
 
         NS_LOG_DEBUG("sock id " << (uint16_t)socket_id << " send buffer size " << m_send_buffer_list[socket_id].size());
 
@@ -275,8 +283,9 @@ namespace ns3
     {
         for (auto socket : m_socket_list_dl)
         {
-            uint8_t other_socket_id = m_socket_id_map[socket];
-
+            Address peerAddress;
+            socket -> GetPeerName(peerAddress);
+            uint8_t other_socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
             if (other_socket_id == socket_id)
                 continue;
 
