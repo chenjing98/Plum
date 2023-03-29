@@ -9,7 +9,7 @@ namespace ns3
     {
     public:
         VcaAppProtHeader();
-        VcaAppProtHeader(uint16_t frame_id, uint32_t packet_id);
+        VcaAppProtHeader(uint16_t frame_id, uint16_t packet_id);
         ~VcaAppProtHeader();
         static TypeId GetTypeId(void);
         TypeId GetInstanceTypeId(void) const;
@@ -19,13 +19,19 @@ namespace ns3
         void Print(std::ostream &os) const;
 
         void SetFrameId(uint16_t frame_id);
-        void SetPacketId(uint32_t packet_id);
+        void SetPacketId(uint16_t packet_id);
+        void SetDlRedcFactor(uint32_t new_framesize);
+        void SetPayloadSize(uint32_t payload_size);
         uint16_t GetFrameId(void);
-        uint32_t GetPacketId(void);
+        uint16_t GetPacketId(void);
+        uint32_t GetDlRedcFactor(void);
+        uint32_t GetPayloadSize(void);
 
     private:
         uint16_t m_frame_id;
-        uint32_t m_packet_id;
+        uint16_t m_packet_id;
+        uint32_t m_dl_bitrate_reduce_factor;
+        uint32_t m_payload_size;
     };
 
 } // namespace ns3
