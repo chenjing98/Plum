@@ -298,6 +298,8 @@ namespace ns3
         UpdateEncodeBitrate();
 
         // Produce packets
+        uint16_t pkt_id_in_frame;
+
         for (uint8_t i = 0; i < m_send_buffer_list.size(); i++)
         {
             // Calculate packets in the frame
@@ -309,6 +311,8 @@ namespace ns3
 
             if (frame_size == 0)
                 frame_size = m_bitrate * 1000 / 8 / m_fps;
+
+            pkt_id_in_frame = 0;
 
             for (uint32_t data_ptr = 0; data_ptr < frame_size; data_ptr += payloadSize)
             {
@@ -324,7 +328,8 @@ namespace ns3
 
                 NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_list[i].size() << " PktSize= " << packet->GetSize() << " FrameId= " << m_frame_id << " PktId= " << pkt_id_in_frame);
 
-            pkt_id_in_frame++;
+                pkt_id_in_frame++;
+            }
         }
 
         m_frame_id++;
