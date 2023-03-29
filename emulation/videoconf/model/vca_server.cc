@@ -115,6 +115,7 @@ namespace ns3
         {
             Ptr<Socket> connectedSocket = m_socket_list_dl.front();
             m_socket_list_dl.pop_front();
+            connectedSocket->SetSendCallback(MakeNullCallback<void, Ptr<Socket>, uint32_t>());
             connectedSocket->Close();
         }
     };

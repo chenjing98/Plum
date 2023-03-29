@@ -162,6 +162,7 @@ namespace ns3
         { // these are connected sockets, close them
             Ptr<Socket> connectedSocket = m_socket_list_ul.front();
             m_socket_list_ul.pop_front();
+            connectedSocket->SetSendCallback(MakeNullCallback<void, Ptr<Socket>, uint32_t>());
             connectedSocket->Close();
         }
 
