@@ -14,6 +14,12 @@
 
 #include "prot-header.h"
 
+enum POLICY
+{
+    VANILLA,
+    YONGYULE
+};
+
 namespace ns3
 {
 
@@ -38,7 +44,9 @@ namespace ns3
 
         void SetNodeId(uint32_t node_id);
 
-        static const uint32_t payloadSize = 530; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 6B(VCA header)
+        void SetPolicy(POLICY policy);
+
+        static const uint32_t payloadSize = 524; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
 
     protected:
         void DoDispose(void);
@@ -101,6 +109,8 @@ namespace ns3
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_list;
 
         bool m_is_my_wifi_access_bottleneck;
+
+        POLICY m_policy;
 
     }; // class VcaClient
 

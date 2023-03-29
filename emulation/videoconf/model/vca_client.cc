@@ -88,6 +88,11 @@ namespace ns3
         m_node_id = node_id;
     };
 
+    void VcaClient::SetPolicy(POLICY policy)
+    {
+        m_policy = policy;
+    };
+
     // Application Methods
     void VcaClient::StartApplication()
     {
@@ -148,7 +153,6 @@ namespace ns3
 
     void VcaClient::StopApplication()
     {
-        OutputStatistics();
         if (m_enc_event.IsRunning())
         {
             Simulator::Cancel(m_enc_event);
@@ -409,41 +413,50 @@ namespace ns3
     void
     VcaClient::DecideBottleneckPosition()
     {
-        uint64_t m_design_rate = m_max_bitrate;
-        uint64_t m_real_rate = 0;
-        bool m_changed = 0;
-        for (auto m_temp : m_cc_rate)
-            m_real_rate += m_temp;
-
-        // decide to decrease rate
-        if (m_real_rate >= m_design_rate)
+        if (m_policy == VANILLA)
         {
-            if (m_is_my_wifi_access_bottleneck == false)
-            {
-                m_is_my_wifi_access_bottleneck = true;
-                m_changed = true;
-            }
+            return;
         }
-        // decide recover rate
-        if (m_real_rate < m_design_rate * 0.8)
+        else if (m_policy == YONGYULE)
         {
-            if (m_is_my_wifi_access_bottleneck == true)
+            uint64_t m_design_rate = m_max_bitrate;
+            uint64_t m_real_rate = 0;
+            bool m_changed = 0;
+            for (auto m_temp : m_cc_rate)
+                m_real_rate += m_temp;
+
+            // decide to decrease rate
+            if (m_real_rate >= m_design_rate)
             {
-                m_is_my_wifi_access_bottleneck = false;
-                m_changed = true;
+                if (m_is_my_wifi_access_bottleneck == false)
+                {
+                    m_is_my_wifi_access_bottleneck = true;
+                    m_changed = true;
+                }
             }
-        }
-
-        // Notice: modify lambda only when the status changes
-        //   i.e., here we can't decrease lambda continuously
-        if (m_changed)
-        {
-            float dl_lambda = DecideDlParam();
-
-            for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
+            // decide recover rate
+            if (m_real_rate < m_design_rate * 0.8)
             {
-                Ptr<TcpSocketBase> dl_socket = DynamicCast<TcpSocketBase, Socket>(*it);
-                dl_socket->SetRwndLambda(dl_lambda);
+                if (m_is_my_wifi_access_bottleneck == true)
+                {
+                    m_is_my_wifi_access_bottleneck = false;
+                    m_changed = true;
+                }
+            }
+
+            // Notice: modify lambda only when the status changes
+            //   i.e., here we can't decrease lambda continuously
+            if (m_changed)
+            {
+                float dl_lambda = DecideDlParam();
+
+                for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
+                {
+                    Ptr<TcpSocketBase> dl_socket = DynamicCast<TcpSocketBase, Socket>(*it);
+                    dl_socket->SetRwndLambda(dl_lambda);
+
+                    NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " SetDlParam= " << dl_lambda);
+                }
             }
         }
     }

@@ -32,12 +32,16 @@ int main(int argc, char *argv[])
   uint8_t logLevel = 0;
   double_t simulationDuration = 10.0; // in s
   uint32_t maxBitrate = 10000;        // in kbps
+  uint8_t policy = 0;
+  uint32_t nClient = 1;
 
   CommandLine cmd(__FILE__);
   cmd.AddValue("mode", "p2p or sfu mode", mode);
   cmd.AddValue("logLevel", "Log level: 0 for error, 1 for debug, 2 for logic", logLevel);
   cmd.AddValue("simTime", "Total simulation time in s", simulationDuration);
   cmd.AddValue("maxBitrate", "Max bitrate in kbps", maxBitrate);
+  cmd.AddValue("policy", "0 for vanilla, 1 for Yongyule", policy);
+  cmd.AddValue("nClient", "Number of clients", nClient);
 
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
@@ -68,14 +72,13 @@ int main(int argc, char *argv[])
   {
     NS_LOG_ERROR("[Scratch] P2P mode emulation started.");
     // 创建节点
-    int n = 2;                 // AP的数量
-    int nWifi[n];              // 每个AP管多少Nodes
-    int num = (n - 1) * n / 2; // AP之间的信道数量
-    NodeContainer p2pNodes, wifiStaNodes[n], wifiApNode[n];
-    for (int i = 0; i < n; i++)
+    uint8_t nWifi[nClient];                     // 每个AP管多少Nodes
+    uint32_t num = (nClient - 1) * nClient / 2; // AP之间的信道数量
+    NodeContainer p2pNodes, wifiStaNodes[nClient], wifiApNode[nClient];
+    for (uint32_t i = 0; i < nClient; i++)
       nWifi[i] = 1;
-    p2pNodes.Create(n);
-    for (int i = 0; i < n; i++)
+    p2pNodes.Create(nClient);
+    for (uint32_t i = 0; i < nClient; i++)
     {
       wifiStaNodes[i].Create(nWifi[i]);
       wifiApNode[i] = p2pNodes.Get(i);
@@ -83,7 +86,7 @@ int main(int argc, char *argv[])
 
     // 创建AP之间的信道
     PointToPointHelper pointToPoint[num];
-    for (int i = 0; i < num; i++)
+    for (uint32_t i = 0; i < num; i++)
     {
       pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("5Mbps"));
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("20ms"));
@@ -91,19 +94,19 @@ int main(int argc, char *argv[])
 
     // 在AP的p2p信道上安装NetDevice
     NetDeviceContainer p2pDevices[num];
-    int p = 0;
+    uint32_t p = 0;
     //    int dev[100][100];
-    for (int i = 0; i < n; i++)
-      for (int j = i + 1; j < n; j++)
+    for (uint32_t i = 0; i < nClient; i++)
+      for (uint32_t j = i + 1; j < nClient; j++)
       {
         p2pDevices[p] = pointToPoint[p].Install(p2pNodes.Get(i), p2pNodes.Get(j));
         //        dev[i][j] = p;
         //        dev[j][i] = p;
         p++;
       }
-    // for(int i=0;i<n;i++)
-    //   for(int j=0;j<n;j++)
-    //     NS_LOG_DEBUG("dev[%d][%d]=%d\n",i,j,dev[i][j]);
+    // for(int i=0;i<nClient;i++)
+    //   for(int j=0;j<nClient;j++)
+    //     NS_LOG_DEBUG("dev[%d][%d]=%d\nClient",i,j,dev[i][j]);
 
     // 抄一些WifiAP和WifiNodes之间建立联系的代码
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
@@ -111,11 +114,11 @@ int main(int argc, char *argv[])
     WifiMacHelper mac;
     Ssid ssid;
     WifiHelper wifi;
-    NetDeviceContainer staDevices[n];
-    NetDeviceContainer apDevices[n];
+    NetDeviceContainer staDevices[nClient];
+    NetDeviceContainer apDevices[nClient];
 
     // 每次的SSID、PHY要不同
-    for (int i = 0; i < n; i++)
+    for (uint32_t i = 0; i < nClient; i++)
     {
       std::string id = "ssid" + std::to_string(i + 1);
       //      std::cout<<id<<std::endl;
@@ -146,36 +149,36 @@ int main(int argc, char *argv[])
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Bounds",
                               RectangleValue(Rectangle(-50, 50, -50, 50)));
-    for (int i = 0; i < n; i++)
+    for (uint32_t i = 0; i < nClient; i++)
     {
       mobility.Install(wifiStaNodes[i]);
     }
 
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-    for (int i = 0; i < n; i++)
+    for (uint32_t i = 0; i < nClient; i++)
     {
       mobility.Install(wifiApNode[i]);
     }
 
     InternetStackHelper stack;
-    for (int i = 0; i < n; i++)
+    for (uint32_t i = 0; i < nClient; i++)
       stack.Install(wifiApNode[i]);
-    for (int i = 0; i < n; i++)
+    for (uint32_t i = 0; i < nClient; i++)
       stack.Install(wifiStaNodes[i]);
 
     // 给NetDevices分配IPv4地址
     Ipv4AddressHelper P2Paddress[num];
     Ipv4InterfaceContainer interfaces[num];
-    for (int i = 0; i < num; i++)
+    for (uint32_t i = 0; i < num; i++)
     {
       std::string ip = "10.1." + std::to_string(i + 1) + ".0";
       P2Paddress[i].SetBase(ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
       interfaces[i] = P2Paddress[i].Assign(p2pDevices[i]);
     }
-    Ipv4AddressHelper Wifiaddress[n];
-    Ipv4InterfaceContainer APinterfaces[n];
-    Ipv4InterfaceContainer Stainterfaces[n];
-    for (int i = 0; i < n; i++)
+    Ipv4AddressHelper Wifiaddress[nClient];
+    Ipv4InterfaceContainer APinterfaces[nClient];
+    Ipv4InterfaceContainer Stainterfaces[nClient];
+    for (uint32_t i = 0; i < nClient; i++)
     {
       std::string ip = "10.1." + std::to_string(i + 1 + num) + ".0";
       //      std::cout<<"ip = "<<ip<<std::endl;
@@ -187,9 +190,9 @@ int main(int argc, char *argv[])
 
     // 给AP的每个User装上Client
     std::vector<Ipv4Address> staAddr_all;
-    for (int id = 0; id < n; id++)
+    for (uint32_t id = 0; id < nClient; id++)
     {
-      for (int i = 0; i < nWifi[id]; i++)
+      for (uint8_t i = 0; i < nWifi[id]; i++)
       {
         Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
         staAddr_all.push_back(staAddr);
@@ -198,9 +201,9 @@ int main(int argc, char *argv[])
 
     uint16_t port_ul = 81;
     uint16_t port_dl = 80;
-    for (int id = 0; id < n; id++)
+    for (uint32_t id = 0; id < nClient; id++)
     {
-      for (int i = 0; i < nWifi[id]; i++)
+      for (uint8_t i = 0; i < nWifi[id]; i++)
       {
         Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
         //        Ipv4Address APAddr = APinterfaces[id].GetAddress(0);
@@ -228,8 +231,6 @@ int main(int argc, char *argv[])
         vcaClientApp->SetStopTime(Seconds(simulationDuration));
       }
     }
-
-    NS_LOG_DEBUG("Successfully Done!!!! [P2P MODE] \n");
   }
 
   else if (mode == "sfu")
@@ -237,33 +238,33 @@ int main(int argc, char *argv[])
     NS_LOG_ERROR("[Scratch] SFU mode emulation started.");
     // 创建节点
     // nClient of VcaClient, each in a different BSS
-    int nWifi[n]; // 每个AP管多少Nodes
-    NodeContainer p2pNodes, sfuCenter, wifiStaNodes[n], wifiApNode[n];
-    for (int i = 0; i < n; i++)
+    NodeContainer p2pNodes, sfuCenter, wifiStaNodes[nClient], wifiApNode[nClient];
+    uint8_t nWifi[nClient]; // number of stations in each BSS
+    for (uint32_t i = 0; i < nClient; i++)
       nWifi[i] = 1;
-    p2pNodes.Create(n + 1);
-    for (int i = 0; i < n; i++)
+    p2pNodes.Create(nClient + 1);
+    for (uint8_t i = 0; i < nClient; i++)
     {
       wifiStaNodes[i].Create(nWifi[i]);
       wifiApNode[i] = p2pNodes.Get(i);
     }
-    sfuCenter = p2pNodes.Get(n);
+    sfuCenter = p2pNodes.Get(nClient);
 
     // 创建AP到Center之间的信道
-    PointToPointHelper pointToPoint[n];
-    for (int i = 0; i < n; i++)
+    PointToPointHelper pointToPoint[nClient];
+    for (uint32_t i = 0; i < nClient; i++)
     {
       pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("10Mbps"));
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("20ms"));
     }
 
     // 在AP的p2p信道上安装NetDevice
-    NetDeviceContainer sfuDevices[n];
-    for (int i = 0; i < n; i++)
+    NetDeviceContainer sfuDevices[nClient];
+    for (uint32_t i = 0; i < nClient; i++)
       sfuDevices[i] = pointToPoint[i].Install(wifiApNode[i].Get(0), sfuCenter.Get(0));
-    // for(int i=0;i<n;i++)
-    //   for(int j=0;j<n;j++)
-    //     NS_LOG_DEBUG("dev[%d][%d]=%d\n",i,j,dev[i][j]);
+    // for(int i=0;i<nClient;i++)
+    //   for(int j=0;j<nClient;j++)
+    //     NS_LOG_DEBUG("dev[%d][%d]=%d\nClient",i,j,dev[i][j]);
 
     // Wifi AP和stations之间建立channel
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
@@ -271,11 +272,11 @@ int main(int argc, char *argv[])
     WifiMacHelper mac;
     Ssid ssid;
     WifiHelper wifi;
-    NetDeviceContainer staDevices[n];
-    NetDeviceContainer apDevices[n];
+    NetDeviceContainer staDevices[nClient];
+    NetDeviceContainer apDevices[nClient];
 
     // Set different SSID (+ PHY channel) for each BSS
-    for (int i = 0; i < n; i++)
+    for (uint32_t i = 0; i < nClient; i++)
     {
       std::string id = "ssid" + std::to_string(i + 1);
       ssid = Ssid(id);
@@ -305,48 +306,48 @@ int main(int argc, char *argv[])
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Bounds",
                               RectangleValue(Rectangle(-50, 50, -50, 50)));
-    for (int i = 0; i < n; i++)
+    for (uint32_t i = 0; i < nClient; i++)
     {
       mobility.Install(wifiStaNodes[i]);
     }
 
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-    for (int i = 0; i < n; i++)
+    for (uint32_t i = 0; i < nClient; i++)
     {
       mobility.Install(wifiApNode[i]);
     }
 
     InternetStackHelper stack;
-    for (int i = 0; i < n; i++)
+    for (uint32_t i = 0; i < nClient; i++)
+    {
       stack.Install(wifiApNode[i]);
-    for (int i = 0; i < n; i++)
       stack.Install(wifiStaNodes[i]);
+    }
     stack.Install(sfuCenter);
 
     // 给NetDevices分配IPv4地址
-    Ipv4AddressHelper P2Paddress[n];
-    Ipv4InterfaceContainer interfaces[n];
-    for (int i = 0; i < n; i++)
+    Ipv4AddressHelper P2Paddress[nClient];
+    Ipv4InterfaceContainer interfaces[nClient];
+    for (uint32_t i = 0; i < nClient; i++)
     {
       std::string ip = "10.1." + std::to_string(i + 1) + ".0";
       P2Paddress[i].SetBase(ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
       interfaces[i] = P2Paddress[i].Assign(sfuDevices[i]);
     }
-    Ipv4AddressHelper Wifiaddress[n];
-    Ipv4InterfaceContainer APinterfaces[n];
-    Ipv4InterfaceContainer Stainterfaces[n];
-    for (int i = 0; i < n; i++)
+    Ipv4AddressHelper Wifiaddress[nClient];
+    Ipv4InterfaceContainer APinterfaces[nClient];
+    Ipv4InterfaceContainer Stainterfaces[nClient];
+    for (uint32_t i = 0; i < nClient; i++)
     {
-      std::string ip = "10.1." + std::to_string(i + 1 + n) + ".0";
-      //      std::cout<<"ip = "<<ip<<std::endl;
+      std::string ip = "10.1." + std::to_string(i + 1 + nClient) + ".0";
       Wifiaddress[i].SetBase(ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
       Stainterfaces[i] = Wifiaddress[i].Assign(staDevices[i]);
       APinterfaces[i] = Wifiaddress[i].Assign(apDevices[i]);
       NS_LOG_DEBUG("APinterfaces[" << i << "].getAddress(0) = " << APinterfaces[i].GetAddress(0));
     }
 
-    // Debug：把每个node的每个接口的ip地址打印出来
-    for (int i = 0; i < n; i++)
+    // 把每个node的每个接口的ip地址打印出来
+    for (uint32_t i = 0; i < nClient; i++)
     {
       Ptr<Ipv4> ippp = wifiApNode[i].Get(0)->GetObject<Ipv4>();
       int interfacenumber = ippp->GetNInterfaces();
@@ -373,10 +374,10 @@ int main(int argc, char *argv[])
     vcaServerApp->SetStartTime(Seconds(0.0));
     vcaServerApp->SetStopTime(Seconds(simulationDuration));
 
-    for (int id = 0; id < n; id++)
+    for (uint32_t id = 0; id < nClient; id++)
     {
 
-      for (int i = 0; i < nWifi[id]; i++)
+      for (uint8_t i = 0; i < nWifi[id]; i++)
       {
         Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
         NS_LOG_UNCOND("SFU VCA NodeId " << wifiStaNodes[id].Get(i)->GetId() << " " << sfuCenter.Get(0)->GetId());
@@ -389,6 +390,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetLocalDlPort(client_dl);
         vcaClientApp->SetPeerPort(client_peer);
         vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
+        vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
         vcaClientApp->SetMaxBitrate(maxBitrate);
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
 
