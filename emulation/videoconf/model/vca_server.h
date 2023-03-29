@@ -106,7 +106,7 @@ namespace ns3
         uint16_t m_peer_dl_port;
 
         uint8_t m_fps;
-        EventId m_enc_event;
+        EventId m_update_rate_event;
     }; // class VcaServer
 
 }; // namespace ns3

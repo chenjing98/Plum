@@ -117,7 +117,7 @@ namespace ns3
             m_socket_id_map_ul[socket_ul] = m_socket_id_ul;
 
             NS_LOG_DEBUG("[VcaClient][" << m_node_id << "]"
-                                         << " uplink socket " << socket_ul);
+                                        << " uplink socket " << socket_ul);
 
             m_socket_id_ul += 1;
             m_local_ul_port += 1;
@@ -172,6 +172,8 @@ namespace ns3
             m_socket_dl->Close();
             m_socket_dl->SetRecvCallback(MakeNullCallback<void, Ptr<Socket>>());
         }
+
+        OutputStatistics();
     };
 
     // Private helpers
@@ -295,8 +297,9 @@ namespace ns3
         {
             // Calculate packets in the frame
             // uint16_t num_pkt_in_frame = frame_size / payloadSize + (frame_size % payloadSize != 0);
+
+            // Calculate frame size in bytes
             uint32_t frame_size = m_cc_rate[i] / 8 / m_fps;
-            uint32_t pkt_id_in_frame = 0;
             NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " m_bitrate= " << m_bitrate << " realtimeBitrate[" << (uint16_t)i << "]= " << m_cc_rate[i] / 1000);
 
             if (frame_size == 0)
@@ -313,8 +316,7 @@ namespace ns3
 
                 m_send_buffer_list[i].push_back(packet);
 
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_list[i].size() << " PktSize= " << packet_size);
-            }
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_list[i].size() << " PktSize= " << packet->GetSize() << " FrameId= " << m_frame_id << " PktId= " << pkt_id_in_frame);
 
             pkt_id_in_frame++;
         }
@@ -366,7 +368,7 @@ namespace ns3
         // Calculate average_throughput
         double average_throughput;
         average_throughput = 1.0 * m_total_packet_bit / Simulator::Now().GetSeconds();
-        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] OutputStatistics  total_bit= " << m_total_packet_bit << ", Time= " << Simulator::Now().GetMilliSeconds() << ", throughput= " << average_throughput);
+        NS_LOG_ERROR("[VcaClient][Statistic][Node" << m_node_id << "] TotalBit= " << m_total_packet_bit << " Throughput= " << average_throughput);
 
         // Calculate min packet size (per second)
         int m_length = m_min_packet_bit.size();
@@ -379,12 +381,14 @@ namespace ns3
         uint64_t m_sum_minpac = 0;
         for (auto pac : m_min_packet_bit)
             m_sum_minpac += pac;
-        // Median
-        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Median] = " << m_min_packet_bit[m_length / 2]);
-        // Mean
-        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Mean] = " << m_sum_minpac / m_length);
-        // 95per
-        NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [95per] = " << m_min_packet_bit[(int)(m_length * 0.95)]);
+        // // Median
+        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Median] = " << m_min_packet_bit[m_length / 2]);
+        // // Mean
+        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Mean] = " << m_sum_minpac / m_length);
+        // // 95per
+        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [95per] = " << m_min_packet_bit[(int)(m_length * 0.95)]);
+
+        NS_LOG_ERROR("[VcaClient][Statistic][Node" << m_node_id << "] TransientRate Median= " << m_min_packet_bit[m_length / 2] << " Avg= " << m_sum_minpac / m_length << " 95ile= " << m_min_packet_bit[(int)(m_length * 0.95)]);
     };
 
     float
@@ -392,12 +396,12 @@ namespace ns3
     {
         if (m_is_my_wifi_access_bottleneck == true)
         {
-            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] DecideDlParam: 0.01");
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DecideDlParam= 0.01");
             return 0.01;
         }
         else
         {
-            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] DecideDlParam: 1");
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DecideDlParam= 1");
             return 1;
         }
     };

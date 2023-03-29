@@ -234,9 +234,9 @@ int main(int argc, char *argv[])
 
   else if (mode == "sfu")
   {
-    NS_LOG_ERROR("[Scratch] P2P mode emulation started.");
+    NS_LOG_ERROR("[Scratch] SFU mode emulation started.");
     // 创建节点
-    int n = 3;    // AP的数量
+    // nClient of VcaClient, each in a different BSS
     int nWifi[n]; // 每个AP管多少Nodes
     NodeContainer p2pNodes, sfuCenter, wifiStaNodes[n], wifiApNode[n];
     for (int i = 0; i < n; i++)
@@ -265,7 +265,7 @@ int main(int argc, char *argv[])
     //   for(int j=0;j<n;j++)
     //     NS_LOG_DEBUG("dev[%d][%d]=%d\n",i,j,dev[i][j]);
 
-    // 抄一些WifiAP和WifiNodes之间建立联系的代码
+    // Wifi AP和stations之间建立channel
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     YansWifiPhyHelper phy;
     WifiMacHelper mac;
@@ -274,13 +274,12 @@ int main(int argc, char *argv[])
     NetDeviceContainer staDevices[n];
     NetDeviceContainer apDevices[n];
 
-    // 每次的SSID、PHY要不同
+    // Set different SSID (+ PHY channel) for each BSS
     for (int i = 0; i < n; i++)
     {
       std::string id = "ssid" + std::to_string(i + 1);
-      //      std::cout<<id<<std::endl;
       ssid = Ssid(id);
-      NS_LOG_DEBUG(ssid);
+      NS_LOG_DEBUG("[Scratch] Ssid= " << ssid);
       phy.SetChannel(channel.Create());
 
       mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid), "ActiveProbing", BooleanValue(false));
@@ -358,7 +357,7 @@ int main(int argc, char *argv[])
       }
     }
 
-    // 给每个user(WifiSta)装上Client，给Center装上Server
+    // 给每个user(WifiSta)装上VcaClient，给Center装上VcaServer
     uint16_t client_ul = 80;
     uint16_t client_dl = 8080; // dl_port may increase in VcaServer, make sure it doesn't overlap with ul_port
     uint16_t client_peer = 80;
@@ -398,21 +397,20 @@ int main(int argc, char *argv[])
       }
     }
 
-    NS_LOG_DEBUG("Successfully Done [SFU MODE] !!!!\n");
+    int tracing = 0;
+    if (tracing)
+    {
+      phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
+      pointToPoint[0].EnablePcapAll("sfu");
+      phy.EnablePcap("sfu-ap", apDevices[0].Get(0));
+      phy.EnablePcap("sfu-sta", staDevices[0].Get(0));
+    }
   }
 
   FlowMonitorHelper flowmonHelper;
   flowmonHelper.InstallAll();
 
   Ipv4GlobalRoutingHelper::PopulateRoutingTables();
-  // int tracing = 1;
-  // if (tracing) {
-  //   phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
-  //   pointToPoint[0].EnablePcapAll("third");
-  //   phy.EnablePcap("third", apDevices[0].Get(0));
-  //   phy.EnablePcap("third", apDevices[1].Get(0));
-  //   phy.EnablePcap("third-sta", staDevices[0].Get(0));
-  // }
 
   Simulator::Stop(Seconds(simulationDuration + 1));
   Simulator::Run();

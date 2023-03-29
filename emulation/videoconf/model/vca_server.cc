@@ -69,7 +69,7 @@ namespace ns3
     void
     VcaServer::StartApplication()
     {
-        m_enc_event = Simulator::ScheduleNow(&VcaServer::UpdateRate, this);
+        m_update_rate_event = Simulator::ScheduleNow(&VcaServer::UpdateRate, this);
 
         // Create the socket if not already
         if (!m_socket_ul)
@@ -96,9 +96,9 @@ namespace ns3
     void
     VcaServer::StopApplication()
     {
-        if (m_enc_event.IsRunning())
+        if (m_update_rate_event.IsRunning())
         {
-            Simulator::Cancel(m_enc_event);
+            Simulator::Cancel(m_update_rate_event);
         }
         while (!m_socket_list_ul.empty())
         { // these are accepted sockets, close them
@@ -122,14 +122,14 @@ namespace ns3
     void
     VcaServer::UpdateRate()
     {
+        // Update m_target_frame_size in a periodically invoked function
         for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
         {
             Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
             Address peerAddress;
             Ptr<Socket> socket = *it;
-            socket -> GetPeerName(peerAddress);
+            socket->GetPeerName(peerAddress);
             uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
-//            uint8_t socket_id = 1;
             if (ul_socket->GetTcb()->m_pacing)
             {
                 uint64_t bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
@@ -137,13 +137,13 @@ namespace ns3
             }
             else
             {
-                uint64_t bitrate = ul_socket->GetTcb()->m_cWnd*8/40;
+                uint64_t bitrate = ul_socket->GetTcb()->m_cWnd * 8 / 40;
                 m_target_frame_size[socket_id] = bitrate / 8 / m_fps;
             }
         }
 
-        Time next_enc_frame = MicroSeconds(1e6 / m_fps);
-        m_enc_event = Simulator::Schedule(next_enc_frame, &VcaServer::UpdateRate, this);
+        Time next_update_rate_time = MicroSeconds(1e6 / m_fps);
+        m_update_rate_event = Simulator::Schedule(next_update_rate_time, &VcaServer::UpdateRate, this);
     };
 
     // private helpers
@@ -183,7 +183,7 @@ namespace ns3
             }
 
             Address peerAddress;
-            socket -> GetPeerName(peerAddress);
+            socket->GetPeerName(peerAddress);
             uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
             if (InetSocketAddress::IsMatchingType(from))
             {
@@ -256,10 +256,8 @@ namespace ns3
     {
         NS_LOG_LOGIC("[VcaServer] SendData");
         Address peerAddress;
-        socket -> GetPeerName(peerAddress);
+        socket->GetPeerName(peerAddress);
         uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
-
-        NS_LOG_DEBUG("sock id " << (uint16_t)socket_id << " send buffer size " << m_send_buffer_list[socket_id].size());
 
         if (!m_send_buffer_list[socket_id].empty())
         {
@@ -267,7 +265,7 @@ namespace ns3
             int actual = socket->Send(packet);
             if (actual > 0)
             {
-                NS_LOG_DEBUG("[VcaServer][Send] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << m_send_buffer_list[socket_id].size() - 1);
+                NS_LOG_DEBUG("[VcaServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << m_send_buffer_list[socket_id].size() - 1);
 
                 m_send_buffer_list[socket_id].pop_front();
             }
@@ -284,7 +282,7 @@ namespace ns3
         for (auto socket : m_socket_list_dl)
         {
             Address peerAddress;
-            socket -> GetPeerName(peerAddress);
+            socket->GetPeerName(peerAddress);
             uint8_t other_socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
             if (other_socket_id == socket_id)
                 continue;
@@ -295,25 +293,26 @@ namespace ns3
                 continue;
 
             m_send_buffer_list[other_socket_id].push_back(packet_dl);
-            // SendData(socket);
         }
     };
 
     Ptr<Packet>
     VcaServer::TranscodeFrame(uint8_t socket_id, Ptr<Packet> packet)
     {
+        NS_LOG_DEBUG("[VcaServer] B4RmHeader PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id);
+
         VcaAppProtHeader app_header = VcaAppProtHeader();
         packet->RemoveHeader(app_header);
 
         uint16_t frame_id = app_header.GetFrameId();
         uint32_t pkt_id = app_header.GetPacketId();
 
-        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize());
+        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize() << " DlRedcFactor= " << dl_redc_factor);
 
         if (frame_id == m_prev_frame_id[socket_id])
         {
             // packets of the same frame
-            if (m_frame_size_forwarded[socket_id] < m_target_frame_size[socket_id]) // TODO: update m_target_frame_size in a periodically invoked function
+            if (m_frame_size_forwarded[socket_id] < m_target_frame_size[socket_id])
             {
                 // have not reach the target transcode bitrate, forward the packet
                 m_frame_size_forwarded[socket_id] += packet->GetSize();
