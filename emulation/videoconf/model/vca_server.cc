@@ -227,8 +227,7 @@ namespace ns3
             MakeCallback(&VcaServer::DataSendDl, this));
 
         m_socket_list_dl.push_back(socket_dl);
-//        m_socket_id_map[socket_dl] = m_socket_id;
-        m_socket_id_map[Ipv4Address::ConvertFrom(from).Get()] = m_socket_id;
+        m_socket_id_map[peer_ip.Get()] = m_socket_id;
         m_socket_id += 1;
 
         m_local_dl_port += 1;
