@@ -112,6 +112,8 @@ namespace ns3
 
         POLICY m_policy;
 
+        uint32_t m_target_dl_bitrate_redc_factor;
+
     }; // class VcaClient
 
 }; // namespace ns3

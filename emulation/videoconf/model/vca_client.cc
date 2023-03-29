@@ -312,6 +312,7 @@ namespace ns3
             for (uint32_t data_ptr = 0; data_ptr < frame_size; data_ptr += payloadSize)
             {
                 VcaAppProtHeader app_header = VcaAppProtHeader(m_frame_id, pkt_id_in_frame);
+                app_header.SetDlRedcFactor(m_target_dl_bitrate_redc_factor);
 
                 uint32_t packet_size = std::min(payloadSize, frame_size - data_ptr);
 
@@ -457,6 +458,8 @@ namespace ns3
 
                     NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " SetDlParam= " << dl_lambda);
                 }
+
+                m_target_dl_bitrate_redc_factor = 1000; // divided by 10000. to be the reduced factor
             }
         }
     }

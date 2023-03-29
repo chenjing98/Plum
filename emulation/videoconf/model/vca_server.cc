@@ -305,7 +305,8 @@ namespace ns3
         packet->RemoveHeader(app_header);
 
         uint16_t frame_id = app_header.GetFrameId();
-        uint32_t pkt_id = app_header.GetPacketId();
+        uint16_t pkt_id = app_header.GetPacketId();
+        uint32_t dl_redc_factor = app_header.GetDlRedcFactor();
 
         NS_LOG_DEBUG("[VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize() << " DlRedcFactor= " << dl_redc_factor);
 
