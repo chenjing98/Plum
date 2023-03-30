@@ -320,6 +320,7 @@ namespace ns3
                 app_header.SetDlRedcFactor(m_target_dl_bitrate_redc_factor);
 
                 uint32_t packet_size = std::min(payloadSize, frame_size - data_ptr);
+                app_header.SetPayloadSize(packet_size);
 
                 Ptr<Packet> packet = Create<Packet>(packet_size);
                 packet->AddHeader(app_header);

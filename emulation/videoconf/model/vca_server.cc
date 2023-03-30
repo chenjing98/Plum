@@ -22,7 +22,8 @@ namespace ns3
           m_peer_list(),
           m_send_buffer_list(),
           m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")),
-          m_fps(20){};
+          m_fps(20),
+          m_status(0){};
 
     VcaServer::~VcaServer(){};
 
@@ -174,22 +175,65 @@ namespace ns3
     VcaServer::HandleRead(Ptr<Socket> socket)
     {
         NS_LOG_LOGIC("[VcaServer] HandleRead");
-        Ptr<Packet> packet;
-        Address from;
-        while ((packet = socket->RecvFrom(from)))
+        Ptr<Packet> packet, payload;
+        Address from;        
+        while (true)
         {
-            if (packet->GetSize() == 0)
-            { // EOF
-                break;
+            /*before:
+            packet = socket->RecvFrom(from);
+            if(packet == NULL) break;
+            if(packet->GetSize() == 0) break;
+            VcaAppProtHeader app_header = VcaAppProtHeader();
+            */
+//            /*
+            if(m_status == 0){
+                packet = socket->Recv(12,false);
+                if(packet == NULL) return;
+                if(packet->GetSize() == 0) return;
+                m_half_header = packet;
+                if(m_half_header->GetSize() < 12) m_status = 1;//continue to read header;
+                if(m_half_header->GetSize() == 12) m_status = 2;//start to read payload;
+            }
+            if(m_status == 1){
+                packet = socket->Recv(12-m_half_header->GetSize(),false);
+                if(packet == NULL) return;
+                if(packet->GetSize() == 0) return;
+                m_half_header->AddAtEnd(packet);
+                if(m_half_header->GetSize() == 12) m_status = 2;//start to read payload;
+            }
+            if(m_status == 2){
+                app_header = VcaAppProtHeader();
+                m_half_header->RemoveHeader(app_header);
+                m_payload_size = app_header.GetPayloadSize();
+
+                packet = socket->Recv(m_payload_size,false);
+                if(packet == NULL) return;
+                if(packet->GetSize() == 0) return;
+                m_half_payload = packet;
+                if(m_half_payload->GetSize() < m_payload_size) m_status = 3;//continue to read payload;
+                if(m_half_payload->GetSize() == m_payload_size) m_status = 0;//READY TO SEND;
+            }
+            if(m_status == 3){
+                packet = socket->Recv(m_payload_size-m_half_payload->GetSize(),false);
+                if(packet == NULL) return;
+                if(packet->GetSize() == 0) return;
+                m_half_payload->AddAtEnd(packet);
+                if(m_half_payload->GetSize() == m_payload_size) m_status = 0;//READY TO SEND;
             }
 
-            Address peerAddress;
-            socket->GetPeerName(peerAddress);
-            uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+            //Send packets only when header+payload is ready
+            //status = 0  (1\ all empty then return    2\ all ready)
+            if(m_status == 0){
+                Address peerAddress;
+                socket->GetPeerName(peerAddress);
+                uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+
+                ReceiveData(packet, socket_id);
+            }
+            /*
             if (InetSocketAddress::IsMatchingType(from))
             {
                 NS_LOG_LOGIC("[VcaServer][ReceivedPkt] Time= " << Simulator::Now().GetSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
-
                 ReceiveData(packet, socket_id);
             }
             else if (Inet6SocketAddress::IsMatchingType(from))
@@ -197,6 +241,7 @@ namespace ns3
                 NS_LOG_LOGIC("[VcaServer][ReceivedPkt] Time= " << Simulator::Now().GetSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << Inet6SocketAddress::ConvertFrom(from).GetIpv6() << " SrcPort= " << Inet6SocketAddress::ConvertFrom(from).GetPort());
                 ReceiveData(packet, socket_id);
             }
+            */
         }
     };
 
@@ -301,14 +346,14 @@ namespace ns3
     {
         NS_LOG_DEBUG("[VcaServer] B4RmHeader PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id);
 
-        VcaAppProtHeader app_header = VcaAppProtHeader();
-        packet->RemoveHeader(app_header);
+//        VcaAppProtHeader app_header = VcaAppProtHeader();
+//        packet->RemoveHeader(app_header);
 
         uint16_t frame_id = app_header.GetFrameId();
         uint16_t pkt_id = app_header.GetPacketId();
         uint32_t dl_redc_factor = app_header.GetDlRedcFactor();
 
-        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize() << " DlRedcFactor= " << dl_redc_factor);
+        NS_LOG_UNCOND("ICARE! [VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize() << " DlRedcFactor= " << dl_redc_factor);
 
         if (frame_id == m_prev_frame_id[socket_id])
         {
