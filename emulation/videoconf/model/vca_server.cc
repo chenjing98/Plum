@@ -307,8 +307,9 @@ namespace ns3
         uint16_t frame_id = app_header.GetFrameId();
         uint16_t pkt_id = app_header.GetPacketId();
         uint32_t dl_redc_factor = app_header.GetDlRedcFactor();
+        uint32_t payload_size = app_header.GetPayloadSize();
 
-        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize() << " DlRedcFactor= " << dl_redc_factor);
+        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize() << " DlRedcFactor= " << dl_redc_factor << " PayloadSize= " << payload_size);
 
         if (frame_id == m_prev_frame_id[socket_id])
         {
