@@ -28,7 +28,9 @@ namespace ns3
           m_enc_event(),
           m_total_packet_bit(0),
           m_send_buffer_list(),
-          m_is_my_wifi_access_bottleneck(false){};
+          m_is_my_wifi_access_bottleneck(false),
+          m_policy(VANILLA),
+          m_target_dl_bitrate_redc_factor(1e4){};
 
     VcaClient::~VcaClient(){};
 
