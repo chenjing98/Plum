@@ -399,7 +399,7 @@ int main(int argc, char *argv[])
       }
     }
 
-    int tracing = 0;
+    int tracing = 1;
     if (tracing)
     {
       phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);

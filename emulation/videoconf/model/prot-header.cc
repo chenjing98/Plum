@@ -38,6 +38,7 @@ namespace ns3
         start.WriteHtonU16(m_frame_id);
         start.WriteHtonU16(m_packet_id);
         start.WriteHtonU32(m_dl_bitrate_reduce_factor);
+        start.WriteHtonU32(m_payload_size);
     };
 
     uint32_t
@@ -46,6 +47,7 @@ namespace ns3
         m_frame_id = start.ReadNtohU16();
         m_packet_id = start.ReadNtohU16();
         m_dl_bitrate_reduce_factor = start.ReadNtohU32();
+        m_payload_size = start.ReadNtohU32();
         return GetSerializedSize();
     };
 
@@ -58,7 +60,7 @@ namespace ns3
     void
     VcaAppProtHeader::Print(std::ostream &os) const
     {
-        os << "FrameId= " << m_frame_id << " PacketId= " << m_packet_id << " TargetFrameSize= " << m_dl_bitrate_reduce_factor;
+        os << "FrameId= " << m_frame_id << " PacketId= " << m_packet_id << " TargetFrameSize= " << m_dl_bitrate_reduce_factor << " PayloadSize= " << m_payload_size;
     };
 
     void

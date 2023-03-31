@@ -175,17 +175,11 @@ namespace ns3
     VcaServer::HandleRead(Ptr<Socket> socket)
     {
         NS_LOG_LOGIC("[VcaServer] HandleRead");
-        Ptr<Packet> packet, payload;
-        Address from;        
+        Ptr<Packet> packet;
         while (true)
         {
-            /*before:
-            packet = socket->RecvFrom(from);
-            if(packet == NULL) break;
-            if(packet->GetSize() == 0) break;
-            VcaAppProtHeader app_header = VcaAppProtHeader();
-            */
-//            /*
+            NS_LOG_UNCOND("[Server] status = "<<(uint32_t)m_status);
+            //start to read header
             if(m_status == 0){
                 packet = socket->Recv(12,false);
                 if(packet == NULL) return;
@@ -194,6 +188,7 @@ namespace ns3
                 if(m_half_header->GetSize() < 12) m_status = 1;//continue to read header;
                 if(m_half_header->GetSize() == 12) m_status = 2;//start to read payload;
             }
+            //continue to read header
             if(m_status == 1){
                 packet = socket->Recv(12-m_half_header->GetSize(),false);
                 if(packet == NULL) return;
@@ -201,10 +196,12 @@ namespace ns3
                 m_half_header->AddAtEnd(packet);
                 if(m_half_header->GetSize() == 12) m_status = 2;//start to read payload;
             }
+            //start to read payload
             if(m_status == 2){
                 app_header = VcaAppProtHeader();
                 m_half_header->RemoveHeader(app_header);
                 m_payload_size = app_header.GetPayloadSize();
+                NS_LOG_UNCOND("[Server] payloadsize = "<<m_payload_size);
 
                 packet = socket->Recv(m_payload_size,false);
                 if(packet == NULL) return;
@@ -213,6 +210,7 @@ namespace ns3
                 if(m_half_payload->GetSize() < m_payload_size) m_status = 3;//continue to read payload;
                 if(m_half_payload->GetSize() == m_payload_size) m_status = 0;//READY TO SEND;
             }
+            //continue to read payload
             if(m_status == 3){
                 packet = socket->Recv(m_payload_size-m_half_payload->GetSize(),false);
                 if(packet == NULL) return;
@@ -352,9 +350,10 @@ namespace ns3
         uint16_t frame_id = app_header.GetFrameId();
         uint16_t pkt_id = app_header.GetPacketId();
         uint32_t dl_redc_factor = app_header.GetDlRedcFactor();
+        uint32_t payload_size = app_header.GetPayloadSize();
 
-        NS_LOG_UNCOND("ICARE! [VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize() << " DlRedcFactor= " << dl_redc_factor);
-
+        NS_LOG_DEBUG("ICARE_S [VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize() << " DlRedcFactor= " << dl_redc_factor << " PayloadSize= " << payload_size);
+        
         if (frame_id == m_prev_frame_id[socket_id])
         {
             // packets of the same frame

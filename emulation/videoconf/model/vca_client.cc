@@ -28,7 +28,9 @@ namespace ns3
           m_enc_event(),
           m_total_packet_bit(0),
           m_send_buffer_list(),
-          m_is_my_wifi_access_bottleneck(false){};
+          m_is_my_wifi_access_bottleneck(false),
+          m_policy(VANILLA),
+          m_target_dl_bitrate_redc_factor(1e4){};
 
     VcaClient::~VcaClient(){};
 
@@ -318,16 +320,16 @@ namespace ns3
             {
                 VcaAppProtHeader app_header = VcaAppProtHeader(m_frame_id, pkt_id_in_frame);
                 app_header.SetDlRedcFactor(m_target_dl_bitrate_redc_factor);
+                app_header.SetPayloadSize(payloadSize);
 
                 uint32_t packet_size = std::min(payloadSize, frame_size - data_ptr);
-                app_header.SetPayloadSize(packet_size);
 
                 Ptr<Packet> packet = Create<Packet>(packet_size);
                 packet->AddHeader(app_header);
 
                 m_send_buffer_list[i].push_back(packet);
 
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_list[i].size() << " PktSize= " << packet->GetSize() << " FrameId= " << m_frame_id << " PktId= " << pkt_id_in_frame);
+                NS_LOG_LOGIC("ICARE_C [VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_list[i].size() << " PktSize= " << packet->GetSize() <<" packet_size= " << packet_size << " FrameId= " << m_frame_id << " PktId= " << pkt_id_in_frame);
 
                 pkt_id_in_frame++;
             }
