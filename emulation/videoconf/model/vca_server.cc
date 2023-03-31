@@ -23,7 +23,8 @@ namespace ns3
           m_send_buffer_list(),
           m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")),
           m_fps(20),
-          m_status(0){};
+          m_status(0),
+          m_set_header(0){};
 
     VcaServer::~VcaServer(){};
 
@@ -176,57 +177,89 @@ namespace ns3
     {
         NS_LOG_LOGIC("[VcaServer] HandleRead");
         Ptr<Packet> packet;
+        Address peerAddress;
+        socket->GetPeerName(peerAddress);
+        uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+
         while (true)
         {
-            NS_LOG_UNCOND("[Server] status = "<<(uint32_t)m_status);
+            NS_LOG_UNCOND("[Server] status = "<<(uint32_t)m_status[socket_id]);
             //start to read header
-            if(m_status == 0){
+            if(m_status[socket_id] == 0){
+                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
                 packet = socket->Recv(12,false);
                 if(packet == NULL) return;
                 if(packet->GetSize() == 0) return;
-                m_half_header = packet;
-                if(m_half_header->GetSize() < 12) m_status = 1;//continue to read header;
-                if(m_half_header->GetSize() == 12) m_status = 2;//start to read payload;
+                m_half_header[socket_id] = packet;
+                if(m_half_header[socket_id]->GetSize() < 12) m_status[socket_id] = 1;//continue to read header;
+                if(m_half_header[socket_id]->GetSize() == 12) m_status[socket_id] = 2;//start to read payload;
             }
             //continue to read header
-            if(m_status == 1){
-                packet = socket->Recv(12-m_half_header->GetSize(),false);
+            if(m_status[socket_id] == 1){
+                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
+                packet = socket->Recv(12-m_half_header[socket_id]->GetSize(),false);
                 if(packet == NULL) return;
                 if(packet->GetSize() == 0) return;
-                m_half_header->AddAtEnd(packet);
-                if(m_half_header->GetSize() == 12) m_status = 2;//start to read payload;
+                m_half_header[socket_id]->AddAtEnd(packet);
+                if(m_half_header[socket_id]->GetSize() == 12) m_status[socket_id] = 2;//start to read payload;
             }
             //start to read payload
-            if(m_status == 2){
-                app_header = VcaAppProtHeader();
-                m_half_header->RemoveHeader(app_header);
-                m_payload_size = app_header.GetPayloadSize();
-                NS_LOG_UNCOND("[Server] payloadsize = "<<m_payload_size);
+            if(m_status[socket_id] == 2){
+                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
+                if(m_set_header[socket_id] == 0){
+                    app_header[socket_id] = VcaAppProtHeader();
+                    m_half_header[socket_id]->RemoveHeader(app_header[socket_id]);
+                    m_payload_size[socket_id] = app_header[socket_id].GetPayloadSize();
 
-                packet = socket->Recv(m_payload_size,false);
+                    
+                    uint16_t frame_id = app_header[socket_id].GetFrameId();
+                    uint16_t pkt_id = app_header[socket_id].GetPacketId();
+                    uint32_t dl_redc_factor = app_header[socket_id].GetDlRedcFactor();
+
+                    NS_LOG_UNCOND("[Server] ("<<frame_id<<","<<pkt_id<<") dlfac="<<dl_redc_factor<<"  payloadsize = "<<m_payload_size[socket_id]);
+                    m_set_header[socket_id] = 1;
+                    if(m_payload_size[socket_id] == 0) {//read again
+                        m_status[socket_id] = 0;
+                        m_set_header[socket_id] = 0;
+                        return;
+                    }
+                }
+                packet = socket->Recv(m_payload_size[socket_id],false);
                 if(packet == NULL) return;
                 if(packet->GetSize() == 0) return;
-                m_half_payload = packet;
-                if(m_half_payload->GetSize() < m_payload_size) m_status = 3;//continue to read payload;
-                if(m_half_payload->GetSize() == m_payload_size) m_status = 0;//READY TO SEND;
+                m_half_payload[socket_id] = packet;
+                if(m_half_payload[socket_id]->GetSize() < m_payload_size[socket_id]) m_status[socket_id] = 3;//continue to read payload;
+                if(m_half_payload[socket_id]->GetSize() == m_payload_size[socket_id]) m_status[socket_id] = 4;//READY TO SEND;
+                NS_LOG_UNCOND("[Server] m_half_payloadsize = "<<m_half_payload[socket_id]->GetSize());
             }
             //continue to read payload
-            if(m_status == 3){
-                packet = socket->Recv(m_payload_size-m_half_payload->GetSize(),false);
+            if(m_status[socket_id] == 3){
+                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
+                packet = socket->Recv(m_payload_size[socket_id]-m_half_payload[socket_id]->GetSize(),false);
                 if(packet == NULL) return;
                 if(packet->GetSize() == 0) return;
-                m_half_payload->AddAtEnd(packet);
-                if(m_half_payload->GetSize() == m_payload_size) m_status = 0;//READY TO SEND;
+                m_half_payload[socket_id]->AddAtEnd(packet);
+                if(m_half_payload[socket_id]->GetSize() == m_payload_size[socket_id]) m_status[socket_id] = 4;//READY TO SEND;
+                NS_LOG_UNCOND("[Server] m_half_payloadsize = "<<m_half_payload[socket_id]->GetSize());
             }
 
             //Send packets only when header+payload is ready
             //status = 0  (1\ all empty then return    2\ all ready)
-            if(m_status == 0){
-                Address peerAddress;
-                socket->GetPeerName(peerAddress);
-                uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+            if(m_status[socket_id] == 4){
+                NS_LOG_UNCOND("[Server] SEND!! status = "<<(uint32_t)m_status[socket_id]);
+                
+                uint8_t* buffer = new uint8_t[m_half_payload[socket_id]->GetSize()]; // 创建一个buffer，用于存储packet元素
+                m_half_payload[socket_id]->CopyData(buffer, m_half_payload[socket_id]->GetSize()); // 将packet元素复制到buffer中
+                for (int i = 0; i < m_half_payload[socket_id]->GetSize(); i++){
+                    uint8_t element = buffer[i]; // 获取第i个元素
+                    if(element != 0)
+                        NS_LOG_UNCOND("i = " <<i<<"  ele = "<<(uint32_t)element);
+                }
+                
 
-                ReceiveData(packet, socket_id);
+                ReceiveData(m_half_payload[socket_id], socket_id);
+                m_status[socket_id] = 0;
+                m_set_header[socket_id] = 0;
             }
             /*
             if (InetSocketAddress::IsMatchingType(from))
@@ -280,6 +313,13 @@ namespace ns3
         m_target_frame_size.push_back(1e7 / 8 / 20);
         m_frame_size_forwarded.push_back(0);
         m_prev_frame_id.push_back(0);
+
+        m_half_header.push_back(nullptr);
+        m_half_payload.push_back(nullptr);
+        m_set_header.push_back(0);
+        m_status.push_back(0);
+        m_payload_size.push_back(0);
+        app_header.push_back(VcaAppProtHeader());
     };
 
     void
@@ -347,10 +387,10 @@ namespace ns3
 //        VcaAppProtHeader app_header = VcaAppProtHeader();
 //        packet->RemoveHeader(app_header);
 
-        uint16_t frame_id = app_header.GetFrameId();
-        uint16_t pkt_id = app_header.GetPacketId();
-        uint32_t dl_redc_factor = app_header.GetDlRedcFactor();
-        uint32_t payload_size = app_header.GetPayloadSize();
+        uint16_t frame_id = app_header[socket_id].GetFrameId();
+        uint16_t pkt_id = app_header[socket_id].GetPacketId();
+        uint32_t dl_redc_factor = app_header[socket_id].GetDlRedcFactor();
+        uint32_t payload_size = app_header[socket_id].GetPayloadSize();
 
         NS_LOG_DEBUG("ICARE_S [VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize() << " DlRedcFactor= " << dl_redc_factor << " PayloadSize= " << payload_size);
         

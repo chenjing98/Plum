@@ -320,9 +320,9 @@ namespace ns3
             {
                 VcaAppProtHeader app_header = VcaAppProtHeader(m_frame_id, pkt_id_in_frame);
                 app_header.SetDlRedcFactor(m_target_dl_bitrate_redc_factor);
-                app_header.SetPayloadSize(payloadSize);
 
                 uint32_t packet_size = std::min(payloadSize, frame_size - data_ptr);
+                app_header.SetPayloadSize(packet_size);
 
                 Ptr<Packet> packet = Create<Packet>(packet_size);
                 packet->AddHeader(app_header);
