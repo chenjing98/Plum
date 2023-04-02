@@ -107,6 +107,7 @@ namespace ns3
 
         uint8_t m_fps;
         EventId m_update_rate_event;
+        std::vector<double> m_dl_bitrate_reduce_factor;
     }; // class VcaServer
 
 }; // namespace ns3

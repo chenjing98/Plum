@@ -237,6 +237,8 @@ namespace ns3
         m_target_frame_size.push_back(1e7 / 8 / 20);
         m_frame_size_forwarded.push_back(0);
         m_prev_frame_id.push_back(0);
+        
+        m_dl_bitrate_reduce_factor.push_back(1.0);
     };
 
     void
@@ -314,7 +316,7 @@ namespace ns3
         if (frame_id == m_prev_frame_id[socket_id])
         {
             // packets of the same frame
-            if (m_frame_size_forwarded[socket_id] < m_target_frame_size[socket_id])
+            if (m_frame_size_forwarded[socket_id] < m_target_frame_size[socket_id] * m_dl_bitrate_reduce_factor[socket_id])
             {
                 // have not reach the target transcode bitrate, forward the packet
                 m_frame_size_forwarded[socket_id] += packet->GetSize();
