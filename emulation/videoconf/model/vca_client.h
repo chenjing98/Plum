@@ -105,6 +105,8 @@ namespace ns3
 
         uint32_t m_total_packet_bit;
         std::vector<uint32_t> m_min_packet_bit;
+        std::vector<uint32_t> m_send_persec;
+        std::vector<uint32_t> m_recv_persec;
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_list;
 

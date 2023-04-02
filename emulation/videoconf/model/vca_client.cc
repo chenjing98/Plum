@@ -225,6 +225,9 @@ namespace ns3
             if (packet->GetSize() * 8 < m_min_packet_bit[now_second] || m_min_packet_bit[now_second] == 0)
                 m_min_packet_bit[now_second] = packet->GetSize() * 8;
 
+            while(m_recv_persec.size() < now_second+1) m_recv_persec.push_back(0);
+            m_recv_persec[now_second] = m_recv_persec[now_second]+packet->GetSize();
+
             if (InetSocketAddress::IsMatchingType(from))
             {
                 NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
@@ -273,6 +276,11 @@ namespace ns3
         if (!m_send_buffer_list[socket_id_up].empty())
         {
             Ptr<Packet> packet = m_send_buffer_list[socket_id_up].front();
+
+            uint32_t now_second = floor(Simulator::Now().GetSeconds());
+            while(m_send_persec.size() < now_second+1) m_send_persec.push_back(0);
+            m_send_persec[now_second] += packet->GetSize();
+            
             int actual = socket->Send(packet);
             if (actual > 0)
             {
@@ -403,6 +411,13 @@ namespace ns3
         // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [95per] = " << m_min_packet_bit[(int)(m_length * 0.95)]);
 
         NS_LOG_ERROR("[VcaClient][Statistic][Node" << m_node_id << "] TransientRate Median= " << m_min_packet_bit[m_length / 2] << " Avg= " << m_sum_minpac / m_length << " 95ile= " << m_min_packet_bit[(int)(m_length * 0.95)]);
+
+        uint32_t recv_size = m_recv_persec.size();
+        for(uint32_t i = 0; i < recv_size; i++)
+            NS_LOG_DEBUG("[VcaClient][Statistic][Node" << m_node_id << "] Recv["<<i<<"]="<<m_recv_persec[i]);        
+        uint32_t send_size = m_send_persec.size();
+        for(uint32_t i = 0; i < send_size; i++)
+            NS_LOG_DEBUG("[VcaClient][Statistic][Node" << m_node_id << "] Send["<<i<<"]="<<m_send_persec[i]);            
     };
 
     float
