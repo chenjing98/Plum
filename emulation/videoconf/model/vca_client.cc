@@ -155,11 +155,7 @@ namespace ns3
 
     void VcaClient::StopApplication()
     {
-        if (m_enc_event.IsRunning())
-        {
-            Simulator::Cancel(m_enc_event);
-        }
-
+        StopEncodeFrame();
         while (!m_socket_list_ul.empty())
         { // these are connected sockets, close them
             Ptr<Socket> connectedSocket = m_socket_list_ul.front();
@@ -377,8 +373,19 @@ namespace ns3
     };
 
     void
+    VcaClient::StopEncodeFrame()
+    {
+        if (m_enc_event.IsRunning())
+        {
+            Simulator::Cancel(m_enc_event);
+        }
+    };
+
+    void
     VcaClient::OutputStatistics()
     {
+        NS_LOG_ERROR(" ============= Output Statistics =============");
+        
         // Calculate average_throughput
         double average_throughput;
         average_throughput = 1.0 * m_total_packet_bit / Simulator::Now().GetSeconds();
@@ -416,7 +423,7 @@ namespace ns3
         else
         {
             NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DecideDlParam= 1");
-            return 1;
+            return 1.0;
         }
     };
 

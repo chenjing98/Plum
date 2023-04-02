@@ -372,7 +372,7 @@ int main(int argc, char *argv[])
     vcaServerApp->SetNodeId(sfuCenter.Get(0)->GetId());
     sfuCenter.Get(0)->AddApplication(vcaServerApp);
     vcaServerApp->SetStartTime(Seconds(0.0));
-    vcaServerApp->SetStopTime(Seconds(simulationDuration));
+    vcaServerApp->SetStopTime(Seconds(simulationDuration + 2));
 
     for (uint32_t id = 0; id < nClient; id++)
     {
@@ -394,8 +394,9 @@ int main(int argc, char *argv[])
         vcaClientApp->SetMaxBitrate(maxBitrate);
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
 
+        Simulator::Schedule(Seconds(simulationDuration), &VcaClient::StopEncodeFrame, vcaClientApp);
         vcaClientApp->SetStartTime(Seconds(0.0));
-        vcaClientApp->SetStopTime(Seconds(simulationDuration));
+        vcaClientApp->SetStopTime(Seconds(simulationDuration + 4));
       }
     }
 
@@ -414,7 +415,7 @@ int main(int argc, char *argv[])
 
   Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-  Simulator::Stop(Seconds(simulationDuration + 1));
+  Simulator::Stop(Seconds(simulationDuration + 5));
   Simulator::Run();
   flowmonHelper.SerializeToXmlFile("test-emulation.flowmon", true, true);
   Simulator::Destroy();

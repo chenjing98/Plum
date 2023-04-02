@@ -46,6 +46,8 @@ namespace ns3
 
         void SetPolicy(POLICY policy);
 
+        void StopEncodeFrame();
+
         static const uint32_t payloadSize = 524; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
 
     protected:
