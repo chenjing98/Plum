@@ -281,28 +281,7 @@ namespace ns3
     void
     VcaServer::ReceiveData(Ptr<Packet> packet, uint8_t socket_id)
     {
-        for (auto socket : m_socket_list_dl)
-        {
-            Address peerAddress;
-            socket->GetPeerName(peerAddress);
-            uint8_t other_socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
-            if (other_socket_id == socket_id)
-                continue;
-
-            Ptr<Packet> packet_dl = TranscodeFrame(socket_id, packet);
-
-            if (packet_dl == nullptr)
-                continue;
-
-            m_send_buffer_list[other_socket_id].push_back(packet_dl);
-        }
-    };
-
-    Ptr<Packet>
-    VcaServer::TranscodeFrame(uint8_t socket_id, Ptr<Packet> packet)
-    {
-        NS_LOG_DEBUG("[VcaServer] B4RmHeader PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id);
-
+        // Parsing the packet header
         VcaAppProtHeader app_header = VcaAppProtHeader();
         packet->RemoveHeader(app_header);
 
@@ -313,6 +292,30 @@ namespace ns3
 
         NS_LOG_DEBUG("[VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize() << " DlRedcFactor= " << dl_redc_factor << " PayloadSize= " << payload_size);
 
+        m_dl_bitrate_reduce_factor[socket_id] = (double)dl_redc_factor / 10000.0;
+
+        for (auto socket : m_socket_list_dl)
+        {
+            Address peerAddress;
+            socket->GetPeerName(peerAddress);
+            uint8_t other_socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+            if (other_socket_id == socket_id)
+                continue;
+
+            Ptr<Packet> packet_dl = TranscodeFrame(socket_id, packet, frame_id);
+
+            if (packet_dl == nullptr)
+                continue;
+
+            m_send_buffer_list[other_socket_id].push_back(packet_dl);
+        }
+    };
+
+    Ptr<Packet>
+    VcaServer::TranscodeFrame(uint8_t socket_id, Ptr<Packet> packet, uint16_t frame_id)
+    {
+        NS_LOG_DEBUG("[VcaServer] B4RmHeader PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id);
+
         if (frame_id == m_prev_frame_id[socket_id])
         {
             // packets of the same frame
@@ -320,7 +323,9 @@ namespace ns3
             {
                 // have not reach the target transcode bitrate, forward the packet
                 m_frame_size_forwarded[socket_id] += packet->GetSize();
-                return packet;
+                
+                Ptr<Packet> packet_to_forward = Copy(packet);
+                return packet_to_forward;
             }
             else
             {
@@ -333,7 +338,9 @@ namespace ns3
             // packets of a new frame
             m_prev_frame_id[socket_id] = frame_id;
             m_frame_size_forwarded[socket_id] = packet->GetSize();
-            return packet;
+
+            Ptr<Packet> packet_to_forward = Copy(packet);
+            return packet_to_forward;
         }
 
         // packets of a previous frame, drop the packet
