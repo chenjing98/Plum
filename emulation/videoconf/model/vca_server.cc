@@ -123,7 +123,7 @@ namespace ns3
     void
     VcaServer::UpdateRate()
     {
-        // Update m_target_frame_size in a periodically invoked function
+        // Update m_cc_target_frame_size in a periodically invoked function
         for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
         {
             Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
@@ -134,12 +134,12 @@ namespace ns3
             if (ul_socket->GetTcb()->m_pacing)
             {
                 uint64_t bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
-                m_target_frame_size[socket_id] = bitrate / 8 / m_fps;
+                m_cc_target_frame_size[socket_id] = bitrate / 8 / m_fps;
             }
             else
             {
                 uint64_t bitrate = ul_socket->GetTcb()->m_cWnd * 8 / 40;
-                m_target_frame_size[socket_id] = bitrate / 8 / m_fps;
+                m_cc_target_frame_size[socket_id] = bitrate / 8 / m_fps;
             }
         }
 
@@ -234,7 +234,7 @@ namespace ns3
 
         m_send_buffer_list.push_back(std::deque<Ptr<Packet>>{});
 
-        m_target_frame_size.push_back(1e7 / 8 / 20);
+        m_cc_target_frame_size.push_back(1e7 / 8 / 20);
         m_frame_size_forwarded.push_back(0);
         m_prev_frame_id.push_back(0);
         
@@ -290,7 +290,7 @@ namespace ns3
         uint32_t dl_redc_factor = app_header.GetDlRedcFactor();
         uint32_t payload_size = app_header.GetPayloadSize();
 
-        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] FrameId= " << frame_id << " PktId= " << pkt_id << " SocketId= " << (uint16_t)socket_id << " PktSize= " << packet->GetSize() << " DlRedcFactor= " << dl_redc_factor << " PayloadSize= " << payload_size);
+        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000.);
 
         m_dl_bitrate_reduce_factor[socket_id] = (double)dl_redc_factor / 10000.0;
 
@@ -314,7 +314,7 @@ namespace ns3
     Ptr<Packet>
     VcaServer::TranscodeFrame(uint8_t socket_id, Ptr<Packet> packet, uint16_t frame_id)
     {
-        NS_LOG_DEBUG("[VcaServer] B4RmHeader PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id);
+        NS_LOG_LOGIC("[VcaServer] B4RmHeader PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id);
 
         if (frame_id == m_prev_frame_id[socket_id])
         {
@@ -335,7 +335,7 @@ namespace ns3
         }
         else if (frame_id > m_prev_frame_id[socket_id])
         {
-            // packets of a new frame
+            // packets of a new frame, simply forward it
             m_prev_frame_id[socket_id] = frame_id;
             m_frame_size_forwarded[socket_id] = packet->GetSize();
 

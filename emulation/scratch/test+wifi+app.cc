@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
 
   else if (mode == "sfu")
   {
-    NS_LOG_ERROR("[Scratch] SFU mode emulation started.");
+    NS_LOG_DEBUG("[Scratch] SFU mode emulation started.");
     // 创建节点
     // nClient of VcaClient, each in a different BSS
     NodeContainer p2pNodes, sfuCenter, wifiStaNodes[nClient], wifiApNode[nClient];
@@ -380,7 +380,7 @@ int main(int argc, char *argv[])
       for (uint8_t i = 0; i < nWifi[id]; i++)
       {
         Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
-        NS_LOG_UNCOND("SFU VCA NodeId " << wifiStaNodes[id].Get(i)->GetId() << " " << sfuCenter.Get(0)->GetId());
+        NS_LOG_DEBUG("SFU VCA NodeId " << wifiStaNodes[id].Get(i)->GetId() << " " << sfuCenter.Get(0)->GetId());
         Ptr<VcaClient> vcaClientApp = CreateObject<VcaClient>();
         vcaClientApp->SetFps(30);
         vcaClientApp->SetBitrate(1000);

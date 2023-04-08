@@ -94,7 +94,7 @@ namespace ns3
         uint8_t m_socket_id;
         std::vector<Ipv4Address> m_peer_list;
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_list;
-        std::vector<uint32_t> m_target_frame_size;
+        std::vector<uint32_t> m_cc_target_frame_size;
         std::vector<uint32_t> m_frame_size_forwarded;
         std::vector<uint16_t> m_prev_frame_id;
 

@@ -20,6 +20,12 @@ enum POLICY
     YONGYULE
 };
 
+enum YONGYULE_REALIZATION
+{
+    YONGYULE_RWND,
+    YONGYULE_APPRATE
+};
+
 namespace ns3
 {
 
@@ -113,6 +119,8 @@ namespace ns3
         bool m_is_my_wifi_access_bottleneck;
 
         POLICY m_policy;
+
+        YONGYULE_REALIZATION m_yongyule_realization;
 
         uint32_t m_target_dl_bitrate_redc_factor;
 

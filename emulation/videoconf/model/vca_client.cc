@@ -30,6 +30,7 @@ namespace ns3
           m_send_buffer_list(),
           m_is_my_wifi_access_bottleneck(false),
           m_policy(VANILLA),
+          m_yongyule_realization(YONGYULE_REALIZATION::YONGYULE_APPRATE),
           m_target_dl_bitrate_redc_factor(1e4){};
 
     VcaClient::~VcaClient(){};
@@ -272,13 +273,13 @@ namespace ns3
             int actual = socket->Send(packet);
             if (actual > 0)
             {
-                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][Send][Sock" << (uint16_t)socket_id_up << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << m_send_buffer_list[socket_id_up].size() - 1 << " DstIp= " << m_peer_list[socket_id_up]);
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][Send][Sock" << (uint16_t)socket_id_up << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << m_send_buffer_list[socket_id_up].size() - 1 << " DstIp= " << m_peer_list[socket_id_up]);
 
                 m_send_buffer_list[socket_id_up].pop_front();
             }
             else
             {
-                NS_LOG_DEBUG("[VcaClient][Send][Node" << m_node_id << "][Sock" << (uint16_t)socket_id_up << "] SendData failed");
+                NS_LOG_LOGIC("[VcaClient][Send][Node" << m_node_id << "][Sock" << (uint16_t)socket_id_up << "] SendData failed");
             }
         }
     };
@@ -351,7 +352,7 @@ namespace ns3
             {
                 uint64_t bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
                 m_cc_rate.push_back(bitrate);
-                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate FlowBitrate= " << bitrate / 1000);
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate FlowBitrate= " << bitrate / 1000);
             }
             else
             {
@@ -359,9 +360,9 @@ namespace ns3
                 uint32_t cwnd = ul_socket->GetTcb()->m_cWnd.Get();
                 uint32_t rwnd = ul_socket->GetRwnd();
                 uint64_t bitrate = std::min(cwnd, rwnd) * 8 / 40; // 40ms is the minRTT, if link dalay is changed, this should be changed accordingly
-                bitrate = (uint64_t)(1.1 * (float)bitrate);
+                bitrate = (uint64_t)(1.1 * (double_t)bitrate);
                 m_cc_rate.push_back(bitrate);
-                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate FlowBitrate= " << bitrate / 1000 << " cwnd= " << cwnd << " rwnd= " << rwnd);
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate FlowBitrate= " << bitrate / 1000 << " cwnd= " << cwnd << " rwnd= " << rwnd);
             }
         }
 
@@ -384,12 +385,13 @@ namespace ns3
     void
     VcaClient::OutputStatistics()
     {
-        NS_LOG_ERROR(" ============= Output Statistics =============");
-        
+        // NS_LOG_ERROR(" ============= Output Statistics =============");
+
         // Calculate average_throughput
         double average_throughput;
         average_throughput = 1.0 * m_total_packet_bit / Simulator::Now().GetSeconds();
-        NS_LOG_ERROR("[VcaClient][Statistic][Node" << m_node_id << "] TotalBit= " << m_total_packet_bit << " Throughput= " << average_throughput);
+
+        NS_LOG_ERROR("[VcaClient][Result] Throughput= " << average_throughput << " NodeId= " << m_node_id);
 
         // Calculate min packet size (per second)
         int m_length = m_min_packet_bit.size();
@@ -409,22 +411,7 @@ namespace ns3
         // // 95per
         // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [95per] = " << m_min_packet_bit[(int)(m_length * 0.95)]);
 
-        NS_LOG_ERROR("[VcaClient][Statistic][Node" << m_node_id << "] TransientRate Median= " << m_min_packet_bit[m_length / 2] << " Avg= " << m_sum_minpac / m_length << " 95ile= " << m_min_packet_bit[(int)(m_length * 0.95)]);
-    };
-
-    float
-    VcaClient::DecideDlParam()
-    {
-        if (m_is_my_wifi_access_bottleneck == true)
-        {
-            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DecideDlParam= 0.01");
-            return 0.01;
-        }
-        else
-        {
-            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DecideDlParam= 1");
-            return 1.0;
-        }
+        // NS_LOG_ERROR("[VcaClient][Result][Node" << m_node_id << "] TransientRate Median= " << m_min_packet_bit[m_length / 2] << " Avg= " << m_sum_minpac / m_length << " 95ile= " << m_min_packet_bit[(int)(m_length * 0.95)]);
     };
 
     void
