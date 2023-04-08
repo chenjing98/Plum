@@ -319,7 +319,9 @@ namespace ns3
                 app_header.SetDlRedcFactor(m_target_dl_bitrate_redc_factor);
                 app_header.SetPayloadSize(payloadSize);
 
-                uint32_t packet_size = std::min(payloadSize, frame_size - data_ptr);
+                // uint32_t packet_size = std::min(payloadSize, frame_size - data_ptr);
+
+                uint32_t packet_size = payloadSize;
 
                 Ptr<Packet> packet = Create<Packet>(packet_size);
                 packet->AddHeader(app_header);
@@ -333,7 +335,7 @@ namespace ns3
         }
 
         m_frame_id++;
-        DecideBottleneckPosition();
+        AdjustBw();
 
         // Schedule next frame's encoding
         Time next_enc_frame = MicroSeconds(1e6 / m_fps);
@@ -415,7 +417,7 @@ namespace ns3
     };
 
     void
-    VcaClient::DecideBottleneckPosition()
+    VcaClient::AdjustBw()
     {
         if (m_policy == VANILLA)
         {
@@ -423,48 +425,112 @@ namespace ns3
         }
         else if (m_policy == YONGYULE)
         {
-            uint64_t m_design_rate = m_max_bitrate;
-            uint64_t m_real_rate = 0;
-            bool m_changed = 0;
-            for (auto m_temp : m_cc_rate)
-                m_real_rate += m_temp;
+            bool changed = 0;
 
             // decide to decrease rate
-            if (m_real_rate >= m_design_rate)
+            if (IsBottleneck())
             {
                 if (m_is_my_wifi_access_bottleneck == false)
                 {
                     m_is_my_wifi_access_bottleneck = true;
-                    m_changed = true;
+                    changed = true;
+                    NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " Detected BE half-duplex bottleneck");
                 }
             }
             // decide recover rate
-            if (m_real_rate < m_design_rate * 0.8)
+            if (ShouldRecoverDl())
             {
                 if (m_is_my_wifi_access_bottleneck == true)
                 {
                     m_is_my_wifi_access_bottleneck = false;
-                    m_changed = true;
+                    changed = true;
+                    NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " Detected NOT half-duplex bottleneck");
                 }
             }
 
             // Notice: modify lambda only when the status changes
             //   i.e., here we can't decrease lambda continuously
-            if (m_changed)
+            if (changed)
             {
-                float dl_lambda = DecideDlParam();
+                double_t dl_lambda = DecideDlParam();
 
-                for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
-                {
-                    Ptr<TcpSocketBase> dl_socket = DynamicCast<TcpSocketBase, Socket>(*it);
-                    dl_socket->SetRwndLambda(dl_lambda);
-
-                    NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " SetDlParam= " << dl_lambda);
-                }
-
-                m_target_dl_bitrate_redc_factor = 1000; // divided by 10000. to be the reduced factor
+                EnforceDlParam(dl_lambda);
             }
         }
-    }
+    };
+
+    bool
+    VcaClient::IsBottleneck()
+    {
+        // return 0: capacity in enough, no congestion
+        // 1: sending rate exceeds the capacity, congested
+
+        bool is_bottleneck = false;
+
+        for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
+        {
+            Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
+
+            if (ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_CWR || ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_LOSS || ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_RECOVERY){
+                is_bottleneck = true;
+                break;
+            }
+        }
+
+        return is_bottleneck;
+    };
+
+    bool
+    VcaClient::ShouldRecoverDl()
+    {
+        bool should_recover_dl = false;
+
+        for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
+        {
+            Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
+
+            if (ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_OPEN){
+                should_recover_dl = true;
+                break;
+            }
+        }
+
+        return should_recover_dl;
+    };
+
+    double_t
+    VcaClient::DecideDlParam()
+    {
+        if (m_is_my_wifi_access_bottleneck == true)
+        {
+            NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " Detected BE half-duplex bottleneck");
+            return 0.2;
+        }
+        else
+        {
+            NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " Detected NOT half-duplex bottleneck");
+            return 1.0;
+        }
+    };
+
+    void
+    VcaClient::EnforceDlParam(double_t dl_lambda)
+    {
+        if (m_yongyule_realization == YONGYULE_RWND)
+        {
+            for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
+            {
+                Ptr<TcpSocketBase> dl_socket = DynamicCast<TcpSocketBase, Socket>(*it);
+                dl_socket->SetRwndLambda(dl_lambda);
+
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " SetDlParam= " << dl_lambda);
+            }
+        }
+
+        else if (m_yongyule_realization == YONGYULE_APPRATE)
+        {
+            m_target_dl_bitrate_redc_factor = (uint32_t)(dl_lambda * 10000.0); // divided by 10000. to be the reduced factor
+        }
+    };
 
 }; // namespace ns3

@@ -78,8 +78,11 @@ namespace ns3
         void EncodeFrame();
         void UpdateEncodeBitrate();
 
-        void DecideBottleneckPosition();
-        float DecideDlParam();
+        void AdjustBw();
+        bool IsBottleneck();
+        bool ShouldRecoverDl();
+        double_t DecideDlParam();
+        void EnforceDlParam(double_t param);
 
         void OutputStatistics();
 
