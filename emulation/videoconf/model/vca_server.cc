@@ -237,8 +237,10 @@ namespace ns3
         m_cc_target_frame_size.push_back(1e7 / 8 / 20);
         m_frame_size_forwarded.push_back(0);
         m_prev_frame_id.push_back(0);
-        
+
         m_dl_bitrate_reduce_factor.push_back(1.0);
+        m_dl_rate_control_state.push_back(DL_RATE_CONTROL_STATE_NATRUAL);
+        m_capacity_frame_size.push_back(1e7);
     };
 
     void
@@ -292,7 +294,23 @@ namespace ns3
 
         NS_LOG_DEBUG("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000.);
 
-        m_dl_bitrate_reduce_factor[socket_id] = (double)dl_redc_factor / 10000.0;
+        m_dl_bitrate_reduce_factor[socket_id] = (double_t)dl_redc_factor / 10000.0;
+
+        // update dl rate control state
+        if (m_dl_bitrate_reduce_factor[socket_id] < 1.0)
+        {
+            m_dl_rate_control_state[socket_id] = DL_RATE_CONTROL_STATE_LIMIT;
+
+            // store the capacity (about to enter app-limit phase where cc could not fully probe the capacity)
+            m_capacity_frame_size[socket_id] = m_cc_target_frame_size[socket_id];
+        }
+        else
+        {
+            m_dl_rate_control_state[socket_id] = DL_RATE_CONTROL_STATE_NATRUAL;
+
+            // restore the capacity before the controlled (limited bw) phase
+            m_cc_target_frame_size[socket_id] = m_capacity_frame_size[socket_id];
+        }
 
         for (auto socket : m_socket_list_dl)
         {
@@ -319,11 +337,11 @@ namespace ns3
         if (frame_id == m_prev_frame_id[socket_id])
         {
             // packets of the same frame
-            if (m_frame_size_forwarded[socket_id] < m_target_frame_size[socket_id] * m_dl_bitrate_reduce_factor[socket_id])
+            if (m_frame_size_forwarded[socket_id] < GetTargetFrameSize(socket_id))
             {
                 // have not reach the target transcode bitrate, forward the packet
                 m_frame_size_forwarded[socket_id] += packet->GetSize();
-                
+
                 Ptr<Packet> packet_to_forward = Copy(packet);
                 return packet_to_forward;
             }
@@ -345,6 +363,25 @@ namespace ns3
 
         // packets of a previous frame, drop the packet
         return nullptr;
+    };
+
+    uint32_t
+    VcaServer::GetTargetFrameSize(uint8_t socket_id)
+    {
+        if (m_dl_rate_control_state[socket_id] == DL_RATE_CONTROL_STATE_NATRUAL)
+        {
+            // stick to original cc decisions
+            return m_cc_target_frame_size[socket_id];
+        }
+        else if (m_dl_rate_control_state[socket_id] == DL_RATE_CONTROL_STATE_LIMIT)
+        {
+            // limit the forwarding bitrate by capacity * reduce_factor
+            return std::min(m_cc_target_frame_size[socket_id], (uint32_t)std::ceil((double_t)m_capacity_frame_size[socket_id] * m_dl_bitrate_reduce_factor[socket_id]));
+        }
+        else
+        {
+            return 1e6;
+        }
     };
 
 }; // namespace ns3

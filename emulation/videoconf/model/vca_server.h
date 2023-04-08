@@ -17,6 +17,11 @@
 namespace ns3
 {
 
+    enum DL_RATE_CONTROL_STATE {
+        DL_RATE_CONTROL_STATE_NATRUAL,
+        DL_RATE_CONTROL_STATE_LIMIT
+    };
+
     class VcaServer : public Application
     {
     public:
@@ -85,6 +90,8 @@ namespace ns3
 
         void UpdateRate();
 
+        uint32_t GetTargetFrameSize(uint8_t socket_id);
+
         uint32_t m_node_id;
 
         Ptr<Socket> m_socket_ul;
@@ -107,7 +114,11 @@ namespace ns3
 
         uint8_t m_fps;
         EventId m_update_rate_event;
-        std::vector<double> m_dl_bitrate_reduce_factor;
+
+        std::vector<double_t> m_dl_bitrate_reduce_factor;
+        std::vector<DL_RATE_CONTROL_STATE> m_dl_rate_control_state;
+        std::vector<uint32_t> m_capacity_frame_size;
+
     }; // class VcaServer
 
 }; // namespace ns3
