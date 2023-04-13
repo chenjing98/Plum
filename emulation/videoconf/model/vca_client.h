@@ -11,6 +11,7 @@
 #include <deque>
 #include <unordered_map>
 #include <algorithm>
+#include <numeric>
 
 #include "prot-header.h"
 
@@ -45,7 +46,7 @@ namespace ns3
         Ptr<Socket> GetSocketDl(void);
 
         void SetFps(uint8_t fps);
-        void SetBitrate(uint32_t bitrate);
+        void SetBitrate(std::vector<uint32_t> bitrate);
         void SetMaxBitrate(uint32_t bitrate);
 
         void SetNodeId(uint32_t node_id);
@@ -76,6 +77,7 @@ namespace ns3
         void ReceiveData(Ptr<Packet> packet);
 
         void EncodeFrame();
+        void UpdateDutyRatio(); 
         void UpdateEncodeBitrate();
 
         void AdjustBw();
@@ -85,6 +87,8 @@ namespace ns3
         void EnforceDlParam(double_t param);
 
         void OutputStatistics();
+
+        double_t GetDutyRatio(uint8_t);
 
         uint32_t m_node_id;
 
@@ -107,12 +111,14 @@ namespace ns3
         uint16_t m_peer_ul_port;
 
         uint8_t m_fps;
-        uint32_t m_bitrate;     // in kbps
         uint32_t m_max_bitrate; // in kbps
         uint16_t m_frame_id;
 
         EventId m_enc_event;
-        std::vector<uint64_t> m_cc_rate;
+        std::vector<uint32_t> m_bitrateBps;
+        std::vector<uint32_t> m_txBufSize;
+        std::vector<uint32_t> m_lastPendingBuf;
+        std::vector<bool> m_firstUpdate;
 
         uint32_t m_total_packet_bit;
         std::vector<uint32_t> m_min_packet_bit;
@@ -127,6 +133,18 @@ namespace ns3
         YONGYULE_REALIZATION m_yongyule_realization;
 
         uint32_t m_target_dl_bitrate_redc_factor;
+
+        EventId m_eventUpdateDuty;
+
+        uint32_t kTxRateUpdateWindowMs;
+        uint32_t kMinEncodeBps;
+        uint32_t kMaxEncodeBps;
+        double_t kTargetDutyRatio;
+        double_t kDampingCoef;
+
+        std::vector<std::vector<bool>> m_dutyState;
+        std::vector<std::deque<int64_t>> m_time_history;
+        std::vector<std::deque<uint32_t>> m_write_history;
 
     }; // class VcaClient
 

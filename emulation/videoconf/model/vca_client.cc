@@ -22,17 +22,25 @@ namespace ns3
           m_peer_list(),
           m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")),
           m_fps(20),
-          m_bitrate(0),
           m_max_bitrate(10000),
           m_frame_id(0),
           m_enc_event(),
+          m_bitrateBps(),
+          m_txBufSize(),
+          m_lastPendingBuf(),
+          m_firstUpdate(),
           m_total_packet_bit(0),
           m_send_buffer_pkt(),
           m_send_buffer_hdr(),
           m_is_my_wifi_access_bottleneck(false),
           m_policy(VANILLA),
           m_yongyule_realization(YONGYULE_REALIZATION::YONGYULE_APPRATE),
-          m_target_dl_bitrate_redc_factor(1e4){};
+          m_target_dl_bitrate_redc_factor(1e4),
+          kTxRateUpdateWindowMs(20),
+          kMinEncodeBps((uint32_t)1E2),
+          kMaxEncodeBps((uint32_t)5E6),
+          kTargetDutyRatio(0.9),
+          kDampingCoef(0.5f){};
 
     VcaClient::~VcaClient(){};
 
@@ -52,9 +60,9 @@ namespace ns3
         m_fps = fps;
     };
 
-    void VcaClient::SetBitrate(uint32_t bitrate)
+    void VcaClient::SetBitrate(std::vector<uint32_t> bitrate)
     {
-        m_bitrate = bitrate;
+        m_bitrateBps = bitrate;
     };
 
     void VcaClient::SetMaxBitrate(uint32_t bitrate)
@@ -133,6 +141,19 @@ namespace ns3
 
             m_send_buffer_pkt.push_back(std::deque<Ptr<Packet>>{});
             m_send_buffer_hdr.push_back(std::deque<Ptr<VcaAppProtHeaderInfo>>{});
+
+            UintegerValue val;
+            socket_ul->GetAttribute("SndBufSize", val);
+            m_txBufSize.push_back((uint32_t)val.Get());
+
+            m_firstUpdate.push_back(true);
+            m_lastPendingBuf.push_back(0);
+
+            m_bitrateBps.push_back(m_max_bitrate / 2);
+            m_dutyState.push_back(std::vector<bool>(kTxRateUpdateWindowMs, false));
+
+            m_time_history.push_back(std::deque<int64_t>{});
+            m_write_history.push_back(std::deque<uint32_t>{});
         }
 
         if (!m_socket_dl)
@@ -287,6 +308,9 @@ namespace ns3
 
                 m_send_buffer_pkt[socket_id_up].pop_front();
                 m_send_buffer_hdr[socket_id_up].pop_front();
+
+                m_time_history[socket_id_up].push_back(Simulator::Now().GetMilliSeconds());
+                m_write_history[socket_id_up].push_back(actual);
             }
             else
             {
@@ -317,11 +341,11 @@ namespace ns3
             // uint16_t num_pkt_in_frame = frame_size / payloadSize + (frame_size % payloadSize != 0);
 
             // Calculate frame size in bytes
-            uint32_t frame_size = m_cc_rate[i] / 8 / m_fps;
-            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " m_bitrate= " << m_bitrate << " realtimeBitrate[" << (uint16_t)i << "]= " << m_cc_rate[i] / 1000);
+            uint32_t frame_size = m_bitrateBps[i] / 8 / m_fps;
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << m_frame_id << " BitrateMbps[" << (uint16_t)i << "]= " << m_bitrateBps[i] / 1e6 << " RedcFactor= " << m_target_dl_bitrate_redc_factor << " SendBufSize= " << m_send_buffer_pkt[i].size());
 
-            if (frame_size == 0)
-                frame_size = m_bitrate * 1000 / 8 / m_fps;
+            // if (frame_size == 0)
+            //     frame_size = m_bitrateBps * 1000 / 8 / m_fps;
 
             pkt_id_in_frame = 0;
 
@@ -353,37 +377,91 @@ namespace ns3
         m_enc_event = Simulator::Schedule(next_enc_frame, &VcaClient::EncodeFrame, this);
     };
 
+    void VcaClient::UpdateDutyRatio()
+    {
+        uint8_t ul_id = 0;
+        for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
+        {
+            Ptr<TcpSocketBase> tcpsocketbase = DynamicCast<TcpSocketBase, Socket>(*it);
+            uint32_t sentsize = tcpsocketbase->GetTxBuffer()->GetSentSize();
+            uint32_t txbuffer = (*it)->GetTxAvailable();
+            uint16_t nowIndex = Simulator::Now().GetMilliSeconds() % kTxRateUpdateWindowMs;
+            m_dutyState[ul_id][nowIndex] = (sentsize + txbuffer < m_txBufSize[ul_id]);
+
+            ul_id++;
+        }
+        m_eventUpdateDuty = Simulator::Schedule(MilliSeconds(1), &VcaClient::UpdateDutyRatio, this);
+    }
+
+    double_t
+    VcaClient::GetDutyRatio(uint8_t ul_id)
+    {
+        uint32_t count = 0;
+        for (uint16_t i = 0; i < kTxRateUpdateWindowMs; i++)
+        {
+            if (m_dutyState[ul_id][i])
+                count++;
+        }
+        return (double_t)count / (double_t)kTxRateUpdateWindowMs;
+    }
+
     void
     VcaClient::UpdateEncodeBitrate()
     {
-        m_cc_rate.clear();
+        uint8_t ul_id = 0;
+
         for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
         {
             Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
 
-            if (ul_socket->GetTcb()->m_pacing)
+            uint32_t sentsize = ul_socket->GetTxBuffer()->GetSentSize(); //
+            uint32_t txbufferavailable = ul_socket->GetTxAvailable();
+            uint32_t curPendingBuf = m_txBufSize[ul_id] - sentsize - txbufferavailable;
+            int32_t deltaPendingBuf = (int32_t)curPendingBuf - (int32_t)m_lastPendingBuf[ul_id];
+
+            int64_t time_now = Simulator::Now().GetMilliSeconds();
+            uint32_t totalWriteBytes = 0;
+            if (!m_time_history.empty())
             {
-                uint64_t bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
-                m_cc_rate.push_back(bitrate);
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate FlowBitrate= " << bitrate / 1000);
+                while ((!m_time_history[ul_id].empty()) && ((time_now - m_time_history[ul_id].front()) > kTxRateUpdateWindowMs))
+                {
+                    m_time_history[ul_id].pop_front();
+                    m_write_history[ul_id].pop_front();
+                }
+            }
+            if (!m_write_history.empty())
+            {
+                totalWriteBytes = std::accumulate(m_write_history[ul_id].begin(), m_write_history[ul_id].end(), 0);
+            }
+            if (m_firstUpdate[ul_id])
+            {
+                m_bitrateBps[ul_id] = kMinEncodeBps;
+                m_firstUpdate[ul_id] = false;
+                m_lastPendingBuf[ul_id] = curPendingBuf;
             }
             else
             {
-                // Get cc rate for non-pacing CCAs
-                uint32_t cwnd = ul_socket->GetTcb()->m_cWnd.Get();
-                uint32_t rwnd = ul_socket->GetRwnd();
-                uint64_t bitrate = std::min(cwnd, rwnd) * 8 / 40; // 40ms is the minRTT, if link dalay is changed, this should be changed accordingly
-                bitrate = (uint64_t)(1.1 * (double_t)bitrate);
-                m_cc_rate.push_back(bitrate);
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] UpdateEncodeBitrate FlowBitrate= " << bitrate / 1000 << " cwnd= " << cwnd << " rwnd= " << rwnd);
-            }
-        }
+                double dutyRatio = GetDutyRatio(ul_id);
+                uint32_t totalSendBytes = totalWriteBytes - deltaPendingBuf;
+                uint32_t lastSendingRateBps = (totalWriteBytes - deltaPendingBuf) * 1000 * 8 / kTxRateUpdateWindowMs;
+                if (curPendingBuf > 0)
+                {
+                    m_bitrateBps[ul_id] = uint32_t(kTargetDutyRatio * std::min((double)m_bitrateBps[ul_id],
+                                                                               std::max(0.1, 1 - (double)curPendingBuf / totalSendBytes) * lastSendingRateBps));
+                }
+                else
+                {
+                    m_bitrateBps[ul_id] -= kDampingCoef * (dutyRatio - kTargetDutyRatio) * m_bitrateBps[ul_id];
+                }
+                m_bitrateBps[ul_id] = std::min(m_bitrateBps[ul_id], kMaxEncodeBps);
+                m_bitrateBps[ul_id] = std::max(m_bitrateBps[ul_id], kMinEncodeBps);
 
-        // if (!m_cc_rate.empty())
-        // {
-        //     m_bitrate = (*std::max_element(m_cc_rate.begin(), m_cc_rate.end())) / 1000;
-        //     m_bitrate = std::min(m_bitrate, m_max_bitrate);
-        // }
+                NS_LOG_DEBUG("[VcaClient][UpdateBitrate] Time= " << Simulator::Now().GetMilliSeconds() << " Bitrate(bps) " << lastSendingRateBps << " Rtt(ms) " << (uint32_t)ul_socket->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(pkts) " << ul_socket->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf << " TcpCongState " << ul_socket->GetTcb()->m_congState);
+                m_lastPendingBuf[ul_id] = curPendingBuf;
+            }
+
+            ul_id++;
+        }
     };
 
     void
