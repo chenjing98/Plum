@@ -25,6 +25,19 @@ enum LOG_LEVEL
   LOGIC
 };
 
+void showPosition(Ptr<Node> node, double deltaTime)
+{
+  uint32_t nodeId = node->GetId();
+  Ptr<MobilityModel> mobModel = node->GetObject<MobilityModel>();
+  Vector3D pos = mobModel->GetPosition();
+  Vector3D speed = mobModel->GetVelocity();
+  std::cout << "At " << Simulator::Now().GetSeconds() << " node " << nodeId << ": Position("
+            << pos.x << ", " << pos.y << ", " << pos.z << ");   Speed(" << speed.x << ", "
+            << speed.y << ", " << speed.z << ")" << std::endl;
+
+  Simulator::Schedule(Seconds(deltaTime), &showPosition, node, deltaTime);
+};
+
 int main(int argc, char *argv[])
 {
 
@@ -34,6 +47,7 @@ int main(int argc, char *argv[])
   uint32_t maxBitrate = 10000;        // in kbps
   uint8_t policy = 0;
   uint32_t nClient = 1;
+  bool printPosition = false;
 
   CommandLine cmd(__FILE__);
   cmd.AddValue("mode", "p2p or sfu mode", mode);
@@ -42,6 +56,7 @@ int main(int argc, char *argv[])
   cmd.AddValue("maxBitrate", "Max bitrate in kbps", maxBitrate);
   cmd.AddValue("policy", "0 for vanilla, 1 for Yongyule", policy);
   cmd.AddValue("nClient", "Number of clients", nClient);
+  cmd.AddValue("printPosition", "Print position of nodes", printPosition);
 
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
@@ -236,6 +251,8 @@ int main(int argc, char *argv[])
   else if (mode == "sfu")
   {
     NS_LOG_DEBUG("[Scratch] SFU mode emulation started.");
+
+    double_t showPositionDeltaTime = 1; // in s
     // 创建节点
     // nClient of VcaClient, each in a different BSS
     NodeContainer p2pNodes, sfuCenter, wifiStaNodes[nClient], wifiApNode[nClient];
@@ -247,6 +264,11 @@ int main(int argc, char *argv[])
     {
       wifiStaNodes[i].Create(nWifi[i]);
       wifiApNode[i] = p2pNodes.Get(i);
+      if (printPosition)
+      {
+        Simulator::Schedule(Seconds(0.0), &showPosition, wifiStaNodes[i].Get(0), showPositionDeltaTime);
+        Simulator::Schedule(Seconds(0.0), &showPosition, wifiApNode[i].Get(0), showPositionDeltaTime);
+      }
     }
     sfuCenter = p2pNodes.Get(nClient);
 
