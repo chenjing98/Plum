@@ -111,4 +111,49 @@ namespace ns3
         return m_payload_size;
     };
 
+    // VcaAppProtHeaderInfo
+
+    TypeId
+    VcaAppProtHeaderInfo::GetTypeId(void)
+    {
+        static TypeId tid = TypeId("ns3::VcaAppProtHeaderInfo")
+                                .SetParent<Object>();
+        return tid;
+    };
+
+    VcaAppProtHeaderInfo::VcaAppProtHeaderInfo(){};
+
+    VcaAppProtHeaderInfo::~VcaAppProtHeaderInfo(){};
+
+    VcaAppProtHeaderInfo::VcaAppProtHeaderInfo(uint16_t frame_id, uint16_t packet_id)
+    {
+        m_frame_id = frame_id;
+        m_packet_id = packet_id;
+        m_payload_size = 0;
+    };
+
+    void
+    VcaAppProtHeaderInfo::SetPayloadSize(uint32_t payload_size)
+    {
+        m_payload_size = payload_size;
+    };
+
+    uint16_t
+    VcaAppProtHeaderInfo::GetFrameId(void)
+    {
+        return m_frame_id;
+    };
+
+    uint16_t
+    VcaAppProtHeaderInfo::GetPacketId(void)
+    {
+        return m_packet_id;
+    };
+
+    uint32_t
+    VcaAppProtHeaderInfo::GetPayloadSize(void)
+    {
+        return m_payload_size;
+    };
+
 } // namespace ns3
