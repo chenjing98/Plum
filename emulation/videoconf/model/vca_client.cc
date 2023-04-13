@@ -610,7 +610,12 @@ namespace ns3
         if (m_is_my_wifi_access_bottleneck == true)
         {
             NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " Detected BE half-duplex bottleneck");
-            return 0.2;
+
+            for(uint8_t i = 0; i < m_bitrateBps.size(); i++){
+                m_bitrateBps[i] = (uint32_t)((double_t)m_bitrateBps[i] * 2);
+            }
+
+            return 0.5;
         }
         else
         {
