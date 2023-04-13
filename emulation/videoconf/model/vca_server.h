@@ -119,6 +119,7 @@ namespace ns3
         std::vector<DL_RATE_CONTROL_STATE> m_dl_rate_control_state;
         std::vector<uint32_t> m_capacity_frame_size;
 
+        uint16_t m_num_degraded_users;
     }; // class VcaServer
 
 }; // namespace ns3

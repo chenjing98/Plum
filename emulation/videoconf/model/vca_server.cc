@@ -22,7 +22,8 @@ namespace ns3
           m_peer_list(),
           m_send_buffer_list(),
           m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")),
-          m_fps(20){};
+          m_fps(20),
+          m_num_degraded_users(0){};
 
     VcaServer::~VcaServer(){};
 
@@ -288,19 +289,20 @@ namespace ns3
         uint16_t frame_id = app_header.GetFrameId();
         uint16_t pkt_id = app_header.GetPacketId();
         uint32_t dl_redc_factor = app_header.GetDlRedcFactor();
-        uint32_t payload_size = app_header.GetPayloadSize();
+        // uint32_t payload_size = app_header.GetPayloadSize();
 
-        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000.);
+        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000. << " NumDegradedUsers= " << m_num_degraded_users << " SocketListSize= " << m_socket_list_dl.size());
 
         m_dl_bitrate_reduce_factor[socket_id] = (double_t)dl_redc_factor / 10000.0;
 
         // update dl rate control state
-        if (m_dl_bitrate_reduce_factor[socket_id] < 1.0 && m_dl_rate_control_state[socket_id] == DL_RATE_CONTROL_STATE_NATRUAL)
+        if (m_dl_bitrate_reduce_factor[socket_id] < 1.0 && m_dl_rate_control_state[socket_id] == DL_RATE_CONTROL_STATE_NATRUAL && m_num_degraded_users < m_socket_list_dl.size() / 2)
         {
             m_dl_rate_control_state[socket_id] = DL_RATE_CONTROL_STATE_LIMIT;
 
             // store the capacity (about to enter app-limit phase where cc could not fully probe the capacity)
             m_capacity_frame_size[socket_id] = m_cc_target_frame_size[socket_id];
+            m_num_degraded_users += 1;
 
             NS_LOG_DEBUG("[VcaServer][DlRateControlStateLimit][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000.);
         }
@@ -310,6 +312,8 @@ namespace ns3
 
             // restore the capacity before the controlled (limited bw) phase
             m_cc_target_frame_size[socket_id] = m_capacity_frame_size[socket_id];
+            m_num_degraded_users -= 1;
+
             NS_LOG_DEBUG("[VcaServer][DlRateControlStateNatural][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds());
         }
 
