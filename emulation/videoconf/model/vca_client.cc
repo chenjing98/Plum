@@ -27,7 +27,8 @@ namespace ns3
           m_frame_id(0),
           m_enc_event(),
           m_total_packet_bit(0),
-          m_send_buffer_list(),
+          m_send_buffer_pkt(),
+          m_send_buffer_hdr(),
           m_is_my_wifi_access_bottleneck(false),
           m_policy(VANILLA),
           m_yongyule_realization(YONGYULE_REALIZATION::YONGYULE_APPRATE),
@@ -130,7 +131,8 @@ namespace ns3
             m_socket_id_ul += 1;
             m_local_ul_port += 1;
 
-            m_send_buffer_list.push_back(std::deque<Ptr<Packet>>{});
+            m_send_buffer_pkt.push_back(std::deque<Ptr<Packet>>{});
+            m_send_buffer_hdr.push_back(std::deque<Ptr<VcaAppProtHeaderInfo>>{});
         }
 
         if (!m_socket_dl)
@@ -266,19 +268,29 @@ namespace ns3
 
         uint8_t socket_id_up = m_socket_id_map_ul[socket];
 
-        NS_LOG_LOGIC("[VcaClient][SendData] SendBufSize " << m_send_buffer_list[socket_id_up].size());
-        if (!m_send_buffer_list[socket_id_up].empty())
+        NS_LOG_LOGIC("[VcaClient][SendData] SendBufSize " << m_send_buffer_pkt[socket_id_up].size());
+        if (!m_send_buffer_pkt[socket_id_up].empty())
         {
-            Ptr<Packet> packet = m_send_buffer_list[socket_id_up].front();
+            Ptr<Packet> packet = m_send_buffer_pkt[socket_id_up].front();
+            Ptr<VcaAppProtHeaderInfo> hdr_info = m_send_buffer_hdr[socket_id_up].front();
+
+            // Add header
+            VcaAppProtHeader app_header = VcaAppProtHeader(hdr_info->GetFrameId(), hdr_info->GetPacketId());
+            app_header.SetPayloadSize(hdr_info->GetPayloadSize());
+            app_header.SetDlRedcFactor(m_target_dl_bitrate_redc_factor);
+            packet->AddHeader(app_header);
+
             int actual = socket->Send(packet);
             if (actual > 0)
             {
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][Send][Sock" << (uint16_t)socket_id_up << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << m_send_buffer_list[socket_id_up].size() - 1 << " DstIp= " << m_peer_list[socket_id_up]);
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][Send][Sock" << (uint16_t)socket_id_up << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << m_send_buffer_pkt[socket_id_up].size() - 1 << " DstIp= " << m_peer_list[socket_id_up]);
 
-                m_send_buffer_list[socket_id_up].pop_front();
+                m_send_buffer_pkt[socket_id_up].pop_front();
+                m_send_buffer_hdr[socket_id_up].pop_front();
             }
             else
             {
+                packet->RemoveHeader(app_header);
                 NS_LOG_LOGIC("[VcaClient][Send][Node" << m_node_id << "][Sock" << (uint16_t)socket_id_up << "] SendData failed");
             }
         }
@@ -299,7 +311,7 @@ namespace ns3
         // Produce packets
         uint16_t pkt_id_in_frame;
 
-        for (uint8_t i = 0; i < m_send_buffer_list.size(); i++)
+        for (uint8_t i = 0; i < m_send_buffer_pkt.size(); i++)
         {
             // Calculate packets in the frame
             // uint16_t num_pkt_in_frame = frame_size / payloadSize + (frame_size % payloadSize != 0);
@@ -315,20 +327,19 @@ namespace ns3
 
             for (uint32_t data_ptr = 0; data_ptr < frame_size; data_ptr += payloadSize)
             {
-                VcaAppProtHeader app_header = VcaAppProtHeader(m_frame_id, pkt_id_in_frame);
-                app_header.SetDlRedcFactor(m_target_dl_bitrate_redc_factor);
-                app_header.SetPayloadSize(payloadSize);
+                Ptr<VcaAppProtHeaderInfo> app_header_info = Create<VcaAppProtHeaderInfo>(m_frame_id, pkt_id_in_frame);
+                app_header_info->SetPayloadSize(payloadSize);
 
                 // uint32_t packet_size = std::min(payloadSize, frame_size - data_ptr);
 
                 uint32_t packet_size = payloadSize;
 
                 Ptr<Packet> packet = Create<Packet>(packet_size);
-                packet->AddHeader(app_header);
 
-                m_send_buffer_list[i].push_back(packet);
+                m_send_buffer_pkt[i].push_back(packet);
+                m_send_buffer_hdr[i].push_back(app_header_info);
 
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_list[i].size() << " PktSize= " << packet->GetSize() << " FrameId= " << m_frame_id << " PktId= " << pkt_id_in_frame);
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_pkt[i].size() << " PktSize= " << packet->GetSize() << " FrameId= " << m_frame_id << " PktId= " << pkt_id_in_frame);
 
                 pkt_id_in_frame++;
             }
@@ -396,8 +407,8 @@ namespace ns3
         NS_LOG_ERROR("[VcaClient][Result] Throughput= " << average_throughput << " NodeId= " << m_node_id);
 
         // Calculate min packet size (per second)
-        int m_length = m_min_packet_bit.size();
-        if (m_length == 0)
+        int pkt_history_length = m_min_packet_bit.size();
+        if (pkt_history_length == 0)
         {
             NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat Sec = 0 so there is no data.");
             return;
@@ -407,13 +418,21 @@ namespace ns3
         for (auto pac : m_min_packet_bit)
             m_sum_minpac += pac;
         // // Median
-        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Median] = " << m_min_packet_bit[m_length / 2]);
+        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Median] = " << m_min_packet_bit[pkt_history_length / 2]);
         // // Mean
-        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Mean] = " << m_sum_minpac / m_length);
+        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Mean] = " << m_sum_minpac / pkt_history_length);
         // // 95per
-        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [95per] = " << m_min_packet_bit[(int)(m_length * 0.95)]);
+        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [95per] = " << m_min_packet_bit[(int)(pkt_history_length * 0.95)]);
 
-        // NS_LOG_ERROR("[VcaClient][Result][Node" << m_node_id << "] TransientRate Median= " << m_min_packet_bit[m_length / 2] << " Avg= " << m_sum_minpac / m_length << " 95ile= " << m_min_packet_bit[(int)(m_length * 0.95)]);
+        uint32_t min_tolerable_bitrate_thresh = 4000;
+
+        uint16_t less_then_thresh_count = 0;
+        for (auto min_br_per_sec : m_min_packet_bit){
+
+            if (min_br_per_sec < min_tolerable_bitrate_thresh)
+                less_then_thresh_count++;
+        }
+        // NS_LOG_ERROR("[VcaClient][Result][Node" << m_node_id << "] TransientRate LessThanMinBr= " << (double_t)less_then_thresh_count / (double_t)pkt_history_length  << " Avg= " << m_sum_minpac / pkt_history_length);
     };
 
     void
@@ -471,7 +490,8 @@ namespace ns3
         {
             Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
 
-            if (ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_CWR || ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_LOSS || ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_RECOVERY){
+            if (ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_CWR || ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_LOSS || ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_RECOVERY)
+            {
                 is_bottleneck = true;
                 break;
             }
@@ -489,7 +509,8 @@ namespace ns3
         {
             Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
 
-            if (ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_OPEN){
+            if (ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_OPEN)
+            {
                 should_recover_dl = true;
                 break;
             }
