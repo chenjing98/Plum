@@ -330,7 +330,7 @@ int main(int argc, char *argv[])
         NS_LOG_UNCOND("P2P VCA NodeId " << wifiStaNodes.Get(nWifi - 1)->GetId() << " " << csmaNodes.Get(nCsma)->GetId());
         Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
         vcaClientAppLeft->SetFps(30);
-        vcaClientAppLeft->SetBitrate(1000);
+        // vcaClientAppLeft->SetBitrate(1000);
         vcaClientAppLeft->SetLocalAddress(staAddr);
         vcaClientAppLeft->SetPeerAddress(std::vector<Ipv4Address>{csmaAddr});
         vcaClientAppLeft->SetLocalUlPort(port_ul);
@@ -341,7 +341,7 @@ int main(int argc, char *argv[])
 
         Ptr<VcaClient> vcaClientAppRight = CreateObject<VcaClient>();
         vcaClientAppRight->SetFps(30);
-        vcaClientAppRight->SetBitrate(1000);
+        // vcaClientAppRight->SetBitrate(1000);
         vcaClientAppRight->SetLocalAddress(csmaAddr);
         vcaClientAppRight->SetPeerAddress(std::vector<Ipv4Address>{staAddr});
         vcaClientAppRight->SetLocalUlPort(port_ul);
@@ -361,7 +361,7 @@ int main(int argc, char *argv[])
         NS_LOG_UNCOND("SFU VCA NodeId " << wifiStaNodes.Get(nWifi - 1)->GetId() << " " << csmaNodes.Get(nCsma)->GetId());
         Ptr<VcaClient> vcaClientAppLeft = CreateObject<VcaClient>();
         vcaClientAppLeft->SetFps(30);
-        vcaClientAppLeft->SetBitrate(1000);
+        // vcaClientAppLeft->SetBitrate(1000);
         vcaClientAppLeft->SetLocalAddress(staAddr);
         vcaClientAppLeft->SetPeerAddress(std::vector<Ipv4Address>{serverIp});
         vcaClientAppLeft->SetLocalUlPort(port_ul);
@@ -372,7 +372,7 @@ int main(int argc, char *argv[])
 
         Ptr<VcaClient> vcaClientAppRight = CreateObject<VcaClient>();
         vcaClientAppRight->SetFps(30);
-        vcaClientAppRight->SetBitrate(1000);
+        // vcaClientAppRight->SetBitrate(1000);
         vcaClientAppRight->SetLocalAddress(csmaAddr);
         vcaClientAppRight->SetPeerAddress(std::vector<Ipv4Address>{serverIp});
         vcaClientAppRight->SetLocalUlPort(port_ul);

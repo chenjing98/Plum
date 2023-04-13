@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
     PointToPointHelper pointToPoint[num];
     for (uint32_t i = 0; i < num; i++)
     {
-      pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("5Mbps"));
+      pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("100Mbps"));
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("20ms"));
     }
 
@@ -154,16 +154,16 @@ int main(int argc, char *argv[])
                                   "MinY",
                                   DoubleValue(0.0),
                                   "DeltaX",
-                                  DoubleValue(5.0),
+                                  DoubleValue(100.0),
                                   "DeltaY",
-                                  DoubleValue(10.0),
+                                  DoubleValue(2.0),
                                   "GridWidth",
                                   UintegerValue(3),
                                   "LayoutType",
                                   StringValue("RowFirst"));
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Bounds",
-                              RectangleValue(Rectangle(-50, 50, -50, 50)));
+                              RectangleValue(Rectangle(-50, 50, 0, 50)));
     for (uint32_t i = 0; i < nClient; i++)
     {
       mobility.Install(wifiStaNodes[i]);
@@ -230,8 +230,7 @@ int main(int argc, char *argv[])
           NS_LOG_DEBUG("item:" << item);
 
         Ptr<VcaClient> vcaClientApp = CreateObject<VcaClient>();
-        vcaClientApp->SetFps(30);
-        vcaClientApp->SetBitrate(1000);
+        vcaClientApp->SetFps(20);
         vcaClientApp->SetLocalAddress(staAddr);
         vcaClientApp->SetPeerAddress(peerAddr);
         vcaClientApp->SetLocalUlPort(port_ul);
@@ -276,7 +275,7 @@ int main(int argc, char *argv[])
     PointToPointHelper pointToPoint[nClient];
     for (uint32_t i = 0; i < nClient; i++)
     {
-      pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("10Mbps"));
+      pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("100Mbps"));
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("20ms"));
     }
 
@@ -318,22 +317,30 @@ int main(int argc, char *argv[])
                                   "MinY",
                                   DoubleValue(0.0),
                                   "DeltaX",
-                                  DoubleValue(5.0),
+                                  DoubleValue(100.0),
                                   "DeltaY",
-                                  DoubleValue(10.0),
+                                  DoubleValue(2.0),
                                   "GridWidth",
-                                  UintegerValue(3),
+                                  UintegerValue(nClient),
                                   "LayoutType",
                                   StringValue("RowFirst"));
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Bounds",
                               RectangleValue(Rectangle(-50, 50, -50, 50)));
-    for (uint32_t i = 0; i < nClient; i++)
+    // for (uint32_t i = 0; i < nClient; i++)
+    // {
+    //   mobility.Install(wifiStaNodes[i]);
+    // }
+
+    mobility.Install(wifiStaNodes[0]);
+
+    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+
+    for (uint32_t i = 1; i < nClient; i++)
     {
       mobility.Install(wifiStaNodes[i]);
     }
 
-    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     for (uint32_t i = 0; i < nClient; i++)
     {
       mobility.Install(wifiApNode[i]);
@@ -404,8 +411,7 @@ int main(int argc, char *argv[])
         Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
         NS_LOG_DEBUG("SFU VCA NodeId " << wifiStaNodes[id].Get(i)->GetId() << " " << sfuCenter.Get(0)->GetId());
         Ptr<VcaClient> vcaClientApp = CreateObject<VcaClient>();
-        vcaClientApp->SetFps(30);
-        vcaClientApp->SetBitrate(1000);
+        vcaClientApp->SetFps(20);
         vcaClientApp->SetLocalAddress(staAddr);
         vcaClientApp->SetPeerAddress(std::vector<Ipv4Address>{serverAddr});
         vcaClientApp->SetLocalUlPort(client_ul);
