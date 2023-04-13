@@ -295,19 +295,22 @@ namespace ns3
         m_dl_bitrate_reduce_factor[socket_id] = (double_t)dl_redc_factor / 10000.0;
 
         // update dl rate control state
-        if (m_dl_bitrate_reduce_factor[socket_id] < 1.0)
+        if (m_dl_bitrate_reduce_factor[socket_id] < 1.0 && m_dl_rate_control_state[socket_id] == DL_RATE_CONTROL_STATE_NATRUAL)
         {
             m_dl_rate_control_state[socket_id] = DL_RATE_CONTROL_STATE_LIMIT;
 
             // store the capacity (about to enter app-limit phase where cc could not fully probe the capacity)
             m_capacity_frame_size[socket_id] = m_cc_target_frame_size[socket_id];
+
+            NS_LOG_DEBUG("[VcaServer][DlRateControlStateLimit][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000.);
         }
-        else
+        else if (m_dl_bitrate_reduce_factor[socket_id] == 1.0 && m_dl_rate_control_state[socket_id] == DL_RATE_CONTROL_STATE_LIMIT)
         {
             m_dl_rate_control_state[socket_id] = DL_RATE_CONTROL_STATE_NATRUAL;
 
             // restore the capacity before the controlled (limited bw) phase
             m_cc_target_frame_size[socket_id] = m_capacity_frame_size[socket_id];
+            NS_LOG_DEBUG("[VcaServer][DlRateControlStateNatural][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds());
         }
 
         for (auto socket : m_socket_list_dl)
