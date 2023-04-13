@@ -4,7 +4,7 @@ export CORE_COUNT=20
 
 declare -a seeds=(1000000 82734 12946 129 89085321 5 120000 8765432 19 777)
 declare -a nclients=(3 4 5 10)
-declare simTime=(120)
+declare simTime=(1200)
 declare -a policies=(0 1)
 
 export FPS=60
@@ -29,7 +29,7 @@ run_ns3() {
     output_file_clean=${filename}.csv
     echo At policy: $policy, nclient: $nclient, seed: $seed, output_file: $filename.txt/csv...
     ns3_output=$(NS_GLOBAL_VALUE="RngRun=$seed" ./ns3 run "scratch/test+wifi+app --mode=sfu --logLevel=0 --simTime=${simt} --policy=${policy} --nClient=${nclient}" 2>&1)
-    avg_thp=$(python /home/chenj/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}")
+    avg_thp=$(python3 /home/chenj/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}")
     # miss_rate=$(awk 'BEGIN{printf "%.010f\n",'$missed_frame_cnt'/'$total_frame_cnt'}')
     # bw_loss_rate=$(awk 'BEGIN{printf "%.04f\n",'$bw_loss'/'$total_send_pkt_cnt'}')
     
