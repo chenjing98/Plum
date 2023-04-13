@@ -1398,6 +1398,8 @@ class TcpSocketBase : public TcpSocket
 
     uint32_t GetRwnd(); //!< Get the Rwnd
 
+    Ptr<RttEstimator> GetRtt() const; //!< Get the Rtt
+
     Ptr<TcpSocketState> GetTcb(); //!< Get the TCB
 
   private:

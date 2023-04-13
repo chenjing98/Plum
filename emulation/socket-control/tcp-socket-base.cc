@@ -3520,9 +3520,12 @@ TcpSocketBase::AdvertisedWindowSize(bool scale) const
     }
     NS_LOG_LOGIC("Returning AdvertisedWindowSize of " << static_cast<uint16_t>(w));
     uint32_t scaled_rwnd = std::round((float)w * m_rWndLambda);
-    NS_LOG_DEBUG("[TcpSocket][Node" << m_node->GetId() << "] Time= "
+    if(m_rWndLambda < 1.0)
+    {
+        NS_LOG_DEBUG("[TcpSocket][Node" << m_node->GetId() << "] Time= "
                                      << Simulator::Now().GetMilliSeconds() << " OriginalrWnd= " << w
                                      << " ScaledrWnd= " << static_cast<uint16_t>(scaled_rwnd));
+    }
     return static_cast<uint16_t>(scaled_rwnd);
 }
 
@@ -4422,7 +4425,7 @@ TcpSocketBase::UpdateWindowSize(const TcpHeader& header)
     {
         // m_rWnd = std::round((float)receivedWindow * m_rWndLambda);
         m_rWnd = receivedWindow;
-        NS_LOG_UNCOND("[TcpSocket][Node" << m_node->GetId()
+        NS_LOG_DEBUG("[TcpSocket][Node" << m_node->GetId()
                                          << "] Time= " << Simulator::Now().GetMilliSeconds()
                                          << " rWnd= " << m_rWnd << " cWnd= " << m_tcb->m_cWnd);
         NS_LOG_LOGIC("updating rWnd to " << m_rWnd);
@@ -4677,6 +4680,12 @@ uint32_t
 TcpSocketBase::GetRWnd() const
 {
     return m_rWnd.Get();
+}
+
+Ptr<RttEstimator>
+TcpSocketBase::GetRtt() const
+{
+    return m_rtt;
 }
 
 SequenceNumber32
