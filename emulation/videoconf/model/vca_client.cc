@@ -128,8 +128,6 @@ namespace ns3
             socket_ul->SetConnectCallback(
                 MakeCallback(&VcaClient::ConnectionSucceededUl, this),
                 MakeCallback(&VcaClient::ConnectionFailedUl, this));
-            socket_ul->SetSendCallback(
-                MakeCallback(&VcaClient::DataSendUl, this));
             m_socket_list_ul.push_back(socket_ul);
             m_socket_id_map_ul[socket_ul] = m_socket_id_ul;
 
@@ -207,8 +205,6 @@ namespace ns3
     void VcaClient::ConnectionSucceededUl(Ptr<Socket> socket)
     {
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Uplink connection succeeded");
-
-        SendData(socket);
     };
 
     void VcaClient::ConnectionFailedUl(Ptr<Socket> socket)
@@ -321,6 +317,15 @@ namespace ns3
     };
 
     void
+    VcaClient::SendData()
+    {
+        for (auto socket : m_socket_list_ul)
+        {
+            SendData(socket);
+        }
+    };
+
+    void
     VcaClient::ReceiveData(Ptr<Packet> packet)
     {
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] ReceiveData");
@@ -371,6 +376,8 @@ namespace ns3
 
         m_frame_id++;
         AdjustBw();
+
+        SendData();
 
         // Schedule next frame's encoding
         Time next_enc_frame = MicroSeconds(1e6 / m_fps);

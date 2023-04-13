@@ -74,6 +74,7 @@ namespace ns3
         void HandlePeerError(Ptr<Socket> socket);
 
         void SendData(Ptr<Socket> socket);
+        void SendData();
         void ReceiveData(Ptr<Packet> packet);
 
         void EncodeFrame();

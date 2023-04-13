@@ -223,8 +223,6 @@ namespace ns3
         socket_dl->SetConnectCallback(
             MakeCallback(&VcaServer::ConnectionSucceededDl, this),
             MakeCallback(&VcaServer::ConnectionFailedDl, this));
-        socket_dl->SetSendCallback(
-            MakeCallback(&VcaServer::DataSendDl, this));
 
         m_socket_list_dl.push_back(socket_dl);
         m_socket_id_map[peer_ip.Get()] = m_socket_id;
@@ -326,6 +324,8 @@ namespace ns3
                 continue;
 
             m_send_buffer_list[other_socket_id].push_back(packet_dl);
+
+            SendData(socket);
         }
     };
 
@@ -347,12 +347,15 @@ namespace ns3
             }
             else
             {
+                NS_LOG_DEBUG("[VcaServer][Sock" << (uint16_t)socket_id << "][FrameForward] TargetFrameSize= " << GetTargetFrameSize(socket_id));
+
                 // have reach the target transcode bitrate, drop the packet
                 return nullptr;
             }
         }
         else if (frame_id > m_prev_frame_id[socket_id])
         {
+            NS_LOG_DEBUG("[VcaServer][Sock" << (uint16_t)socket_id << "][FrameForward] Start FrameId= " << frame_id);
             // packets of a new frame, simply forward it
             m_prev_frame_id[socket_id] = frame_id;
             m_frame_size_forwarded[socket_id] = packet->GetSize();
