@@ -278,7 +278,7 @@ int main(int argc, char *argv[])
     for (uint32_t i = 0; i < nClient; i++)
     {
       pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("100Mbps"));
-      pointToPoint[i].SetChannelAttribute("Delay", StringValue("20ms"));
+      pointToPoint[i].SetChannelAttribute("Delay", StringValue("10ms"));
     }
 
     // 在AP的p2p信道上安装NetDevice
@@ -321,14 +321,14 @@ int main(int argc, char *argv[])
                                   "DeltaX",
                                   DoubleValue(100.0),
                                   "DeltaY",
-                                  DoubleValue(2.0),
+                                  DoubleValue(1.0),
                                   "GridWidth",
                                   UintegerValue(nClient),
                                   "LayoutType",
                                   StringValue("RowFirst"));
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Bounds",
-                              RectangleValue(Rectangle(-50, 50, -50, 50)));
+                              RectangleValue(Rectangle(-30, 30, -30, 30)));
     // for (uint32_t i = 0; i < nClient; i++)
     // {
     //   mobility.Install(wifiStaNodes[i]);
