@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <numeric>
+#include <map>
 
 #include "prot-header.h"
 
@@ -124,7 +125,7 @@ namespace ns3
         std::vector<bool> m_firstUpdate;
 
         uint32_t m_total_packet_bit;
-        std::vector<uint32_t> m_min_packet_bit;
+        std::vector<uint32_t> m_transientRateBps;
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_pkt;
         std::vector<std::deque<Ptr<VcaAppProtHeaderInfo>>> m_send_buffer_hdr;

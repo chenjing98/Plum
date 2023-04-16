@@ -4,6 +4,11 @@ namespace ns3
 {
     NS_LOG_COMPONENT_DEFINE("VcaClient");
 
+    bool map_compare(const std::pair<uint32_t, uint64_t> &a, const std::pair<uint32_t, uint32_t> &b)
+    {
+        return a.first < b.first;
+    }
+
     TypeId VcaClient::GetTypeId()
     {
         static TypeId tid = TypeId("ns3::VcaClient")
@@ -240,11 +245,19 @@ namespace ns3
             m_total_packet_bit += packet->GetSize() * 8;
             // int now_second = Simulator::Now().GetSeconds();
             // Statistics: min_packet_bit per sec
-            uint32_t now_second = floor(Simulator::Now().GetSeconds()); // 0~1s -> XX[0];  1~2s -> XX[1] ...
-            while (m_min_packet_bit.size() < now_second + 1)
-                m_min_packet_bit.push_back(0);
-            if (packet->GetSize() * 8 < m_min_packet_bit[now_second] || m_min_packet_bit[now_second] == 0)
-                m_min_packet_bit[now_second] = packet->GetSize() * 8;
+
+            uint32_t now_second = Simulator::Now().GetSeconds();
+
+            while (m_transientRateBps.size() < now_second + 1)
+            {
+                m_transientRateBps.push_back(0);
+                if (m_transientRateBps.size() < now_second + 1)
+                {
+                    NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] ZeroRate in " << m_transientRateBps.size() - 1);
+                }
+            }
+            // if (packet->GetSize() * 8 < m_transientRateBps[now_second] || m_transientRateBps[now_second] == 0)
+            m_transientRateBps[now_second] += packet->GetSize() * 8;
 
             if (InetSocketAddress::IsMatchingType(from))
             {
@@ -491,38 +504,54 @@ namespace ns3
         // NS_LOG_ERROR(" ============= Output Statistics =============");
 
         // Calculate average_throughput
-        double average_throughput;
-        average_throughput = 1.0 * m_total_packet_bit / Simulator::Now().GetSeconds();
+        // double average_throughput;
+        // average_throughput = 1.0 * m_total_packet_bit / Simulator::Now().GetSeconds();
+        // NS_LOG_ERROR("[VcaClient][Result] Throughput= " << average_throughput << " NodeId= " << m_node_id);
 
-        NS_LOG_ERROR("[VcaClient][Result] Throughput= " << average_throughput << " NodeId= " << m_node_id);
+        uint8_t InitPhaseFilterSec = 5;
+        uint32_t min_tolerable_bitrate_bps = m_min_bitrate * 1000;
 
-        // Calculate min packet size (per second)
-        int pkt_history_length = m_min_packet_bit.size();
-        if (pkt_history_length == 0)
+        uint64_t pkt_history_length = m_transientRateBps.size();
+        if (pkt_history_length <= InitPhaseFilterSec)
         {
-            NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat Sec = 0 so there is no data.");
+            NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] the stream is too short (<= " << InitPhaseFilterSec << " seconds).");
             return;
         }
-        std::sort(m_min_packet_bit.begin(), m_min_packet_bit.end());
-        uint64_t m_sum_minpac = 0;
-        for (auto pac : m_min_packet_bit)
-            m_sum_minpac += pac;
-        // // Median
-        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Median] = " << m_min_packet_bit[pkt_history_length / 2]);
-        // // Mean
-        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [Mean] = " << m_sum_minpac / pkt_history_length);
-        // // 95per
-        // NS_LOG_ERROR("[VcaClient][Node" << m_node_id << "] Stat  minPacketsize [95per] = " << m_min_packet_bit[(int)(pkt_history_length * 0.95)]);
 
-        uint32_t min_tolerable_bitrate_thresh = 4000;
+        uint64_t sum_transient_rate = 0;
+        uint64_t less_then_thresh_count = 0;
 
-        uint16_t less_then_thresh_count = 0;
-        for (auto min_br_per_sec : m_min_packet_bit){
+        std::map<uint32_t, uint64_t> transient_rate_distribution;
+        // std::cout << "[Node" << m_node_id << "]Full transient rate: ";
 
-            if (min_br_per_sec < min_tolerable_bitrate_thresh)
+        uint8_t init_seconds = 0;
+        for (auto transient_rate : m_transientRateBps)
+        {
+            if (init_seconds < InitPhaseFilterSec)
+            {
+                init_seconds++;
+                continue;
+            }
+            sum_transient_rate += transient_rate;
+            if (transient_rate < min_tolerable_bitrate_bps)
                 less_then_thresh_count++;
+
+            auto it = transient_rate_distribution.find(transient_rate);
+            if (it != transient_rate_distribution.end())
+                it->second += 1;
+            else
+                transient_rate_distribution[transient_rate] = 1;
+            // std::cout << transient_rate << " ";
         }
-        // NS_LOG_ERROR("[VcaClient][Result][Node" << m_node_id << "] TransientRate LessThanMinBr= " << (double_t)less_then_thresh_count / (double_t)pkt_history_length  << " Avg= " << m_sum_minpac / pkt_history_length);
+        // std::cout << std::endl;
+
+        NS_LOG_DEBUG("[VcaClient][Result][Node" << m_node_id << "] TransientRateDistribution");
+        for (auto transient_rate : transient_rate_distribution)
+        {
+            NS_LOG_DEBUG("TransientRate= " << transient_rate.first << " Count= " << transient_rate.second);
+        }
+
+        NS_LOG_ERROR("[VcaClient][Result] TailThroughput= " << (double_t)less_then_thresh_count / (double_t)(pkt_history_length - InitPhaseFilterSec) << " AvgThroughput= " << (double_t)sum_transient_rate / (double_t)(pkt_history_length - InitPhaseFilterSec) << " NodeId= " << m_node_id);
     };
 
     void
