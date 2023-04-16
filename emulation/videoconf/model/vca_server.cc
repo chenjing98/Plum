@@ -21,11 +21,11 @@ namespace ns3
           m_socket_id(0),
           m_peer_list(),
           m_send_buffer_list(),
+          m_frame_size_forwarded(),
+          m_prev_frame_id(),
           m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")),
           m_fps(20),
-          m_num_degraded_users(0),
-          m_frame_size_forwarded(),
-          m_prev_frame_id(){};
+          m_num_degraded_users(0){};
 
     VcaServer::~VcaServer(){};
 

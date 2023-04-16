@@ -4,9 +4,9 @@ namespace ns3
 {
     NS_LOG_COMPONENT_DEFINE("VcaClient");
 
-    bool map_compare(const std::pair<uint32_t, uint64_t> &a, const std::pair<uint32_t, uint32_t> &b)
+    bool map_compare(const std::pair<uint8_t, uint32_t> &a, const std::pair<uint8_t, uint32_t> &b)
     {
-        return a.first < b.first;
+        return a.second < b.second;
     }
 
     TypeId VcaClient::GetTypeId()
@@ -234,6 +234,7 @@ namespace ns3
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] HandleRead");
         Ptr<Packet> packet;
         Address from;
+        // uint8_t socket_id = m_socket_id_map_dl[socket];
         while ((packet = socket->RecvFrom(from)))
         {
             if (packet->GetSize() == 0)
@@ -243,24 +244,33 @@ namespace ns3
             }
 
             m_total_packet_bit += packet->GetSize() * 8;
-            // int now_second = Simulator::Now().GetSeconds();
-            // Statistics: min_packet_bit per sec
-
-            uint32_t now_second = Simulator::Now().GetSeconds();
-
-            while (m_transientRateBps.size() < now_second + 1)
-            {
-                m_transientRateBps.push_back(0);
-                if (m_transientRateBps.size() < now_second + 1)
-                {
-                    NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] ZeroRate in " << m_transientRateBps.size() - 1);
-                }
-            }
-            // if (packet->GetSize() * 8 < m_transientRateBps[now_second] || m_transientRateBps[now_second] == 0)
-            m_transientRateBps[now_second] += packet->GetSize() * 8;
 
             if (InetSocketAddress::IsMatchingType(from))
             {
+                uint32_t src_ip = InetSocketAddress::ConvertFrom(from).GetIpv4().Get();
+
+                // Statistics: transient rate
+
+                uint32_t now_second = Simulator::Now().GetSeconds() / 10;
+
+                while (m_transientRateBps.size() < now_second + 1)
+                {
+                    m_transientRateBps.push_back(std::unordered_map<uint32_t, uint32_t>());
+                    if (m_transientRateBps.size() < now_second + 1)
+                    {
+                        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] ZeroRate in " << m_transientRateBps.size() - 1);
+                    }
+                }
+                // if (packet->GetSize() * 8 < m_transientRateBps[now_second] || m_transientRateBps[now_second] == 0)
+                if (m_transientRateBps[now_second].find(src_ip) == m_transientRateBps[now_second].end())
+                {
+                    m_transientRateBps[now_second][src_ip] = packet->GetSize() * 8;
+                }
+                else
+                {
+                    m_transientRateBps[now_second][src_ip] += packet->GetSize() * 8;
+                }
+
                 NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
                 ReceiveData(packet);
             }
@@ -279,8 +289,8 @@ namespace ns3
         socket->SetRecvCallback(MakeCallback(&VcaClient::HandleRead, this));
         m_socket_list_dl.push_back(socket);
         NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] HandleAccept: " << socket);
-        m_socket_id_map_dl[socket] = m_socket_id_dl;
-        m_socket_id_dl += 1;
+        // m_socket_id_map_dl[socket] = m_socket_id_dl;
+        // m_socket_id_dl += 1;
     };
 
     void
@@ -522,16 +532,26 @@ namespace ns3
         uint64_t less_then_thresh_count = 0;
 
         std::map<uint32_t, uint64_t> transient_rate_distribution;
-        // std::cout << "[Node" << m_node_id << "]Full transient rate: ";
+        std::cout << "[Node" << m_node_id << "]Full transient rate: ";
 
         uint8_t init_seconds = 0;
-        for (auto transient_rate : m_transientRateBps)
+        uint32_t transient_rate;
+        for (auto transient_rate_all_flows : m_transientRateBps)
         {
             if (init_seconds < InitPhaseFilterSec)
             {
                 init_seconds++;
                 continue;
             }
+            if (transient_rate_all_flows.size() < 2)
+            {
+                transient_rate = 0;
+            }
+            else
+            {
+                transient_rate = std::min_element(transient_rate_all_flows.begin(), transient_rate_all_flows.end(), map_compare)->second;
+            }
+
             sum_transient_rate += transient_rate;
             if (transient_rate < min_tolerable_bitrate_bps)
                 less_then_thresh_count++;
@@ -541,9 +561,9 @@ namespace ns3
                 it->second += 1;
             else
                 transient_rate_distribution[transient_rate] = 1;
-            // std::cout << transient_rate << " ";
+            std::cout << transient_rate << " ";
         }
-        // std::cout << std::endl;
+        std::cout << std::endl;
 
         NS_LOG_DEBUG("[VcaClient][Result][Node" << m_node_id << "] TransientRateDistribution");
         for (auto transient_rate : transient_rate_distribution)

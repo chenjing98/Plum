@@ -125,7 +125,7 @@ namespace ns3
         std::vector<bool> m_firstUpdate;
 
         uint32_t m_total_packet_bit;
-        std::vector<uint32_t> m_transientRateBps;
+        std::vector<std::unordered_map<uint32_t, uint32_t>> m_transientRateBps; // vector index: time in second, map key: source ip, map value: bitrate in bps
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_pkt;
         std::vector<std::deque<Ptr<VcaAppProtHeaderInfo>>> m_send_buffer_hdr;
