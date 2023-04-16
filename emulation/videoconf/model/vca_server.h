@@ -17,7 +17,8 @@
 namespace ns3
 {
 
-    enum DL_RATE_CONTROL_STATE {
+    enum DL_RATE_CONTROL_STATE
+    {
         DL_RATE_CONTROL_STATE_NATRUAL,
         DL_RATE_CONTROL_STATE_LIMIT
     };
@@ -84,7 +85,7 @@ namespace ns3
          */
         void HandlePeerError(Ptr<Socket> socket);
 
-        Ptr<Packet> TranscodeFrame(uint8_t socket_id, Ptr<Packet> packet, uint16_t frame_id);
+        Ptr<Packet> TranscodeFrame(uint8_t src_socket_id, uint8_t dst_socket_id, Ptr<Packet> packet, uint16_t frame_id);
         void SendData(Ptr<Socket> socket);
         void ReceiveData(Ptr<Packet>, uint8_t);
 
@@ -102,8 +103,8 @@ namespace ns3
         std::vector<Ipv4Address> m_peer_list;
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_list;
         std::vector<uint32_t> m_cc_target_frame_size;
-        std::vector<uint32_t> m_frame_size_forwarded;
-        std::vector<uint16_t> m_prev_frame_id;
+        std::vector<std::unordered_map<uint8_t, uint32_t>> m_frame_size_forwarded; // vector index: src_socket_id, map key: dst_socket_id, value: frame_size_forwarded
+        std::vector<std::unordered_map<uint8_t, uint16_t>> m_prev_frame_id;        // vector index: src_socket_id, map key: dst_socket_id, value: prev_frame_id
 
         TypeId m_tid;
 
