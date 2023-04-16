@@ -70,6 +70,11 @@ namespace ns3
         m_max_bitrate = bitrate;
     };
 
+    void VcaClient::SetMinBitrate(uint32_t bitrate)
+    {
+        m_min_bitrate = bitrate;
+    };
+
     void VcaClient::SetLocalAddress(Ipv4Address local)
     {
         m_local = local;
@@ -611,7 +616,8 @@ namespace ns3
         {
             NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " Detected BE half-duplex bottleneck");
 
-            for(uint8_t i = 0; i < m_bitrateBps.size(); i++){
+            for (uint8_t i = 0; i < m_bitrateBps.size(); i++)
+            {
                 m_bitrateBps[i] = (uint32_t)((double_t)m_bitrateBps[i] * 2);
             }
 

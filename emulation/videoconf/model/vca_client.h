@@ -48,6 +48,7 @@ namespace ns3
         void SetFps(uint8_t fps);
         void SetBitrate(std::vector<uint32_t> bitrate);
         void SetMaxBitrate(uint32_t bitrate);
+        void SetMinBitrate(uint32_t bitrate);
 
         void SetNodeId(uint32_t node_id);
 
@@ -78,7 +79,7 @@ namespace ns3
         void ReceiveData(Ptr<Packet> packet);
 
         void EncodeFrame();
-        void UpdateDutyRatio(); 
+        void UpdateDutyRatio();
         void UpdateEncodeBitrate();
 
         void AdjustBw();
@@ -113,6 +114,7 @@ namespace ns3
 
         uint8_t m_fps;
         uint32_t m_max_bitrate; // in kbps
+        uint32_t m_min_bitrate; // in kbps
         uint16_t m_frame_id;
 
         EventId m_enc_event;

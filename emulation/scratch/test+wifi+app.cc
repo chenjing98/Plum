@@ -44,19 +44,21 @@ int main(int argc, char *argv[])
   std::string mode = "p2p";
   uint8_t logLevel = 0;
   double_t simulationDuration = 10.0; // in s
-  uint32_t maxBitrate = 10000;        // in kbps
+  uint32_t maxBitrateKbps = 10000;
   uint8_t policy = 0;
   uint32_t nClient = 1;
   bool printPosition = false;
+  double_t minBitrateKbps = 4.0;
 
   CommandLine cmd(__FILE__);
   cmd.AddValue("mode", "p2p or sfu mode", mode);
   cmd.AddValue("logLevel", "Log level: 0 for error, 1 for debug, 2 for logic", logLevel);
   cmd.AddValue("simTime", "Total simulation time in s", simulationDuration);
-  cmd.AddValue("maxBitrate", "Max bitrate in kbps", maxBitrate);
+  cmd.AddValue("maxBitrateKbps", "Max bitrate in kbps", maxBitrateKbps);
   cmd.AddValue("policy", "0 for vanilla, 1 for Yongyule", policy);
   cmd.AddValue("nClient", "Number of clients", nClient);
   cmd.AddValue("printPosition", "Print position of nodes", printPosition);
+  cmd.AddValue("minBitrate", "Minimum tolerable bitrate in kbps", minBitrateKbps);
 
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
@@ -237,7 +239,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetLocalDlPort(port_dl);
         vcaClientApp->SetPeerPort(port_dl); // to other's port_dl
         vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
-        vcaClientApp->SetMaxBitrate(maxBitrate);
+        vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
         NS_LOG_DEBUG("[id=" << id << ",i=" << i << "] info:" << wifiStaNodes[id].Get(i)->GetId());
 
@@ -383,7 +385,7 @@ int main(int argc, char *argv[])
       for (int k = 0; k < interfacenumber; k++)
       {
         Ipv4Address ipaddress = ippp->GetAddress(k, 0).GetLocal();
-        NS_LOG_DEBUG("Node(" << i << "),interface(" << k << ")   it's IPAddress =" << ipaddress);
+        NS_LOG_DEBUG("Node(" << i << ") Interface(" << k << ") IPAddress= " << ipaddress);
       }
     }
 
@@ -419,7 +421,8 @@ int main(int argc, char *argv[])
         vcaClientApp->SetPeerPort(client_peer);
         vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
         vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
-        vcaClientApp->SetMaxBitrate(maxBitrate);
+        vcaClientApp->SetMaxBitrate(maxBitrateKbps);
+        vcaClientApp->SetMinBitrate(minBitrateKbps);
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
 
         Simulator::Schedule(Seconds(simulationDuration), &VcaClient::StopEncodeFrame, vcaClientApp);
