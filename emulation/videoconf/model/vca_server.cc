@@ -25,7 +25,8 @@ namespace ns3
           m_prev_frame_id(),
           m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")),
           m_fps(20),
-          m_num_degraded_users(0){};
+          m_num_degraded_users(0),
+          m_tot_packetsize(0){};
 
     VcaServer::~VcaServer(){};
 
@@ -99,6 +100,7 @@ namespace ns3
     void
     VcaServer::StopApplication()
     {
+//        NS_LOG_UNCOND("Average thoughput (all clients) = "<<1.0*m_tot_packetsize/Simulator::Now().GetSeconds());
         if (m_update_rate_event.IsRunning())
         {
             Simulator::Cancel(m_update_rate_event);
@@ -184,10 +186,10 @@ namespace ns3
 
         while (true)
         {
-            NS_LOG_UNCOND("[Server] status = "<<(uint32_t)m_status[socket_id]);
+//            NS_LOG_UNCOND("[Server] status = "<<(uint32_t)m_status[socket_id]);
             //start to read header
             if(m_status[socket_id] == 0){
-                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
+//                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
                 packet = socket->Recv(12,false);
                 if(packet == NULL) return;
                 if(packet->GetSize() == 0) return;
@@ -197,7 +199,7 @@ namespace ns3
             }
             //continue to read header
             if(m_status[socket_id] == 1){
-                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
+//                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
                 packet = socket->Recv(12-m_half_header[socket_id]->GetSize(),false);
                 if(packet == NULL) return;
                 if(packet->GetSize() == 0) return;
@@ -206,7 +208,7 @@ namespace ns3
             }
             //start to read payload
             if(m_status[socket_id] == 2){
-                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
+//              NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
                 if(m_set_header[socket_id] == 0){
                     app_header[socket_id] = VcaAppProtHeader();
                     m_half_header[socket_id]->RemoveHeader(app_header[socket_id]);
@@ -217,7 +219,7 @@ namespace ns3
                     uint16_t pkt_id = app_header[socket_id].GetPacketId();
                     uint32_t dl_redc_factor = app_header[socket_id].GetDlRedcFactor();
 
-                    NS_LOG_UNCOND("[Server] ("<<frame_id<<","<<pkt_id<<") dlfac="<<dl_redc_factor<<"  payloadsize = "<<m_payload_size[socket_id]);
+//                    NS_LOG_UNCOND("[Server] ("<<frame_id<<","<<pkt_id<<") dlfac="<<dl_redc_factor<<"  payloadsize = "<<m_payload_size[socket_id]);
                     m_set_header[socket_id] = 1;
                     if(m_payload_size[socket_id] == 0) {//read again
                         m_status[socket_id] = 0;
@@ -231,29 +233,29 @@ namespace ns3
                 m_half_payload[socket_id] = packet;
                 if(m_half_payload[socket_id]->GetSize() < m_payload_size[socket_id]) m_status[socket_id] = 3;//continue to read payload;
                 if(m_half_payload[socket_id]->GetSize() == m_payload_size[socket_id]) m_status[socket_id] = 4;//READY TO SEND;
-                NS_LOG_UNCOND("[Server] m_half_payloadsize = "<<m_half_payload[socket_id]->GetSize());
+//                NS_LOG_UNCOND("[Server] m_half_payloadsize = "<<m_half_payload[socket_id]->GetSize());
             }
             //continue to read payload
             if(m_status[socket_id] == 3){
-                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
+//                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
                 packet = socket->Recv(m_payload_size[socket_id]-m_half_payload[socket_id]->GetSize(),false);
                 if(packet == NULL) return;
                 if(packet->GetSize() == 0) return;
                 m_half_payload[socket_id]->AddAtEnd(packet);
                 if(m_half_payload[socket_id]->GetSize() == m_payload_size[socket_id]) m_status[socket_id] = 4;//READY TO SEND;
-                NS_LOG_UNCOND("[Server] m_half_payloadsize = "<<m_half_payload[socket_id]->GetSize());
+//                NS_LOG_UNCOND("[Server] m_half_payloadsize = "<<m_half_payload[socket_id]->GetSize());
             }
             //Send packets only when header+payload is ready
             //status = 0  (1\ all empty then return    2\ all ready)
             if(m_status[socket_id] == 4){
-                NS_LOG_UNCOND("[Server] SEND!! status = "<<(uint32_t)m_status[socket_id]);
+            //    NS_LOG_UNCOND("[Server] SEND!! status = "<<(uint32_t)m_status[socket_id]);
 
                 uint8_t* buffer = new uint8_t[m_half_payload[socket_id]->GetSize()]; // 创建一个buffer，用于存储packet元素
                 m_half_payload[socket_id]->CopyData(buffer, m_half_payload[socket_id]->GetSize()); // 将packet元素复制到buffer中
                 for (int i = 0; i < m_half_payload[socket_id]->GetSize(); i++){
                     uint8_t element = buffer[i]; // 获取第i个元素
-                    if(element != 0)
-                        NS_LOG_UNCOND("i = " <<i<<"  ele = "<<(uint32_t)element);
+                    // if(element != 0)
+                    //     NS_LOG_UNCOND("i = " <<i<<"  ele = "<<(uint32_t)element);
                 }
 
 
@@ -371,7 +373,8 @@ namespace ns3
         uint32_t payload_size = app_header[socket_id].GetPayloadSize();
 
         NS_LOG_DEBUG("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000. << " NumDegradedUsers= " << m_num_degraded_users << " SocketListSize= " << m_socket_list_dl.size());
-        NS_LOG_UNCOND("ICARE hello ("<<frame_id<<","<<pkt_id<<")");
+        // NS_LOG_UNCOND("ICARE hello ("<<frame_id<<","<<pkt_id<<")");
+        m_tot_packetsize += payload_size+12;
 
         m_dl_bitrate_reduce_factor[socket_id] = (double_t)dl_redc_factor / 10000.0;
 

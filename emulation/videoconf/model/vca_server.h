@@ -136,6 +136,8 @@ namespace ns3
         std::vector<Ptr<Packet>> m_half_payload;
         std::vector<VcaAppProtHeader> app_header;
         std::vector<uint32_t> m_payload_size;
+
+        uint64_t m_tot_packetsize;
     }; // class VcaServer
 
 }; // namespace ns3

@@ -150,6 +150,9 @@ namespace ns3
         std::vector<std::deque<int64_t>> m_time_history;
         std::vector<std::deque<uint32_t>> m_write_history;
 
+        uint64_t m_total_bitrate;
+        uint32_t m_encode_times;
+
     }; // class VcaClient
 
 }; // namespace ns3
