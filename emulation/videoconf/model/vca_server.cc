@@ -285,6 +285,7 @@ namespace ns3
     VcaServer::ReceiveData(Ptr<Packet> packet, uint8_t socket_id)
     {
         // Parsing the packet header
+        // This is a test
         VcaAppProtHeader app_header = VcaAppProtHeader();
         packet->RemoveHeader(app_header);
 
