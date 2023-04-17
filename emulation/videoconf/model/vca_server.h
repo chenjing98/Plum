@@ -121,6 +121,21 @@ namespace ns3
         std::vector<uint32_t> m_capacity_frame_size;
 
         uint16_t m_num_degraded_users;
+        
+        //Decode DIY header in TCP payload
+        std::vector<uint8_t> m_set_header;
+        std::vector<uint8_t> m_status;
+        /*
+            m_status = 0   start to read header
+            m_status = 1   continue to read header
+            m_status = 2   start to read payload
+            m_status = 3   continue to read payload
+            m_status = 4   ready to send
+        */
+        std::vector<Ptr<Packet>> m_half_header;
+        std::vector<Ptr<Packet>> m_half_payload;
+        std::vector<VcaAppProtHeader> app_header;
+        std::vector<uint32_t> m_payload_size;
     }; // class VcaServer
 
 }; // namespace ns3
