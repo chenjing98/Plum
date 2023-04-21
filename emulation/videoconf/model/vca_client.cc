@@ -558,14 +558,19 @@ namespace ns3
             return;
         }
 
-        uint64_t sum_transient_rate = 0;
+        while (m_transientRateBps.size() < Simulator::Now().GetSeconds())
+        {
+            m_transientRateBps.push_back(std::unordered_map<uint32_t, uint32_t>());
+        }
+
+        uint64_t sum_transient_rate_kbps = 0;
         uint64_t less_then_thresh_count = 0;
 
         std::map<uint32_t, uint64_t> transient_rate_distribution;
         std::cout << "[Node" << m_node_id << "] Full transient rate: ";
 
         uint8_t init_seconds = 0;
-        uint32_t transient_rate;
+        uint32_t transient_rate_kbps;
         for (auto transient_rate_all_flows : m_transientRateBps)
         {
             if (init_seconds < InitPhaseFilterSec)
@@ -573,37 +578,35 @@ namespace ns3
                 init_seconds++;
                 continue;
             }
-            if (transient_rate_all_flows.size() < 2)
-            {
-                transient_rate = 0;
-            }
+
+            if (transient_rate_all_flows.empty())
+                transient_rate_kbps = 0;
             else
             {
-                transient_rate = std::min_element(transient_rate_all_flows.begin(), transient_rate_all_flows.end(), map_compare)->second;
+                transient_rate_kbps = std::max_element(transient_rate_all_flows.begin(), transient_rate_all_flows.end(), map_compare)->second / 1000;
             }
 
-            sum_transient_rate += transient_rate;
-            if (transient_rate < min_tolerable_bitrate_bps)
+            sum_transient_rate_kbps += transient_rate_kbps;
+            if (transient_rate_kbps < m_min_bitrate * (m_num_node - 1))
                 less_then_thresh_count++;
 
-            auto it = transient_rate_distribution.find(transient_rate);
+            auto it = transient_rate_distribution.find(transient_rate_kbps);
             if (it != transient_rate_distribution.end())
                 it->second += 1;
             else
-                transient_rate_distribution[transient_rate] = 1;
-            std::cout << transient_rate << " ";
+                transient_rate_distribution[transient_rate_kbps] = 1;
+            std::cout << transient_rate_kbps << " ";
         }
         std::cout << std::endl;
 
         NS_LOG_DEBUG("[VcaClient][Result][Node" << m_node_id << "] TransientRateDistribution");
-        for (auto transient_rate : transient_rate_distribution)
+        for (auto transient_rate_kbps : transient_rate_distribution)
         {
-            NS_LOG_DEBUG("TransientRate= " << transient_rate.first << " Count= " << transient_rate.second);
+            NS_LOG_DEBUG("TransientRate= " << transient_rate_kbps.first << " Count= " << transient_rate_kbps.second);
         }
 
-        NS_LOG_ERROR("[VcaClient][Result] TailThroughput= " << (double_t)less_then_thresh_count / (double_t)(pkt_history_length - InitPhaseFilterSec) << " AvgThroughput= " << /*(double_t)sum_transient_rate / (double_t)(pkt_history_length - InitPhaseFilterSec)*/ average_throughput << " NodeId= " << m_node_id);
+        NS_LOG_ERROR("[VcaClient][Result] TailThroughput= " << (double_t)less_then_thresh_count / (double_t)(m_transientRateBps.size() - InitPhaseFilterSec) << " AvgThroughput= " << /*(double_t)sum_transient_rate_kbps / (double_t)(pkt_history_length - InitPhaseFilterSec)*/ average_throughput << " NodeId= " << m_node_id);
 
-        //        NS_LOG_UNCOND("Average bitrate = "<<1.0*m_total_bitrate/m_encode_times<<" NodeId= "<<m_node_id);
     };
 
     void
