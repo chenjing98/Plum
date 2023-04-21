@@ -28,6 +28,8 @@ namespace ns3
         uint32_t GetDlRedcFactor(void);
         uint32_t GetPayloadSize(void);
 
+        void Reset(void);
+
     private:
         uint16_t m_frame_id;
         uint16_t m_packet_id;
