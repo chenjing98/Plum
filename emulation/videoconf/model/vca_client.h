@@ -157,6 +157,8 @@ namespace ns3
         uint64_t m_total_bitrate;
         uint32_t m_encode_times;
 
+        bool m_increase_ul;
+
     }; // class VcaClient
 
 }; // namespace ns3

@@ -42,12 +42,13 @@ namespace ns3
           m_yongyule_realization(YONGYULE_REALIZATION::YONGYULE_APPRATE),
           m_target_dl_bitrate_redc_factor(1e4),
           kTxRateUpdateWindowMs(20),
-          kMinEncodeBps((uint32_t)1E2),
-          kMaxEncodeBps((uint32_t)5E6),
+          kMinEncodeBps((uint32_t)100E3),
+          kMaxEncodeBps((uint32_t)30E6),
           kTargetDutyRatio(0.9),
           kDampingCoef(0.5f),
           m_total_bitrate(0),
-          m_encode_times(0){};
+          m_encode_times(0),
+          m_increase_ul(false){};
 
     VcaClient::~VcaClient(){};
 
@@ -172,7 +173,7 @@ namespace ns3
             m_firstUpdate.push_back(true);
             m_lastPendingBuf.push_back(0);
 
-            m_bitrateBps.push_back(m_max_bitrate / 2);
+            m_bitrateBps.push_back(m_min_bitrate * 2);
             m_dutyState.push_back(std::vector<bool>(kTxRateUpdateWindowMs, false));
 
             m_time_history.push_back(std::deque<int64_t>{});
@@ -511,6 +512,12 @@ namespace ns3
                 {
                     m_bitrateBps[ul_id] -= kDampingCoef * (dutyRatio - kTargetDutyRatio) * m_bitrateBps[ul_id];
                 }
+
+                if (m_increase_ul)
+                {
+                    m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * 5;
+                }
+
                 m_bitrateBps[ul_id] = std::min(m_bitrateBps[ul_id], kMaxEncodeBps);
                 m_bitrateBps[ul_id] = std::max(m_bitrateBps[ul_id], kMinEncodeBps);
 
@@ -689,16 +696,19 @@ namespace ns3
         {
             NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " Detected BE half-duplex bottleneck");
 
-            for (uint8_t i = 0; i < m_bitrateBps.size(); i++)
-            {
-                m_bitrateBps[i] = (uint32_t)((double_t)m_bitrateBps[i] * 2);
-            }
+            // for (uint8_t i = 0; i < m_bitrateBps.size(); i++)
+            // {
+            //     m_bitrateBps[i] = (uint32_t)((double_t)m_bitrateBps[i] * 2);
+            // }
 
-            return 0.5;
+            m_increase_ul = true;
+
+            return 0.1;
         }
         else
         {
             NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " Detected NOT half-duplex bottleneck");
+            m_increase_ul = false;
             return 1.0;
         }
     };
