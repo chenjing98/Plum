@@ -4,6 +4,29 @@ namespace ns3
 {
     NS_LOG_COMPONENT_DEFINE("VcaServer");
 
+    TypeId ClientInfo::GetTypeId()
+    {
+        static TypeId tid = TypeId("ns3::ClientInfo")
+                                .SetParent<Object>()
+                                .SetGroupName("videoconf")
+                                .AddConstructor<ClientInfo>();
+        return tid;
+    };
+
+    ClientInfo::ClientInfo()
+        : cc_target_frame_size(1e7 / 8 / 20),
+          capacity_frame_size(1e7),
+          dl_bitrate_reduce_factor(1.0),
+          dl_rate_control_state(DL_RATE_CONTROL_STATE_NATRUAL),
+          set_header(0),
+          read_status(0),
+          payload_size(0),
+          half_header(nullptr),
+          half_payload(nullptr),
+          app_header(VcaAppProtHeader()){};
+
+    ClientInfo::~ClientInfo(){};
+
     TypeId VcaServer::GetTypeId()
     {
         static TypeId tid = TypeId("ns3::VcaServer")
@@ -15,26 +38,20 @@ namespace ns3
 
     VcaServer::VcaServer()
         : m_socket_ul(nullptr),
-          m_socket_list_ul(),
-          m_socket_list_dl(),
-          m_socket_id_map(),
+          m_ul_socket_id_map(),
+          m_dl_socket_id_map(),
           m_socket_id(0),
-          m_peer_list(),
-          m_send_buffer_list(),
-          m_frame_size_forwarded(),
-          m_prev_frame_id(),
+          m_client_info_map(),
           m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")),
           m_fps(20),
           m_num_degraded_users(0),
-          m_tot_packetsize(0){};
+          m_total_packet_size(0){};
 
     VcaServer::~VcaServer(){};
 
     void
     VcaServer::DoDispose()
     {
-        m_socket_list_dl.clear();
-        m_socket_list_ul.clear();
         Application::DoDispose();
     };
 
@@ -100,28 +117,23 @@ namespace ns3
     void
     VcaServer::StopApplication()
     {
-//        NS_LOG_UNCOND("Average thoughput (all clients) = "<<1.0*m_tot_packetsize/Simulator::Now().GetSeconds());
+        // NS_LOG_UNCOND("Average thoughput (all clients) = "<<1.0*m_total_packet_size/Simulator::Now().GetSeconds());
         if (m_update_rate_event.IsRunning())
         {
             Simulator::Cancel(m_update_rate_event);
         }
-        while (!m_socket_list_ul.empty())
-        { // these are accepted sockets, close them
-            Ptr<Socket> acceptedSocket = m_socket_list_ul.front();
-            m_socket_list_ul.pop_front();
-            acceptedSocket->Close();
+        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+        {
+            Ptr<ClientInfo> client_info = it->second;
+            // these are accepted/connected sockets, close them
+            client_info->socket_ul->Close();
+            client_info->socket_dl->Close();
+        }
         }
         if (m_socket_ul)
         {
             m_socket_ul->Close();
             m_socket_ul->SetRecvCallback(MakeNullCallback<void, Ptr<Socket>>());
-        }
-        if (!m_socket_list_dl.empty())
-        {
-            Ptr<Socket> connectedSocket = m_socket_list_dl.front();
-            m_socket_list_dl.pop_front();
-            connectedSocket->SetSendCallback(MakeNullCallback<void, Ptr<Socket>, uint32_t>());
-            connectedSocket->Close();
         }
     };
 
@@ -129,22 +141,24 @@ namespace ns3
     VcaServer::UpdateRate()
     {
         // Update m_cc_target_frame_size in a periodically invoked function
-        for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
+        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
         {
-            Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
+            Ptr<ClientInfo> client_info = it->second;
+            Ptr<Socket> socket_ul = client_info->socket_ul;
+            Ptr<TcpSocketBase> ul_socketbase = DynamicCast<TcpSocketBase, Socket>(socket_ul);
             Address peerAddress;
-            Ptr<Socket> socket = *it;
-            socket->GetPeerName(peerAddress);
-            uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
-            if (ul_socket->GetTcb()->m_pacing)
+
+            socket_ul->GetPeerName(peerAddress);
+            // uint8_t socket_id = m_ul_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+            if (ul_socketbase->GetTcb()->m_pacing)
             {
-                uint64_t bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
-                m_cc_target_frame_size[socket_id] = bitrate / 8 / m_fps;
+                uint64_t bitrate = ul_socketbase->GetTcb()->m_pacingRate.Get().GetBitRate();
+                client_info->cc_target_frame_size = bitrate / 8 / m_fps;
             }
             else
             {
-                uint64_t bitrate = ul_socket->GetTcb()->m_cWnd * 8 / 40;
-                m_cc_target_frame_size[socket_id] = bitrate / 8 / m_fps;
+                uint64_t bitrate = ul_socketbase->GetTcb()->m_cWnd * 8 / 40;
+                client_info->cc_target_frame_size = bitrate / 8 / m_fps;
             }
         }
 
@@ -169,112 +183,106 @@ namespace ns3
     };
 
     void
-    VcaServer::DataSendDl(Ptr<Socket> socket)
-    {
-        NS_LOG_LOGIC("[VcaServer] Downlink dataSend");
-        SendData(socket);
-    };
-
-    void
     VcaServer::HandleRead(Ptr<Socket> socket)
     {
         NS_LOG_LOGIC("[VcaServer] HandleRead");
         Ptr<Packet> packet;
         Address peerAddress;
         socket->GetPeerName(peerAddress);
-        uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+        uint8_t socket_id = m_ul_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+
+        Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
 
         while (true)
         {
-//            NS_LOG_UNCOND("[Server] status = "<<(uint32_t)m_status[socket_id]);
-            //start to read header
-            if(m_status[socket_id] == 0){
-//                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
-                packet = socket->Recv(12,false);
-                if(packet == NULL) return;
-                if(packet->GetSize() == 0) return;
-                m_half_header[socket_id] = packet;
-                if(m_half_header[socket_id]->GetSize() < 12) m_status[socket_id] = 1;//continue to read header;
-                if(m_half_header[socket_id]->GetSize() == 12) m_status[socket_id] = 2;//start to read payload;
+            // start to read header
+            if (client_info->read_status == 0)
+            {
+                packet = socket->Recv(12, false);
+                if (packet == NULL)
+                    return;
+                if (packet->GetSize() == 0)
+                    return;
+                client_info->half_header = packet;
+                if (client_info->half_header->GetSize() < 12)
+                    client_info->read_status = 1; // continue to read header;
+                if (client_info->half_header->GetSize() == 12)
+                    client_info->read_status = 2; // start to read payload;
             }
-            //continue to read header
-            if(m_status[socket_id] == 1){
-//                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
-                packet = socket->Recv(12-m_half_header[socket_id]->GetSize(),false);
-                if(packet == NULL) return;
-                if(packet->GetSize() == 0) return;
-                m_half_header[socket_id]->AddAtEnd(packet);
-                if(m_half_header[socket_id]->GetSize() == 12) m_status[socket_id] = 2;//start to read payload;
+            // continue to read header
+            if (client_info->read_status == 1)
+            {
+                packet = socket->Recv(12 - client_info->half_header->GetSize(), false);
+                if (packet == NULL)
+                    return;
+                if (packet->GetSize() == 0)
+                    return;
+                client_info->half_header->AddAtEnd(packet);
+                if (client_info->half_header->GetSize() == 12)
+                    client_info->read_status = 2; // start to read payload;
             }
-            //start to read payload
-            if(m_status[socket_id] == 2){
-//              NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
-                if(m_set_header[socket_id] == 0){
-                    app_header[socket_id] = VcaAppProtHeader();
-                    m_half_header[socket_id]->RemoveHeader(app_header[socket_id]);
-                    m_payload_size[socket_id] = app_header[socket_id].GetPayloadSize();
+            // start to read payload
+            if (client_info->read_status == 2)
+            {
 
+                if (client_info->set_header == 0)
+                {
+                    client_info->app_header.Reset();
+                    client_info->half_header->RemoveHeader(client_info->app_header);
+                    client_info->payload_size = client_info->app_header.GetPayloadSize();
 
-                    uint16_t frame_id = app_header[socket_id].GetFrameId();
-                    uint16_t pkt_id = app_header[socket_id].GetPacketId();
-                    uint32_t dl_redc_factor = app_header[socket_id].GetDlRedcFactor();
+                    // uint16_t frame_id = app_header[socket_id].GetFrameId();
+                    // uint16_t pkt_id = app_header[socket_id].GetPacketId();
+                    // uint32_t dl_redc_factor = app_header[socket_id].GetDlRedcFactor();
 
-//                    NS_LOG_UNCOND("[Server] ("<<frame_id<<","<<pkt_id<<") dlfac="<<dl_redc_factor<<"  payloadsize = "<<m_payload_size[socket_id]);
-                    m_set_header[socket_id] = 1;
-                    if(m_payload_size[socket_id] == 0) {//read again
-                        m_status[socket_id] = 0;
-                        m_set_header[socket_id] = 0;
+                    client_info->set_header = 1;
+                    if (client_info->payload_size == 0)
+                    {
+                        // read again
+                        client_info->read_status = 0;
+                        client_info->set_header = 0;
                         return;
                     }
                 }
-                packet = socket->Recv(m_payload_size[socket_id],false);
-                if(packet == NULL) return;
-                if(packet->GetSize() == 0) return;
-                m_half_payload[socket_id] = packet;
-                if(m_half_payload[socket_id]->GetSize() < m_payload_size[socket_id]) m_status[socket_id] = 3;//continue to read payload;
-                if(m_half_payload[socket_id]->GetSize() == m_payload_size[socket_id]) m_status[socket_id] = 4;//READY TO SEND;
-//                NS_LOG_UNCOND("[Server] m_half_payloadsize = "<<m_half_payload[socket_id]->GetSize());
+                packet = socket->Recv(client_info->payload_size, false);
+                if (packet == NULL)
+                    return;
+                if (packet->GetSize() == 0)
+                    return;
+                client_info->half_payload = packet;
+                if (client_info->half_payload->GetSize() < client_info->payload_size)
+                    client_info->read_status = 3; // continue to read payload;
+                if (client_info->half_payload->GetSize() == client_info->payload_size)
+                    client_info->read_status = 4; // READY TO SEND;
             }
-            //continue to read payload
-            if(m_status[socket_id] == 3){
-//                NS_LOG_UNCOND("[Server] HANDLE status = "<<(uint32_t)m_status[socket_id]);
-                packet = socket->Recv(m_payload_size[socket_id]-m_half_payload[socket_id]->GetSize(),false);
-                if(packet == NULL) return;
-                if(packet->GetSize() == 0) return;
-                m_half_payload[socket_id]->AddAtEnd(packet);
-                if(m_half_payload[socket_id]->GetSize() == m_payload_size[socket_id]) m_status[socket_id] = 4;//READY TO SEND;
-//                NS_LOG_UNCOND("[Server] m_half_payloadsize = "<<m_half_payload[socket_id]->GetSize());
-            }
-            //Send packets only when header+payload is ready
-            //status = 0  (1\ all empty then return    2\ all ready)
-            if(m_status[socket_id] == 4){
-            //    NS_LOG_UNCOND("[Server] SEND!! status = "<<(uint32_t)m_status[socket_id]);
-
-                uint8_t* buffer = new uint8_t[m_half_payload[socket_id]->GetSize()]; // 创建一个buffer，用于存储packet元素
-                m_half_payload[socket_id]->CopyData(buffer, m_half_payload[socket_id]->GetSize()); // 将packet元素复制到buffer中
-                for (int i = 0; i < m_half_payload[socket_id]->GetSize(); i++){
-                    uint8_t element = buffer[i]; // 获取第i个元素
-                    // if(element != 0)
-                    //     NS_LOG_UNCOND("i = " <<i<<"  ele = "<<(uint32_t)element);
-                }
-
-
-            ReceiveData(m_half_payload[socket_id], socket_id);
-            m_status[socket_id] = 0;
-            m_set_header[socket_id] = 0;
-            /*
-            if (InetSocketAddress::IsMatchingType(from))
+            // continue to read payload
+            if (client_info->read_status == 3)
             {
-                NS_LOG_LOGIC("[VcaServer][ReceivedPkt] Time= " << Simulator::Now().GetSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
-
-                ReceiveData(packet, socket_id);
+                packet = socket->Recv(client_info->payload_size - client_info->half_payload->GetSize(), false);
+                if (packet == NULL)
+                    return;
+                if (packet->GetSize() == 0)
+                    return;
+                client_info->half_payload->AddAtEnd(packet);
+                if (client_info->half_payload->GetSize() == client_info->payload_size)
+                    client_info->read_status = 4; // READY TO SEND;
             }
-            else if (Inet6SocketAddress::IsMatchingType(from))
+            // Send packets only when header+payload is ready
+            // status = 0  (1\ all empty then return    2\ all ready)
+            if (client_info->read_status == 4)
             {
-                NS_LOG_LOGIC("[VcaServer][ReceivedPkt] Time= " << Simulator::Now().GetSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << Inet6SocketAddress::ConvertFrom(from).GetIpv6() << " SrcPort= " << Inet6SocketAddress::ConvertFrom(from).GetPort());
-                ReceiveData(packet, socket_id);
-            }
-            */
+
+                uint8_t *buffer = new uint8_t[client_info->half_payload->GetSize()];               // 创建一个buffer，用于存储packet元素
+                client_info->half_payload->CopyData(buffer, client_info->half_payload->GetSize()); // 将packet元素复制到buffer中
+                // for (int i = 0; i < m_half_payload[socket_id]->GetSize(); i++){
+                //     uint8_t element = buffer[i]; // 获取第i个元素
+                // if(element != 0)
+                //     NS_LOG_UNCOND("i = " <<i<<"  ele = "<<(uint32_t)element);
+                // }
+
+                ReceiveData(client_info->half_payload, socket_id);
+                client_info->read_status = 0;
+                client_info->set_header = 0;
             }
         }
     };
@@ -284,10 +292,12 @@ namespace ns3
     {
         NS_LOG_LOGIC("[VcaServer][Node" << m_node_id << "] HandleAccept");
         socket->SetRecvCallback(MakeCallback(&VcaServer::HandleRead, this));
-        m_socket_list_ul.push_back(socket);
 
-        Ipv4Address peer_ip = InetSocketAddress::ConvertFrom(from).GetIpv4();
-        m_peer_list.push_back(peer_ip);
+        Ptr<ClientInfo> client_info = CreateObject<ClientInfo>();
+        client_info->socket_ul = socket;
+
+        Ipv4Address ul_peer_ip = InetSocketAddress::ConvertFrom(from).GetIpv4();
+        client_info->ul_addr = ul_peer_ip;
 
         // Create downlink socket as well
         Ptr<Socket> socket_dl = Socket::CreateSocket(GetNode(), m_tid);
@@ -303,28 +313,20 @@ namespace ns3
             MakeCallback(&VcaServer::ConnectionSucceededDl, this),
             MakeCallback(&VcaServer::ConnectionFailedDl, this));
 
-        m_socket_list_dl.push_back(socket_dl);
-        m_socket_id_map[peer_ip.Get()] = m_socket_id;
+        client_info->socket_dl = socket_dl;
+        client_info->cc_target_frame_size = 1e7 / 8 / 20;
+        client_info->dl_bitrate_reduce_factor = 1.0;
+        client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_NATRUAL;
+        client_info->capacity_frame_size = 1e7;
+        client_info->half_header = nullptr;
+        client_info->half_payload = nullptr;
+
+        m_ul_socket_id_map[ul_peer_ip.Get()] = m_socket_id;
+        m_dl_socket_id_map[dl_peer_ip.Get()] = m_socket_id;
+        m_client_info_map[m_socket_id] = client_info;
+
         m_socket_id += 1;
-
         m_local_dl_port += 1;
-
-        m_send_buffer_list.push_back(std::deque<Ptr<Packet>>{});
-
-        m_cc_target_frame_size.push_back(1e7 / 8 / 20);
-        m_frame_size_forwarded.push_back(std::unordered_map<uint8_t, uint32_t>());
-        m_prev_frame_id.push_back(std::unordered_map<uint8_t, uint16_t>());
-
-        m_dl_bitrate_reduce_factor.push_back(1.0);
-        m_dl_rate_control_state.push_back(DL_RATE_CONTROL_STATE_NATRUAL);
-        m_capacity_frame_size.push_back(1e7);
-
-        m_half_header.push_back(nullptr);
-        m_half_payload.push_back(nullptr);
-        m_set_header.push_back(0);
-        m_status.push_back(0);
-        m_payload_size.push_back(0);
-        app_header.push_back(VcaAppProtHeader());
     };
 
     void
@@ -345,17 +347,19 @@ namespace ns3
         NS_LOG_LOGIC("[VcaServer] SendData");
         Address peerAddress;
         socket->GetPeerName(peerAddress);
-        uint8_t socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+        uint8_t socket_id = m_dl_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
 
-        if (!m_send_buffer_list[socket_id].empty())
+        Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
+
+        if (!client_info->send_buffer.empty())
         {
-            Ptr<Packet> packet = m_send_buffer_list[socket_id].front();
+            Ptr<Packet> packet = client_info->send_buffer.front();
             int actual = socket->Send(packet);
             if (actual > 0)
             {
-                NS_LOG_DEBUG("[VcaServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << m_send_buffer_list[socket_id].size() - 1);
+                NS_LOG_DEBUG("[VcaServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << client_info->send_buffer.size() - 1);
 
-                m_send_buffer_list[socket_id].pop_front();
+                client_info->send_buffer.pop_front();
             }
             else
             {
@@ -367,44 +371,49 @@ namespace ns3
     void
     VcaServer::ReceiveData(Ptr<Packet> packet, uint8_t socket_id)
     {
-        uint16_t frame_id = app_header[socket_id].GetFrameId();
-        uint16_t pkt_id = app_header[socket_id].GetPacketId();
-        uint32_t dl_redc_factor = app_header[socket_id].GetDlRedcFactor();
-        uint32_t payload_size = app_header[socket_id].GetPayloadSize();
+        NS_LOG_LOGIC("[VcaServer] ReceiveData");
+        Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
+        uint16_t frame_id = client_info->app_header.GetFrameId();
+        uint16_t pkt_id = client_info->app_header.GetPacketId();
+        uint32_t dl_redc_factor = client_info->app_header.GetDlRedcFactor();
+        uint32_t payload_size = client_info->app_header.GetPayloadSize();
 
-        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000. << " NumDegradedUsers= " << m_num_degraded_users << " SocketListSize= " << m_socket_list_dl.size());
-        // NS_LOG_UNCOND("ICARE hello ("<<frame_id<<","<<pkt_id<<")");
-        m_tot_packetsize += payload_size+12;
+        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000. << " NumDegradedUsers= " << m_num_degraded_users);
 
-        m_dl_bitrate_reduce_factor[socket_id] = (double_t)dl_redc_factor / 10000.0;
+        m_total_packet_size += payload_size + 12;
+
+        client_info->dl_bitrate_reduce_factor = (double_t)dl_redc_factor / 10000.0;
 
         // update dl rate control state
-        if (m_dl_bitrate_reduce_factor[socket_id] < 1.0 && m_dl_rate_control_state[socket_id] == DL_RATE_CONTROL_STATE_NATRUAL && m_num_degraded_users < m_socket_list_dl.size() / 2)
+        if (client_info->dl_bitrate_reduce_factor < 1.0 && client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_NATRUAL && m_num_degraded_users < m_client_info_map.size() / 2)
         {
-            m_dl_rate_control_state[socket_id] = DL_RATE_CONTROL_STATE_LIMIT;
+            client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_LIMIT;
 
             // store the capacity (about to enter app-limit phase where cc could not fully probe the capacity)
-            m_capacity_frame_size[socket_id] = m_cc_target_frame_size[socket_id];
+            client_info->capacity_frame_size = client_info->cc_target_frame_size;
             m_num_degraded_users += 1;
 
             NS_LOG_DEBUG("[VcaServer][DlRateControlStateLimit][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000.);
         }
-        else if (m_dl_bitrate_reduce_factor[socket_id] == 1.0 && m_dl_rate_control_state[socket_id] == DL_RATE_CONTROL_STATE_LIMIT)
+        else if (client_info->dl_bitrate_reduce_factor == 1.0 && client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
         {
-            m_dl_rate_control_state[socket_id] = DL_RATE_CONTROL_STATE_NATRUAL;
+            client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_NATRUAL;
 
             // restore the capacity before the controlled (limited bw) phase
-            m_cc_target_frame_size[socket_id] = m_capacity_frame_size[socket_id];
+            client_info->cc_target_frame_size = client_info->capacity_frame_size;
             m_num_degraded_users -= 1;
 
             NS_LOG_DEBUG("[VcaServer][DlRateControlStateNatural][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds());
         }
 
-        for (auto socket_dl : m_socket_list_dl)
+        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
         {
-            Address peerAddress;
-            socket_dl->GetPeerName(peerAddress);
-            uint8_t other_socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+
+            // Address peerAddress;
+            // socket_dl->GetPeerName(peerAddress);
+            // uint8_t other_socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+            uint8_t other_socket_id = it->first;
+            Ptr<ClientInfo> other_client_info = it->second;
             if (other_socket_id == socket_id)
                 continue;
 
@@ -413,34 +422,36 @@ namespace ns3
             if (packet_dl == nullptr)
                 continue;
 
-            m_send_buffer_list[other_socket_id].push_back(packet_dl);
+            other_client_info->send_buffer.push_back(packet_dl);
 
-            SendData(socket_dl);
+            SendData(other_client_info->socket_dl);
         }
     };
 
     Ptr<Packet>
     VcaServer::TranscodeFrame(uint8_t src_socket_id, uint8_t dst_socket_id, Ptr<Packet> packet, uint16_t frame_id)
     {
-        NS_LOG_LOGIC("[VcaServer] B4RmHeader PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)src_socket_id);
 
         // std::pair<uint8_t, uint8_t> socket_id_pair = std::pair<uint8_t, uint8_t>(src_socket_id, dst_socket_id);
+        Ptr<ClientInfo> src_client_info = m_client_info_map[src_socket_id];
 
-        auto it = m_prev_frame_id[src_socket_id].find(dst_socket_id);
-        if (it == m_prev_frame_id[src_socket_id].end())
+        auto it = src_client_info->prev_frame_id.find(dst_socket_id);
+        if (it == src_client_info->prev_frame_id.end())
         {
-            m_prev_frame_id[src_socket_id][dst_socket_id] = frame_id;
-            m_frame_size_forwarded[src_socket_id][dst_socket_id] = 0;
+            src_client_info->prev_frame_id[dst_socket_id] = 0;
+            src_client_info->frame_size_forwarded[dst_socket_id] = 0;
         }
 
-        if (frame_id == m_prev_frame_id[src_socket_id][dst_socket_id])
+        NS_LOG_LOGIC("[VcaServer] B4RmHeader PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)src_socket_id << " DstSocketId= " << (uint16_t)dst_socket_id << " FrameId= " << frame_id << " prevframeid " << src_client_info->prev_frame_id[dst_socket_id] << " FrameSizeForwarded= " << src_client_info->frame_size_forwarded[dst_socket_id]);
+
+        if (frame_id == src_client_info->prev_frame_id[dst_socket_id])
         {
             // packets of the same frame
-            if (m_frame_size_forwarded[src_socket_id][dst_socket_id] < GetTargetFrameSize(dst_socket_id))
+            if (src_client_info->frame_size_forwarded[dst_socket_id] < GetTargetFrameSize(dst_socket_id))
             {
-                NS_LOG_DEBUG("[VcaServer][Sock" << (uint16_t)dst_socket_id << "][FrameForward] Forward TargetFrameSize= " << GetTargetFrameSize(dst_socket_id) << " FrameSizeForwarded= " << m_frame_size_forwarded[src_socket_id][dst_socket_id] << " PktSize= " << packet->GetSize());
+                NS_LOG_DEBUG("[VcaServer][Sock" << (uint16_t)dst_socket_id << "][FrameForward] Forward TargetFrameSize= " << GetTargetFrameSize(dst_socket_id) << " FrameSizeForwarded= " << src_client_info->frame_size_forwarded[dst_socket_id] << " PktSize= " << packet->GetSize());
                 // have not reach the target transcode bitrate, forward the packet
-                m_frame_size_forwarded[src_socket_id][dst_socket_id] += packet->GetSize();
+                src_client_info->frame_size_forwarded[dst_socket_id] += packet->GetSize();
 
                 Ptr<Packet> packet_to_forward = Copy(packet);
                 return packet_to_forward;
@@ -453,12 +464,12 @@ namespace ns3
                 return nullptr;
             }
         }
-        else if (frame_id > m_prev_frame_id[src_socket_id][dst_socket_id])
+        else if (frame_id > src_client_info->prev_frame_id[dst_socket_id])
         {
             NS_LOG_DEBUG("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] Start FrameId= " << frame_id);
             // packets of a new frame, simply forward it
-            m_prev_frame_id[src_socket_id][dst_socket_id] = frame_id;
-            m_frame_size_forwarded[src_socket_id][dst_socket_id] = packet->GetSize();
+            src_client_info->prev_frame_id[dst_socket_id] = frame_id;
+            src_client_info->frame_size_forwarded[dst_socket_id] = packet->GetSize();
 
             Ptr<Packet> packet_to_forward = Copy(packet);
             return packet_to_forward;
@@ -471,16 +482,37 @@ namespace ns3
     uint32_t
     VcaServer::GetTargetFrameSize(uint8_t socket_id)
     {
-        if (m_dl_rate_control_state[socket_id] == DL_RATE_CONTROL_STATE_NATRUAL)
+        Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
+        if (client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_NATRUAL)
         {
+            uint32_t fair_share;
             // stick to original cc decisions
-
-            return m_cc_target_frame_size[socket_id];
+            if (m_client_info_map.size() > 1)
+            {
+                fair_share = client_info->cc_target_frame_size / (m_client_info_map.size() - 1);
+            }
+            else
+            {
+                fair_share = client_info->cc_target_frame_size;
+            }
+            return std::max(fair_share, kMinFrameSizeBytes);
         }
-        else if (m_dl_rate_control_state[socket_id] == DL_RATE_CONTROL_STATE_LIMIT)
+        else if (client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
         {
+            uint32_t fair_share, manual_dl_share;
             // limit the forwarding bitrate by capacity * reduce_factor
-            return std::min(m_cc_target_frame_size[socket_id], (uint32_t)std::ceil((double_t)m_capacity_frame_size[socket_id] * m_dl_bitrate_reduce_factor[socket_id]));
+            if (m_client_info_map.size() > 1)
+            {
+                fair_share = client_info->cc_target_frame_size / (m_client_info_map.size() - 1);
+                manual_dl_share = (uint32_t)std::ceil((double_t)client_info->capacity_frame_size * client_info->dl_bitrate_reduce_factor) / (m_client_info_map.size() - 1);
+            }
+            else
+            {
+                fair_share = client_info->cc_target_frame_size;
+                manual_dl_share = (uint32_t)std::ceil((double_t)client_info->capacity_frame_size * client_info->dl_bitrate_reduce_factor);
+            }
+            // limit the forwarding bitrate by capacity * reduce_factor
+            return std::max(std::min(fair_share, manual_dl_share), kMinFrameSizeBytes);
         }
         else
         {

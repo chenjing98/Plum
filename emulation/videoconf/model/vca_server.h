@@ -23,6 +23,42 @@ namespace ns3
         DL_RATE_CONTROL_STATE_LIMIT
     };
 
+    class ClientInfo : public Object
+    {
+    public:
+        static TypeId GetTypeId(void);
+        ClientInfo();
+        ~ClientInfo();
+
+        Ptr<Socket> socket_ul;
+        Ptr<Socket> socket_dl;
+        Ipv4Address ul_addr;
+        std::deque<Ptr<Packet>> send_buffer;
+        uint32_t cc_target_frame_size;
+        uint32_t capacity_frame_size;
+        std::unordered_map<uint8_t, uint32_t> frame_size_forwarded; // map key: dst_socket_id, value: frame_size_forwarded
+        std::unordered_map<uint8_t, uint16_t> prev_frame_id;        // map key: dst_socket_id, value: prev_frame_id
+
+        double_t dl_bitrate_reduce_factor;
+        DL_RATE_CONTROL_STATE dl_rate_control_state;
+
+        // Decode self-defined header in TCP payload
+        uint8_t set_header;
+        uint8_t read_status;
+        /*
+            m_status = 0   start to read header
+            m_status = 1   continue to read header
+            m_status = 2   start to read payload
+            m_status = 3   continue to read payload
+            m_status = 4   ready to send
+        */
+        uint32_t payload_size;
+        Ptr<Packet> half_header;
+        Ptr<Packet> half_payload;
+        VcaAppProtHeader app_header;
+
+    }; // class ClientInfo
+
     class VcaServer : public Application
     {
     public:
@@ -54,14 +90,6 @@ namespace ns3
          * \param socket the connected socket
          */
         void ConnectionFailedDl(Ptr<Socket> socket);
-        /**
-         * \brief Send more data as soon as some has been transmitted.
-         *
-         * Used in socket's SetSendCallback - params are forced by it.
-         *
-         * \param socket socket to use
-         */
-        void DataSendDl(Ptr<Socket> socket);
 
         /**
          * \brief Handle a packet received by the application
@@ -96,15 +124,11 @@ namespace ns3
         uint32_t m_node_id;
 
         Ptr<Socket> m_socket_ul;
-        std::list<Ptr<Socket>> m_socket_list_ul;
-        std::list<Ptr<Socket>> m_socket_list_dl;
-        std::unordered_map<uint32_t, uint8_t> m_socket_id_map;
+        std::unordered_map<uint32_t, uint8_t> m_ul_socket_id_map;
+        std::unordered_map<uint32_t, uint8_t> m_dl_socket_id_map;
         uint8_t m_socket_id;
-        std::vector<Ipv4Address> m_peer_list;
-        std::vector<std::deque<Ptr<Packet>>> m_send_buffer_list;
-        std::vector<uint32_t> m_cc_target_frame_size;
-        std::vector<std::unordered_map<uint8_t, uint32_t>> m_frame_size_forwarded; // vector index: src_socket_id, map key: dst_socket_id, value: frame_size_forwarded
-        std::vector<std::unordered_map<uint8_t, uint16_t>> m_prev_frame_id;        // vector index: src_socket_id, map key: dst_socket_id, value: prev_frame_id
+
+        std::unordered_map<uint8_t, Ptr<ClientInfo>> m_client_info_map;
 
         TypeId m_tid;
 
@@ -116,26 +140,11 @@ namespace ns3
         uint8_t m_fps;
         EventId m_update_rate_event;
 
-        std::vector<double_t> m_dl_bitrate_reduce_factor;
-        std::vector<DL_RATE_CONTROL_STATE> m_dl_rate_control_state;
-        std::vector<uint32_t> m_capacity_frame_size;
-
         uint16_t m_num_degraded_users;
-        
-        //Decode DIY header in TCP payload
-        std::vector<uint8_t> m_set_header;
-        std::vector<uint8_t> m_status;
-        /*
-            m_status = 0   start to read header
-            m_status = 1   continue to read header
-            m_status = 2   start to read payload
-            m_status = 3   continue to read payload
-            m_status = 4   ready to send
-        */
-        std::vector<Ptr<Packet>> m_half_header;
-        std::vector<Ptr<Packet>> m_half_payload;
-        std::vector<VcaAppProtHeader> app_header;
-        std::vector<uint32_t> m_payload_size;
+
+        uint64_t m_total_packet_size;
+
+        uint32_t kMinFrameSizeBytes = 5000;
 
         uint64_t m_tot_packetsize;
     }; // class VcaServer
