@@ -67,11 +67,13 @@ namespace ns3
         ~VcaServer();
 
         void SetLocalAddress(Ipv4Address local);
+        void SetLocalAddress(std::list<Ipv4Address> local);
         void SetLocalUlPort(uint16_t port);
         void SetLocalDlPort(uint16_t port);
         void SetPeerDlPort(uint16_t port);
 
         void SetNodeId(uint32_t node_id);
+        void SetSeparateSocket();
 
     protected:
         void DoDispose(void);
@@ -121,9 +123,13 @@ namespace ns3
 
         uint32_t GetTargetFrameSize(uint8_t socket_id);
 
+        uint32_t GetDlAddr(uint32_t ulAddr, int node);
+
         uint32_t m_node_id;
 
         Ptr<Socket> m_socket_ul;
+        std::list<Ipv4Address> m_local_list;
+        std::list<Ptr<Socket>> m_socket_ul_list;
         std::unordered_map<uint32_t, uint8_t> m_ul_socket_id_map;
         std::unordered_map<uint32_t, uint8_t> m_dl_socket_id_map;
         uint8_t m_socket_id;
@@ -146,7 +152,7 @@ namespace ns3
 
         uint32_t kMinFrameSizeBytes = 5000;
 
-        uint64_t m_tot_packetsize;
+        bool m_separate_socket;
     }; // class VcaServer
 
 }; // namespace ns3

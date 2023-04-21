@@ -84,7 +84,14 @@ namespace ns3
 
     void VcaClient::SetLocalAddress(Ipv4Address local)
     {
-        m_local = local;
+        m_local_ul = local;
+        m_local_dl = local;
+    };
+
+    void VcaClient::SetLocalAddress(Ipv4Address local_ul, Ipv4Address local_dl)
+    {
+        m_local_ul = local_ul;
+        m_local_dl = local_dl;
     };
 
     void VcaClient::SetPeerAddress(std::vector<Ipv4Address> peer_list)
@@ -133,9 +140,13 @@ namespace ns3
         {
             Address peer_addr = InetSocketAddress{peer_ip, m_peer_ul_port};
 
+            NS_LOG_LOGIC("[VcaClient][" << m_node_id << "]"
+                                        << " peer addr " << peer_ip
+                                        << " peer port " << m_peer_ul_port);
+
             Ptr<Socket> socket_ul = Socket::CreateSocket(GetNode(), m_tid);
 
-            if (socket_ul->Bind(InetSocketAddress{m_local, m_local_ul_port}) == -1)
+            if (socket_ul->Bind(InetSocketAddress{m_local_ul, m_local_ul_port}) == -1)
             {
                 NS_FATAL_ERROR("Failed to bind socket");
             }
@@ -147,9 +158,6 @@ namespace ns3
                 MakeCallback(&VcaClient::ConnectionFailedUl, this));
             m_socket_list_ul.push_back(socket_ul);
             m_socket_id_map_ul[socket_ul] = m_socket_id_ul;
-
-            NS_LOG_DEBUG("[VcaClient][" << m_node_id << "]"
-                                        << " uplink socket " << socket_ul);
 
             m_socket_id_ul += 1;
             m_local_ul_port += 1;
@@ -174,7 +182,7 @@ namespace ns3
         if (!m_socket_dl)
         {
             m_socket_dl = Socket::CreateSocket(GetNode(), m_tid);
-            if (m_socket_dl->Bind(InetSocketAddress{m_local, m_local_dl_port}) == -1)
+            if (m_socket_dl->Bind(InetSocketAddress{m_local_dl, m_local_dl_port}) == -1)
             {
                 NS_FATAL_ERROR("Failed to bind socket");
             }
@@ -278,7 +286,7 @@ namespace ns3
                     m_transientRateBps[now_second][src_ip] += packet->GetSize() * 8;
                 }
 
-                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
                 ReceiveData(packet);
             }
             else if (Inet6SocketAddress::IsMatchingType(from))

@@ -39,6 +39,7 @@ namespace ns3
         ~VcaClient();
 
         void SetLocalAddress(Ipv4Address local);
+        void SetLocalAddress(Ipv4Address local_ul, Ipv4Address local_dl);
         void SetPeerAddress(std::vector<Ipv4Address> peer_list);
         void SetLocalUlPort(uint16_t port);
         void SetLocalDlPort(uint16_t port);
@@ -109,7 +110,8 @@ namespace ns3
 
         TypeId m_tid;
 
-        Ipv4Address m_local;
+        Ipv4Address m_local_ul;
+        Ipv4Address m_local_dl;
 
         uint16_t m_local_ul_port;
         uint16_t m_local_dl_port;

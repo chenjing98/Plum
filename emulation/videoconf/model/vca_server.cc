@@ -45,7 +45,8 @@ namespace ns3
           m_tid(TypeId::LookupByName("ns3::TcpSocketFactory")),
           m_fps(20),
           m_num_degraded_users(0),
-          m_total_packet_size(0){};
+          m_total_packet_size(0),
+          m_separate_socket(0){};
 
     VcaServer::~VcaServer(){};
 
@@ -60,6 +61,12 @@ namespace ns3
     VcaServer::SetLocalAddress(Ipv4Address local)
     {
         m_local = local;
+    };
+
+    void
+    VcaServer::SetLocalAddress(std::list<Ipv4Address> local)
+    {
+        m_local_list = local;
     };
 
     void
@@ -86,6 +93,12 @@ namespace ns3
         m_node_id = node_id;
     };
 
+    void
+    VcaServer::SetSeparateSocket()
+    {
+        m_separate_socket = 1;
+    };
+
     // Application Methods
     void
     VcaServer::StartApplication()
@@ -93,24 +106,52 @@ namespace ns3
         m_update_rate_event = Simulator::ScheduleNow(&VcaServer::UpdateRate, this);
 
         // Create the socket if not already
-        if (!m_socket_ul)
+        if (!m_separate_socket)
         {
-            m_socket_ul = Socket::CreateSocket(GetNode(), m_tid);
-            if (m_socket_ul->Bind(InetSocketAddress{m_local, m_local_ul_port}) == -1)
+            if (!m_socket_ul)
             {
-                NS_FATAL_ERROR("Failed to bind socket");
-            }
-            m_socket_ul->Listen();
-            m_socket_ul->ShutdownSend();
+                m_socket_ul = Socket::CreateSocket(GetNode(), m_tid);
+                if (m_socket_ul->Bind(InetSocketAddress{m_local, m_local_ul_port}) == -1)
+                {
+                    NS_FATAL_ERROR("Failed to bind socket");
+                }
+                m_socket_ul->Listen();
+                m_socket_ul->ShutdownSend();
 
-            m_socket_ul->SetRecvCallback(MakeCallback(&VcaServer::HandleRead, this));
-            m_socket_ul->SetRecvPktInfo(true);
-            m_socket_ul->SetAcceptCallback(
-                MakeNullCallback<bool, Ptr<Socket>, const Address &>(),
-                MakeCallback(&VcaServer::HandleAccept, this));
-            m_socket_ul->SetCloseCallbacks(
-                MakeCallback(&VcaServer::HandlePeerClose, this),
-                MakeCallback(&VcaServer::HandlePeerError, this));
+                m_socket_ul->SetRecvCallback(MakeCallback(&VcaServer::HandleRead, this));
+                m_socket_ul->SetRecvPktInfo(true);
+                m_socket_ul->SetAcceptCallback(
+                    MakeNullCallback<bool, Ptr<Socket>, const Address &>(),
+                    MakeCallback(&VcaServer::HandleAccept, this));
+                m_socket_ul->SetCloseCallbacks(
+                    MakeCallback(&VcaServer::HandlePeerClose, this),
+                    MakeCallback(&VcaServer::HandlePeerError, this));
+            }
+        }
+        else
+        {
+            for (auto ip : m_local_list)
+            {
+                Ptr<Socket> socket_ul = Socket::CreateSocket(GetNode(), m_tid);
+                if (socket_ul->Bind(InetSocketAddress{ip, m_local_ul_port}) == -1)
+                {
+                    NS_FATAL_ERROR("Failed to bind socket");
+                }
+                socket_ul->Listen();
+                socket_ul->ShutdownSend();
+
+                NS_LOG_LOGIC("[VcaServer] listening on " << ip << ":" << m_local_ul_port);
+
+                socket_ul->SetRecvCallback(MakeCallback(&VcaServer::HandleRead, this));
+                socket_ul->SetRecvPktInfo(true);
+                socket_ul->SetAcceptCallback(
+                    MakeNullCallback<bool, Ptr<Socket>, const Address &>(),
+                    MakeCallback(&VcaServer::HandleAccept, this));
+                socket_ul->SetCloseCallbacks(
+                    MakeCallback(&VcaServer::HandlePeerClose, this),
+                    MakeCallback(&VcaServer::HandlePeerError, this));
+                m_socket_ul_list.push_back(socket_ul);
+            }
         }
     };
 
@@ -129,6 +170,9 @@ namespace ns3
             client_info->socket_ul->Close();
             client_info->socket_dl->Close();
         }
+        for (auto socket_ul : m_socket_ul_list)
+        {
+            socket_ul->Close();
         }
         if (m_socket_ul)
         {
@@ -299,15 +343,30 @@ namespace ns3
         Ipv4Address ul_peer_ip = InetSocketAddress::ConvertFrom(from).GetIpv4();
         client_info->ul_addr = ul_peer_ip;
 
+        Ipv4Address dl_peer_ip, dl_local_ip;
+
+        if (m_separate_socket)
+        {
+            dl_peer_ip = Ipv4Address(GetDlAddr(ul_peer_ip.Get(), 0));
+            dl_local_ip = Ipv4Address(GetDlAddr(ul_peer_ip.Get(), 1));
+
+            NS_LOG_LOGIC("[VcaServer] dl server ip " << dl_local_ip.Get() << " dl client ip " << dl_peer_ip.Get() << " ul client ip " << ul_peer_ip.Get());
+        }
+        else
+        {
+            dl_peer_ip = ul_peer_ip;
+            dl_local_ip = m_local;
+        }
+
         // Create downlink socket as well
         Ptr<Socket> socket_dl = Socket::CreateSocket(GetNode(), m_tid);
 
-        if (socket_dl->Bind(InetSocketAddress{m_local, m_local_dl_port}) == -1)
+        if (socket_dl->Bind(InetSocketAddress{dl_local_ip, m_local_dl_port}) == -1)
         {
             NS_FATAL_ERROR("Failed to bind socket");
         }
 
-        socket_dl->Connect(InetSocketAddress{peer_ip, m_peer_dl_port}); // note here while setting client dl port number
+        socket_dl->Connect(InetSocketAddress{dl_peer_ip, m_peer_dl_port}); // note here while setting client dl port number
         socket_dl->ShutdownRecv();
         socket_dl->SetConnectCallback(
             MakeCallback(&VcaServer::ConnectionSucceededDl, this),
@@ -518,6 +577,30 @@ namespace ns3
         {
             return 1e6;
         }
+    };
+
+    uint32_t VcaServer::GetDlAddr(uint32_t ul_addr, int node)
+    {
+        NS_ASSERT_MSG(node == 0 || node == 1, "node should be 0 or 1");
+        // param node: 0: client, 1: server
+        uint32_t first8b = (ul_addr >> 24) & 0xff;
+        uint32_t second8b = (ul_addr >> 16) & 0xff;
+        uint32_t third8b = (ul_addr >> 8) & 0xff;
+        uint32_t fourth8b = ul_addr & 0xff;
+
+        uint32_t dl_addr;
+
+        if (node == 0)
+        {
+            dl_addr = (first8b << 24) | ((second8b + 1) << 16) | (third8b << 8) | (fourth8b);
+        }
+        else
+        {
+            dl_addr = (first8b << 24) | ((second8b + 1) << 16) | (third8b << 8) | (fourth8b + 1);
+        }
+
+        // NS_LOG_UNCOND("Input addr " << ul_addr << " Output addr " << dl_addr << " first8b " << first8b << " second8b " << second8b << " third8b " << third8b << " fourth8b " << fourth8b);
+        return dl_addr;
     };
 
 }; // namespace ns3
