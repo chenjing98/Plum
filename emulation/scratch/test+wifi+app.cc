@@ -41,54 +41,54 @@ void showPosition(Ptr<Node> node, double deltaTime)
 std::pair<WifiStandard, WifiPhyBand>
 ConvertStringToStandardAndBand(std::string version)
 {
-    WifiStandard standard = WIFI_STANDARD_80211a;
-    WifiPhyBand band = WIFI_PHY_BAND_5GHZ;
-    if (version == "80211a")
-    {
-        standard = WIFI_STANDARD_80211a;
-        band = WIFI_PHY_BAND_5GHZ;
-    }
-    else if (version == "80211b")
-    {
-        standard = WIFI_STANDARD_80211b;
-        band = WIFI_PHY_BAND_2_4GHZ;
-    }
-    else if (version == "80211g")
-    {
-        standard = WIFI_STANDARD_80211g;
-        band = WIFI_PHY_BAND_2_4GHZ;
-    }
-    else if (version == "80211p")
-    {
-        standard = WIFI_STANDARD_80211p;
-        band = WIFI_PHY_BAND_5GHZ;
-    }
-    else if (version == "80211n_2_4GHZ")
-    {
-        standard = WIFI_STANDARD_80211n;
-        band = WIFI_PHY_BAND_2_4GHZ;
-    }
-    else if (version == "80211n_5GHZ")
-    {
-        standard = WIFI_STANDARD_80211n;
-        band = WIFI_PHY_BAND_5GHZ;
-    }
-    else if (version == "80211ac")
-    {
-        standard = WIFI_STANDARD_80211ac;
-        band = WIFI_PHY_BAND_5GHZ;
-    }
-    else if (version == "80211ax_2_4GHZ")
-    {
-        standard = WIFI_STANDARD_80211ax;
-        band = WIFI_PHY_BAND_2_4GHZ;
-    }
-    else if (version == "80211ax_5GHZ")
-    {
-        standard = WIFI_STANDARD_80211ax;
-        band = WIFI_PHY_BAND_5GHZ;
-    }
-    return {standard, band};
+  WifiStandard standard = WIFI_STANDARD_80211a;
+  WifiPhyBand band = WIFI_PHY_BAND_5GHZ;
+  if (version == "80211a")
+  {
+    standard = WIFI_STANDARD_80211a;
+    band = WIFI_PHY_BAND_5GHZ;
+  }
+  else if (version == "80211b")
+  {
+    standard = WIFI_STANDARD_80211b;
+    band = WIFI_PHY_BAND_2_4GHZ;
+  }
+  else if (version == "80211g")
+  {
+    standard = WIFI_STANDARD_80211g;
+    band = WIFI_PHY_BAND_2_4GHZ;
+  }
+  else if (version == "80211p")
+  {
+    standard = WIFI_STANDARD_80211p;
+    band = WIFI_PHY_BAND_5GHZ;
+  }
+  else if (version == "80211n_2_4GHZ")
+  {
+    standard = WIFI_STANDARD_80211n;
+    band = WIFI_PHY_BAND_2_4GHZ;
+  }
+  else if (version == "80211n_5GHZ")
+  {
+    standard = WIFI_STANDARD_80211n;
+    band = WIFI_PHY_BAND_5GHZ;
+  }
+  else if (version == "80211ac")
+  {
+    standard = WIFI_STANDARD_80211ac;
+    band = WIFI_PHY_BAND_5GHZ;
+  }
+  else if (version == "80211ax_2_4GHZ")
+  {
+    standard = WIFI_STANDARD_80211ax;
+    band = WIFI_PHY_BAND_2_4GHZ;
+  }
+  else if (version == "80211ax_5GHZ")
+  {
+    standard = WIFI_STANDARD_80211ax;
+    band = WIFI_PHY_BAND_5GHZ;
+  }
+  return {standard, band};
 }
 
 int main(int argc, char *argv[])
@@ -101,9 +101,10 @@ int main(int argc, char *argv[])
   uint8_t policy = 0;
   uint32_t nClient = 1;
   bool printPosition = false;
+  bool savePcap = false;
   double_t minBitrateKbps = 4.0;
-  
-  std::string Version = "80211n_5GHZ";
+
+  // std::string Version = "80211n_5GHZ";
 
   CommandLine cmd(__FILE__);
   cmd.AddValue("mode", "p2p or sfu mode", mode);
@@ -114,11 +115,13 @@ int main(int argc, char *argv[])
   cmd.AddValue("nClient", "Number of clients", nClient);
   cmd.AddValue("printPosition", "Print position of nodes", printPosition);
   cmd.AddValue("minBitrate", "Minimum tolerable bitrate in kbps", minBitrateKbps);
+  cmd.AddValue("savePcap", "Save pcap file", savePcap);
 
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
 
-//  Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
+  Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
+  //  Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpCubic"));
 
   // set log level
   if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::ERROR)
@@ -353,8 +356,8 @@ int main(int argc, char *argv[])
     NetDeviceContainer staDevices[nClient];
     NetDeviceContainer apDevices[nClient];
 
-    const auto &[Standard, Band] = ConvertStringToStandardAndBand(Version);
-    wifi.SetStandard(Standard);
+    // const auto &[Standard, Band] = ConvertStringToStandardAndBand(Version);
+    // wifi.SetStandard(Standard);
 
     // Set different SSID (+ PHY channel) for each BSS
     for (uint32_t i = 0; i < nClient; i++)
@@ -478,6 +481,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetLocalDlPort(client_dl);
         vcaClientApp->SetPeerPort(client_peer);
         vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
+        vcaClientApp->SetNumNode(nClient);
         vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetMinBitrate(minBitrateKbps);
@@ -489,8 +493,7 @@ int main(int argc, char *argv[])
       }
     }
 
-    int tracing = 1;
-    if (tracing)
+    if (savePcap)
     {
       phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
       pointToPoint[0].EnablePcapAll("sfu");

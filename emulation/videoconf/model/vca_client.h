@@ -52,6 +52,7 @@ namespace ns3
         void SetMinBitrate(uint32_t bitrate);
 
         void SetNodeId(uint32_t node_id);
+        void SetNumNode(uint8_t num_node);
 
         void SetPolicy(POLICY policy);
 
@@ -94,6 +95,7 @@ namespace ns3
         double_t GetDutyRatio(uint8_t);
 
         uint32_t m_node_id;
+        uint8_t m_num_node;
 
         Ptr<Socket> m_socket_dl;
 
