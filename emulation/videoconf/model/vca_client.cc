@@ -357,6 +357,7 @@ namespace ns3
             {
                 packet->RemoveHeader(app_header);
                 NS_LOG_LOGIC("[VcaClient][Send][Node" << m_node_id << "][Sock" << (uint16_t)socket_id_up << "] SendData failed");
+                break;
             }
         }
     };
