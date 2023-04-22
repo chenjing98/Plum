@@ -43,7 +43,7 @@ namespace ns3
           m_target_dl_bitrate_redc_factor(1e4),
           kTxRateUpdateWindowMs(20),
           kMinEncodeBps((uint32_t)100E3),
-          kMaxEncodeBps((uint32_t)30E6),
+          kMaxEncodeBps((uint32_t)10E6),
           kTargetDutyRatio(0.9),
           kDampingCoef(0.5f),
           m_total_bitrate(0),
