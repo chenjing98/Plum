@@ -14,6 +14,10 @@
 #include "ns3/yans-wifi-helper.h"
 #include "ns3/videoconf-module.h"
 
+#include <fstream>
+#include <sstream>
+#include <cstdlib>
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("MulticastEmulation");
@@ -30,6 +34,17 @@ enum TRACE_MODE
     EVEN_SPLIT,
     UNEVEN_SPLIT
 };
+
+struct GlobalKnowledge
+{
+    double_t prevMaxAbw = 50;
+    double_t newMaxAbw = 0;
+    bool prevAmpleBwUserExist = 1;
+    bool newAmpleBwUserExist = 0;
+    uint32_t clientSetTraceCount = 0;
+};
+
+static GlobalKnowledge global_know;
 
 struct TraceElem
 {
@@ -99,6 +114,70 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
     }
     else
     {
+        if (global_know.clientSetTraceCount >= n_client)
+        {
+            global_know.clientSetTraceCount = 0;
+            global_know.prevAmpleBwUserExist = global_know.newAmpleBwUserExist;
+            global_know.prevMaxAbw = std::max(n_client * elem.minAppBitrateMbps, global_know.newMaxAbw);
+            global_know.newMaxAbw = 0;
+            global_know.newAmpleBwUserExist = 0;
+        }
+
+        double_t min_recv_rate = (n_client - 1) * elem.minAppBitrateMbps;
+        double_t app_limit_bw = n_client * elem.maxAppBitrateMbps;
+
+        if (total_bw < min_recv_rate)
+        {
+            ul_bw = total_bw / 2;
+            dl_bw = total_bw / 2;
+        }
+        else
+        {
+            if (global_know.prevAmpleBwUserExist)
+            {
+                if (total_bw < min_recv_rate + elem.maxAppBitrateMbps * 1.1)
+                {
+                    dl_bw = min_recv_rate;
+                    ul_bw = total_bw - dl_bw;
+
+                    NS_LOG_DEBUG("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw << "Mbps line135");
+                }
+                else
+                {
+                    ul_bw = elem.maxAppBitrateMbps * 1.1;
+                    dl_bw = total_bw - ul_bw;
+                    NS_LOG_DEBUG("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw << "Mbps line141");
+                }
+                // dl_bw = min_recv_rate;
+                // ul_bw = total_bw - dl_bw;
+            }
+            else
+            {
+                double_t min_ul_bw_for_the_rest = (n_client - global_know.clientSetTraceCount - 1) * elem.minAppBitrateMbps;
+                double_t fair_share_for_the_rest = global_know.prevMaxAbw / (n_client - global_know.clientSetTraceCount);
+                ul_bw = std::min(std::max(elem.minAppBitrateMbps, std::min(global_know.prevMaxAbw - min_ul_bw_for_the_rest, fair_share_for_the_rest)), total_bw - min_recv_rate);
+                dl_bw = total_bw - ul_bw;
+
+                NS_LOG_DEBUG("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw << "Mbps"
+                                       << " prevmaxabw: " << global_know.prevMaxAbw << "Mbps"
+                                       << " total_bw: " << total_bw << "Mbps"
+                                       << " min ul bw for the rest: " << min_ul_bw_for_the_rest << "Mbps"
+                                       << " fair share for the rest: " << fair_share_for_the_rest << "Mbps");
+
+                global_know.prevMaxAbw = std::max(0.0, global_know.prevMaxAbw - ul_bw);
+            }
+        }
+
+        // ul_bw = total_bw * elem.ul_prop;
+        // dl_bw = total_bw * (1 - elem.ul_prop);
+
+        // Update global Knowledge
+        if (total_bw >= app_limit_bw)
+        {
+            global_know.newAmpleBwUserExist = 1;
+        }
+        global_know.newMaxAbw = std::max(global_know.newMaxAbw, total_bw);
+        global_know.clientSetTraceCount++;
     }
 
     /* Set delay of n0-n1 as rtt/2 - 1, the delay of n1-n2 is 1ms */
