@@ -159,7 +159,6 @@ int main(int argc, char *argv[])
         vcaClientApp->SetStopTime(Seconds(simulationDuration + 4));
     }
 
-    Ipv4Address serverUlAddr = ulIpIfaces[0].GetAddress(1); // sfuCenter
     Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
     // vcaServerApp->SetLocalAddress(serverUlAddr);
     vcaServerApp->SetLocalAddress(serverUlAddrList);

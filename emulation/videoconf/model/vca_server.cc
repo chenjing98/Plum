@@ -416,13 +416,13 @@ namespace ns3
             int actual = socket->Send(packet);
             if (actual > 0)
             {
-                NS_LOG_DEBUG("[VcaServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << client_info->send_buffer.size() - 1);
+                NS_LOG_LOGIC("[VcaServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << client_info->send_buffer.size() - 1);
 
                 client_info->send_buffer.pop_front();
             }
             else
             {
-                NS_LOG_DEBUG("[VcaServer] SendData failed");
+                NS_LOG_LOGIC("[VcaServer] SendData failed");
             }
         }
     };

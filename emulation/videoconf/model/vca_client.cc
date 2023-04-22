@@ -558,7 +558,7 @@ namespace ns3
             return;
         }
 
-        while (m_transientRateBps.size() < Simulator::Now().GetSeconds())
+        while (m_transientRateBps.size() < Simulator::Now().GetSeconds() - 4)
         {
             m_transientRateBps.push_back(std::unordered_map<uint32_t, uint32_t>());
         }
@@ -571,6 +571,7 @@ namespace ns3
 
         uint8_t init_seconds = 0;
         uint32_t transient_rate_kbps;
+        uint32_t time_slot_count = 0;
         for (auto transient_rate_all_flows : m_transientRateBps)
         {
             if (init_seconds < InitPhaseFilterSec)
@@ -578,6 +579,11 @@ namespace ns3
                 init_seconds++;
                 continue;
             }
+            if (time_slot_count > Simulator::Now().GetSeconds() - InitPhaseFilterSec)
+            {
+                break;
+            }
+            time_slot_count++;
 
             if (transient_rate_all_flows.empty())
                 transient_rate_kbps = 0;
