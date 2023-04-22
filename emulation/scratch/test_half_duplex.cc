@@ -25,6 +25,125 @@ enum LOG_LEVEL
     LOGIC
 };
 
+enum TRACE_MODE
+{
+    EVEN_SPLIT,
+    UNEVEN_SPLIT
+};
+
+struct TraceElem
+{
+    std::string trace;
+    TRACE_MODE mode;
+    Ptr<NetDevice> ul_snd_dev;
+    Ptr<NetDevice> dl_snd_dev;
+    uint16_t interval;    // in ms
+    double_t simStopTime; // in s
+    double_t maxAppBitrateMbps;
+    double_t minAppBitrateMbps;
+    double_t ul_prop = 0.5;
+    std::streampos curr_pos = std::ios::beg;
+};
+
+static inline void SplitString(const std::string &s, std::vector<std::string> &v, const std::string &c)
+{
+    std::string::size_type pos1, pos2;
+    pos2 = s.find(c);
+    pos1 = 0;
+    while (std::string::npos != pos2)
+    {
+        v.push_back(s.substr(pos1, pos2 - pos1));
+        pos1 = pos2 + c.size();
+        pos2 = s.find(c, pos1);
+    }
+    if (pos1 != s.length())
+        v.push_back(s.substr(pos1));
+}
+
+void BandwidthTrace(TraceElem elem, uint32_t n_client)
+{
+    Ptr<PointToPointNetDevice> ulSndDev = StaticCast<PointToPointNetDevice, NetDevice>(elem.ul_snd_dev);
+    Ptr<PointToPointNetDevice> dlSndDev = StaticCast<PointToPointNetDevice, NetDevice>(elem.dl_snd_dev);
+    std::ifstream traceFile;
+
+    std::string traceLine;
+    std::vector<std::string> traceData;
+    std::vector<std::string> bwValue;
+
+    traceFile.open(elem.trace);
+    traceFile.seekg(elem.curr_pos);
+    if (elem.curr_pos == std::ios::beg && !traceFile.eof())
+    {
+        std::getline(traceFile, traceLine); // skip the first line
+    }
+    std::getline(traceFile, traceLine);
+    elem.curr_pos = traceFile.tellg();
+    if (traceLine.find(',') == std::string::npos)
+    {
+        traceFile.close();
+        return;
+    }
+
+    // bwValue.clear();
+    traceData.clear();
+    SplitString(traceLine, traceData, ",");
+    // SplitString(traceData[0], bwValue, "Mbps");
+
+    double_t total_bw = std::stod(traceData[2]) * 1.5;
+    double_t ul_bw = 300, dl_bw = 300;
+    if (elem.mode == EVEN_SPLIT)
+    {
+        ul_bw = total_bw / 2;
+        dl_bw = total_bw / 2;
+        NS_LOG_DEBUG("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw);
+    }
+    else
+    {
+    }
+
+    /* Set delay of n0-n1 as rtt/2 - 1, the delay of n1-n2 is 1ms */
+    std::string ulBwStr = std::to_string(ul_bw) + "Mbps";
+    std::string dlBwStr = std::to_string(dl_bw) + "Mbps";
+
+    // Set bandwidth
+    ulSndDev->SetAttribute("DataRate", StringValue(ulBwStr));
+    dlSndDev->SetAttribute("DataRate", StringValue(dlBwStr));
+
+    if (Simulator::Now() < Seconds(elem.simStopTime + 2))
+    {
+        if (!traceFile.eof())
+        {
+            traceFile.close();
+            Simulator::Schedule(MilliSeconds(elem.interval), &BandwidthTrace, elem, n_client);
+        }
+        else
+        {
+            traceFile.close();
+            elem.curr_pos = std::ios::beg; // start from the beginning again
+            Simulator::Schedule(MilliSeconds(elem.interval), &BandwidthTrace, elem, n_client);
+        }
+    }
+};
+
+std::string GetRandomTraceFile(uint32_t max_trace_count)
+{
+    uint32_t trace_count = rand() % max_trace_count;
+    uint32_t n_line = 0;
+    std::string trace_file;
+    std::fstream index_file;
+    index_file.open("../../../scripts/tracefile_names", std::ios::in);
+    while (getline(index_file, trace_file) && n_line < trace_count)
+    {
+        n_line++;
+        if (index_file.eof())
+        {
+            break;
+        }
+    }
+
+    return trace_file;
+};
+
 int main(int argc, char *argv[])
 {
 
@@ -36,7 +155,13 @@ int main(int argc, char *argv[])
     uint32_t nClient = 1;
     bool printPosition = false;
     bool savePcap = false;
-    double_t minBitrateKbps = 4.0;
+    bool vary_bw = false;
+    uint8_t trace_mode = 0;
+    double_t ul_prop = 0.5;
+    double_t minBitrateKbps = 1000.0;
+    uint16_t seed = 1;
+
+    uint32_t MAX_TRACE_COUNT = 1115;
 
     // std::string Version = "80211n_5GHZ";
 
@@ -50,9 +175,14 @@ int main(int argc, char *argv[])
     cmd.AddValue("printPosition", "Print position of nodes", printPosition);
     cmd.AddValue("minBitrate", "Minimum tolerable bitrate in kbps", minBitrateKbps);
     cmd.AddValue("savePcap", "Save pcap file", savePcap);
+    cmd.AddValue("varyBw", "Emulate in varying bandwidth or not", vary_bw);
+    cmd.AddValue("traceMode", "0 for even split, 1 for uneven split", trace_mode);
+    cmd.AddValue("ulProp", "Proportion of uplink bandwidth", ul_prop);
+    cmd.AddValue("seed", "Random seed for trace selection", seed);
 
     cmd.Parse(argc, argv);
     Time::SetResolution(Time::NS);
+    std::srand(seed);
 
     Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
     //  Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpCubic"));
@@ -100,6 +230,15 @@ int main(int argc, char *argv[])
     {
         ulDevices[i] = ulP2p[i].Install(clientNodes.Get(i), sfuCenter.Get(0));
         dlDevices[i] = dlP2p[i].Install(clientNodes.Get(i), sfuCenter.Get(0));
+
+        if (vary_bw)
+        {
+            std::string trace_dir = "../../../scripts/traces/";
+            std::string trace_name = GetRandomTraceFile(MAX_TRACE_COUNT);
+            std::string tracefile = trace_dir + trace_name;
+            TraceElem elem = {tracefile, static_cast<TRACE_MODE>(trace_mode), ulDevices[i].Get(0), dlDevices[i].Get(1), 16, simulationDuration, (double_t)maxBitrateKbps / 1000., minBitrateKbps / 1000., ul_prop};
+            BandwidthTrace(elem, nClient);
+        }
     }
 
     InternetStackHelper stack;
