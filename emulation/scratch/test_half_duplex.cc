@@ -136,7 +136,7 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
         {
             if (global_know.prevAmpleBwUserExist)
             {
-                if (total_bw < min_recv_rate + elem.maxAppBitrateMbps * 1.1)
+                if (total_bw < min_recv_rate + elem.maxAppBitrateMbps * 1.2)
                 {
                     dl_bw = min_recv_rate;
                     ul_bw = total_bw - dl_bw;
