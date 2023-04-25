@@ -4712,6 +4712,12 @@ TcpSocketBase::GetTcb()
     return m_tcb;
 }
 
+Ptr<TcpCongestionOps>
+TcpSocketBase::GetCongCtrl()
+{
+    return m_congestionControl;
+}
+
 // RttHistory methods
 RttHistory::RttHistory(SequenceNumber32 s, uint32_t c, Time t)
     : seq(s),

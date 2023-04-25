@@ -51,7 +51,7 @@ TcpBbr::GetTypeId (void)
                    MakeDoubleChecker<double> ())
     .AddAttribute ("BwWindowLength",
                    "Length of bandwidth windowed filter",
-                   UintegerValue (10),
+                   UintegerValue (20),
                    MakeUintegerAccessor (&TcpBbr::m_bandwidthWindowLength),
                    MakeUintegerChecker<uint32_t> ())
     .AddAttribute ("RttWindowLength",
@@ -116,8 +116,8 @@ TcpBbr::TcpBbr (const TcpBbr &sock)
     m_isInitialized (sock.m_isInitialized),
     m_uv (sock.m_uv),
     m_delivered (sock.m_delivered),
-    m_appLimited (sock.m_appLimited),  
-    m_txItemDelivered (sock.m_txItemDelivered),  
+    m_appLimited (sock.m_appLimited),
+    m_txItemDelivered (sock.m_txItemDelivered),
     m_extraAckedGain (sock.m_extraAckedGain),
     m_extraAckedWinRtt (sock.m_extraAckedWinRtt),
     m_extraAckedWinRttLength (sock.m_extraAckedWinRttLength),
@@ -182,7 +182,7 @@ TcpBbr::InitPacingRate (Ptr<TcpSocketState> tcb)
     {
       rtt = MilliSeconds (1);
     }
-  
+
   DataRate nominalBandwidth (tcb->m_cWnd * 8 / rtt.GetSeconds ());
   tcb->m_pacingRate = DataRate (m_pacingGain * nominalBandwidth.GetBitRate ());
   m_maxBwFilter = MaxBandwidthFilter_t (m_bandwidthWindowLength,
@@ -220,7 +220,7 @@ TcpBbr::SetPacingRate (Ptr<TcpSocketState> tcb, double gain)
   DataRate rate (gain * m_maxBwFilter.GetBest ().GetBitRate ());
   rate *= (1.f - m_pacingMargin);
   rate = std::min (rate, tcb->m_maxPacingRate);
-  
+
   if (!m_hasSeenRtt && tcb->m_minRtt != Time::Max ())
     {
       InitPacingRate (tcb);
@@ -230,6 +230,7 @@ TcpBbr::SetPacingRate (Ptr<TcpSocketState> tcb, double gain)
     {
       tcb->m_pacingRate = rate;
     }
+    NS_LOG_LOGIC("InsideBBR Pacing rate: " << tcb->m_pacingRate << " rate: " << rate << " maxBwFilter: " << m_maxBwFilter.GetBest ().GetBitRate () << " gain: " << gain << " m_pacingMargin: " << m_pacingMargin << " m_isPipeFilled: " << m_isPipeFilled << " time: " << Simulator::Now ().GetMilliSeconds ());
 }
 
 uint32_t
@@ -257,7 +258,7 @@ TcpBbr::AdvanceCyclePhase ()
   m_cycleStamp = Simulator::Now ();
   m_cycleIndex = (m_cycleIndex + 1) % GAIN_CYCLE_LENGTH;
   m_pacingGain = PACING_GAIN_CYCLE [m_cycleIndex];
-  NS_LOG_DEBUG (this << " CyclePhase: " << m_cycleStamp.GetSeconds () << " " << 
+  NS_LOG_DEBUG (this << " CyclePhase: " << m_cycleStamp.GetSeconds () << " " <<
     m_cycleIndex << " " << m_pacingGain);
 }
 
@@ -298,6 +299,8 @@ TcpBbr::CheckFullPipe (const TcpRateOps::TcpRateSample &rs)
     {
       return;
     }
+
+    NS_LOG_LOGIC("CheckFullPipe maxBwFilter " << m_maxBwFilter.GetBest ().GetBitRate () << " fullBw " << (uint32_t)(m_fullBandwidth.GetBitRate () * 1.25) << " time " << Simulator::Now ().GetMilliSeconds () << " m_fullBandwidthCount " << m_fullBandwidthCount);
 
   /* Check if Bottleneck bandwidth is still growing*/
   if (m_maxBwFilter.GetBest ().GetBitRate () >= m_fullBandwidth.GetBitRate () * 1.25)
@@ -567,7 +570,7 @@ TcpBbr::SetCwnd (Ptr<TcpSocketState> tcb, const TcpRateOps::TcpRateSample &rs)
 
   if (tcb->m_congState == TcpSocketState::CA_RECOVERY)
     {
-      if (ModulateCwndForRecovery (tcb, rs)) 
+      if (ModulateCwndForRecovery (tcb, rs))
         {
           goto done;
         }
@@ -584,7 +587,7 @@ TcpBbr::SetCwnd (Ptr<TcpSocketState> tcb, const TcpRateOps::TcpRateSample &rs)
       tcb->m_cWnd = tcb->m_cWnd.Get () + rs.m_ackedSacked;
     }
   tcb->m_cWnd = std::max (tcb->m_cWnd.Get (), m_minPipeCwnd);
-  
+
 done:
   ModulateCwndForProbeRTT (tcb);
 }
@@ -621,8 +624,9 @@ TcpBbr::UpdateBtlBw (Ptr<TcpSocketState> tcb, const TcpRateOps::TcpRateSample &r
   if (rs.m_deliveryRate >= m_maxBwFilter.GetBest () || !rs.m_isAppLimited)
     {
       m_maxBwFilter.Update (rs.m_deliveryRate, m_roundCount);
+      NS_LOG_LOGIC("UpdateBtlBw: " << m_maxBwFilter.GetBest ().GetBitRate () << " BBR state " << m_state << " applimit " << m_isAppLimited <<  " pipefull " << m_isPipeFilled << " Time: " << Simulator::Now ().GetMilliSeconds ());
     }
-  
+
   m_isAppLimited = rs.m_isAppLimited;
   if (!rs.m_isAppLimited)
     {
@@ -721,10 +725,10 @@ TcpBbr::CongestionStateSet (Ptr<TcpSocketState> tcb,
       m_targetCWnd = tcb->m_cWnd;
       m_minPipeCwnd = 4 * tcb->m_segmentSize;
       m_sendQuantum = 1 * tcb->m_segmentSize;
-      
+
       InitRoundCounting ();
       InitFullPipe ();
-      EnterStartup ();      
+      EnterStartup ();
       InitPacingRate (tcb);
       m_ackEpochTime = Simulator::Now();
       m_extraAckedWinRtt = 0;
@@ -737,7 +741,7 @@ TcpBbr::CongestionStateSet (Ptr<TcpSocketState> tcb,
   else if (newState == TcpSocketState::CA_LOSS)
     {
       NS_LOG_DEBUG ("CongestionStateSet triggered to CA_LOSS :: " << newState);
-      SaveCwnd (tcb);      
+      SaveCwnd (tcb);
       m_roundStart = true;
     }
   else if (newState == TcpSocketState::CA_RECOVERY)

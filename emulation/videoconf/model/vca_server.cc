@@ -191,20 +191,48 @@ namespace ns3
         for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
         {
             Ptr<ClientInfo> client_info = it->second;
-            Ptr<Socket> socket_ul = client_info->socket_ul;
-            Ptr<TcpSocketBase> ul_socketbase = DynamicCast<TcpSocketBase, Socket>(socket_ul);
+            Ptr<Socket> socket_dl = client_info->socket_dl;
+            Ptr<TcpSocketBase> dl_socketbase = DynamicCast<TcpSocketBase, Socket>(socket_dl);
             Address peerAddress;
 
-            socket_ul->GetPeerName(peerAddress);
+            socket_dl->GetPeerName(peerAddress);
             // uint8_t socket_id = m_ul_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
-            if (ul_socketbase->GetTcb()->m_pacing)
+            if (dl_socketbase->GetTcb()->m_pacing)
             {
-                uint64_t bitrate = ul_socketbase->GetTcb()->m_pacingRate.Get().GetBitRate();
+                uint64_t bitrate = 1.1 * dl_socketbase->GetTcb()->m_pacingRate.Get().GetBitRate();
+
+                // bitrate = std::min(bitrate, (uint64_t)15000000);
+
+                Ptr<TcpBbr> bbr = DynamicCast<TcpBbr, TcpCongestionOps>(dl_socketbase->GetCongCtrl());
+
+                if (bbr)
+                {
+                    double gain = 1.0;
+                    if (bbr->m_state == 0)
+                    { // startup
+                        gain = 2.89;
+                    }
+                    if (bbr->m_state == 2)
+                    { // probebw
+                        gain = std::max(0.75, bbr->m_pacingGain);
+                    }
+                    // bitrate = 1.1 * bbr->m_maxBwFilter.GetBest().GetBitRate();
+                    bitrate /= gain;
+                }
+
                 client_info->cc_target_frame_size = bitrate / 8 / m_fps;
+
+                uint32_t sentsize = dl_socketbase->GetTxBuffer()->GetSentSize(); //
+                uint32_t txbufferavailable = dl_socketbase->GetTxAvailable();
+                UintegerValue val;
+                socket_dl->GetAttribute("SndBufSize", val);
+                uint32_t curPendingBuf = (uint32_t)val.Get() - sentsize - txbufferavailable;
+
+                NS_LOG_DEBUG("[VcaServer] Pacing rate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << (uint32_t)dl_socketbase->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf);
             }
             else
             {
-                uint64_t bitrate = ul_socketbase->GetTcb()->m_cWnd * 8 / 40;
+                uint64_t bitrate = dl_socketbase->GetTcb()->m_cWnd * 8 / 40;
                 client_info->cc_target_frame_size = bitrate / 8 / m_fps;
             }
         }

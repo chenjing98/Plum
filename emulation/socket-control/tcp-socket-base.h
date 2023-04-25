@@ -1402,6 +1402,8 @@ class TcpSocketBase : public TcpSocket
 
     Ptr<TcpSocketState> GetTcb(); //!< Get the TCB
 
+    Ptr<TcpCongestionOps> GetCongCtrl(); //!< Get the congestion control
+
   private:
     float m_rWndLambda; //!< Rwnd lambda
 };
