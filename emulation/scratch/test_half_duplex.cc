@@ -56,6 +56,7 @@ struct TraceElem
     double_t simStopTime; // in s
     double_t maxAppBitrateMbps;
     double_t minAppBitrateMbps;
+    uint32_t node_id;
     double_t ul_prop = 0.5;
     std::streampos curr_pos = std::ios::beg;
 };
@@ -110,7 +111,7 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
     {
         ul_bw = total_bw / 2;
         dl_bw = total_bw / 2;
-        NS_LOG_DEBUG("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw);
+        NS_LOG_DEBUG("BwAlloc Node: " << (uint16_t)elem.node_id << " ul_bw: " << ul_bw << " dl_bw: " << dl_bw);
     }
     else
     {
@@ -140,13 +141,13 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
                     dl_bw = min_recv_rate;
                     ul_bw = total_bw - dl_bw;
 
-                    NS_LOG_DEBUG("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw << "Mbps line135");
+                    NS_LOG_LOGIC("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw << "Mbps line135");
                 }
                 else
                 {
-                    ul_bw = elem.maxAppBitrateMbps * 1.1;
+                    ul_bw = elem.maxAppBitrateMbps * 1.2;
                     dl_bw = total_bw - ul_bw;
-                    NS_LOG_DEBUG("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw << "Mbps line141");
+                    NS_LOG_LOGIC("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw << "Mbps line141");
                 }
                 // dl_bw = min_recv_rate;
                 // ul_bw = total_bw - dl_bw;
@@ -158,7 +159,7 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
                 ul_bw = std::min(std::max(elem.minAppBitrateMbps, std::min(global_know.prevMaxAbw - min_ul_bw_for_the_rest, fair_share_for_the_rest)), total_bw - min_recv_rate);
                 dl_bw = total_bw - ul_bw;
 
-                NS_LOG_DEBUG("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw << "Mbps"
+                NS_LOG_LOGIC("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw << "Mbps"
                                        << " prevmaxabw: " << global_know.prevMaxAbw << "Mbps"
                                        << " total_bw: " << total_bw << "Mbps"
                                        << " min ul bw for the rest: " << min_ul_bw_for_the_rest << "Mbps"
@@ -170,6 +171,7 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
 
         // ul_bw = total_bw * elem.ul_prop;
         // dl_bw = total_bw * (1 - elem.ul_prop);
+        NS_LOG_DEBUG("BwAlloc Node: " << (uint16_t)elem.node_id << " ul_bw: " << ul_bw << " dl_bw: " << dl_bw);
 
         // Update global Knowledge
         if (total_bw >= app_limit_bw)
@@ -314,8 +316,10 @@ int main(int argc, char *argv[])
         {
             std::string trace_dir = "../../../scripts/traces/";
             std::string trace_name = GetRandomTraceFile(MAX_TRACE_COUNT);
+            // std::string trace_dir = "../../../scripts/";
+            // std::string trace_name = "trace-debug.csv";
             std::string tracefile = trace_dir + trace_name;
-            TraceElem elem = {tracefile, static_cast<TRACE_MODE>(trace_mode), ulDevices[i].Get(0), dlDevices[i].Get(1), 16, simulationDuration, (double_t)maxBitrateKbps / 1000., minBitrateKbps / 1000., ul_prop};
+            TraceElem elem = {tracefile, static_cast<TRACE_MODE>(trace_mode), ulDevices[i].Get(0), dlDevices[i].Get(1), 16, simulationDuration, (double_t)maxBitrateKbps / 1000., minBitrateKbps / 1000., i, ul_prop};
             BandwidthTrace(elem, nClient);
         }
     }
@@ -370,6 +374,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetMinBitrate(minBitrateKbps);
+        vcaClientApp->SetLogFile("../../../evaluation/results/transient_rate_debug_" + std::to_string(nClient) + "_" + std::to_string((uint16_t)trace_mode) + ".txt");
         clientNodes.Get(id)->AddApplication(vcaClientApp);
 
         Simulator::Schedule(Seconds(simulationDuration), &VcaClient::StopEncodeFrame, vcaClientApp);

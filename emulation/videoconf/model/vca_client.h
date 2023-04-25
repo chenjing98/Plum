@@ -14,6 +14,8 @@
 #include <numeric>
 #include <map>
 
+#include <fstream>
+
 #include "prot-header.h"
 
 enum POLICY
@@ -58,6 +60,8 @@ namespace ns3
         void SetPolicy(POLICY policy);
 
         void StopEncodeFrame();
+
+        void SetLogFile(std::string log_file);
 
         static const uint32_t payloadSize = 524; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
 
@@ -158,6 +162,8 @@ namespace ns3
         uint32_t m_encode_times;
 
         bool m_increase_ul;
+
+        std::string m_log_file;
 
     }; // class VcaClient
 

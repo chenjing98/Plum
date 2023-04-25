@@ -153,6 +153,11 @@ namespace ns3
         uint32_t kMinFrameSizeBytes = 5000;
 
         bool m_separate_socket;
+
+        uint32_t forwarded_frame_size = 0;
+        uint32_t dropped_frame_size = 0;
+        uint32_t total_frame_size = 0;
+        uint32_t last_time = 0;
     }; // class VcaServer
 
 }; // namespace ns3

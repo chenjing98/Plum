@@ -130,6 +130,11 @@ namespace ns3
         m_policy = policy;
     };
 
+    void VcaClient::SetLogFile(std::string log_file)
+    {
+        m_log_file = log_file;
+    };
+
     // Application Methods
     void VcaClient::StartApplication()
     {
@@ -397,8 +402,8 @@ namespace ns3
 
             // Calculate frame size in bytes
             uint32_t frame_size = m_bitrateBps[i] / 8 / m_fps;
+            // if (m_node_id == (uint32_t)m_num_node + 1)
             NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << m_frame_id << " BitrateMbps[" << (uint16_t)i << "]= " << m_bitrateBps[i] / 1e6 << " RedcFactor= " << m_target_dl_bitrate_redc_factor << " SendBufSize= " << m_send_buffer_pkt[i].size());
-//            NS_LOG_UNCOND("FRAMESIZE ="<<frame_size<<", m_bitrateBps["<<(uint32_t)i<<"]="<<m_bitrateBps[i]);
 
             // if (frame_size == 0)
             //     frame_size = m_bitrateBps * 1000 / 8 / m_fps;
@@ -521,8 +526,9 @@ namespace ns3
 
                 m_bitrateBps[ul_id] = std::min(m_bitrateBps[ul_id], kMaxEncodeBps);
                 m_bitrateBps[ul_id] = std::max(m_bitrateBps[ul_id], kMinEncodeBps);
-
-                // NS_LOG_UNCOND("MBITRATE : m_bitrateBps["<<(uint32_t)ul_id<<"]="<<m_bitrateBps[ul_id]<<" dutyRatio="<<dutyRatio<<" curpending="<<curPendingBuf);
+                
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][UpdateBitrate] Time= " << Simulator::Now().GetMilliSeconds() << " Bitrate(bps) " << lastSendingRateBps << " Rtt(ms) " << (uint32_t)ul_socket->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << ul_socket->GetTcb()->m_cWnd.Get() << " pacingRate " << ul_socket->GetTcb()->m_pacingRate.Get() << " nowBuf " << curPendingBuf << " TcpCongState " << ul_socket->GetTcb()->m_congState);
+                
                 m_lastPendingBuf[ul_id] = curPendingBuf;
             }
 
@@ -567,7 +573,7 @@ namespace ns3
         uint64_t less_then_thresh_count = 0;
 
         std::map<uint32_t, uint64_t> transient_rate_distribution;
-        std::cout << "[Node" << m_node_id << "] Full transient rate: ";
+        // std::cout << "[Node" << m_node_id << "] Full transient rate: ";
 
         uint8_t init_seconds = 0;
         uint32_t transient_rate_kbps;
@@ -601,9 +607,13 @@ namespace ns3
                 it->second += 1;
             else
                 transient_rate_distribution[transient_rate_kbps] = 1;
-            std::cout << transient_rate_kbps << " ";
+
+            std::ofstream logfile(m_log_file, std::ios_base::app);
+            logfile << transient_rate_kbps << "\n";
+            logfile.close();
+            // std::cout << transient_rate_kbps << " ";
         }
-        std::cout << std::endl;
+        // std::cout << std::endl;
 
         NS_LOG_DEBUG("[VcaClient][Result][Node" << m_node_id << "] TransientRateDistribution");
         for (auto transient_rate_kbps : transient_rate_distribution)
@@ -612,7 +622,6 @@ namespace ns3
         }
 
         NS_LOG_ERROR("[VcaClient][Result] TailThroughput= " << (double_t)less_then_thresh_count / (double_t)(m_transientRateBps.size() - InitPhaseFilterSec) << " AvgThroughput= " << /*(double_t)sum_transient_rate_kbps / (double_t)(pkt_history_length - InitPhaseFilterSec)*/ average_throughput << " NodeId= " << m_node_id);
-
     };
 
     void

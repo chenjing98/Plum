@@ -2,6 +2,9 @@
 
 namespace ns3
 {
+    uint8_t DEBUG_SRC_SOCKET_ID = 0;
+    uint8_t DEBUG_DST_SOCKET_ID = 1;
+
     NS_LOG_COMPONENT_DEFINE("VcaServer");
 
     TypeId ClientInfo::GetTypeId()
@@ -437,7 +440,21 @@ namespace ns3
         uint32_t dl_redc_factor = client_info->app_header.GetDlRedcFactor();
         uint32_t payload_size = client_info->app_header.GetPayloadSize();
 
-        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000. << " NumDegradedUsers= " << m_num_degraded_users);
+        NS_LOG_LOGIC("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000. << " NumDegradedUsers= " << m_num_degraded_users);
+
+        if (socket_id == DEBUG_SRC_SOCKET_ID)
+        {
+            if (std::floor(Simulator::Now().GetSeconds()) > last_time)
+            {
+                NS_LOG_LOGIC("[VcaServer] ServerRate " << total_frame_size * 8 / 1000.0 << " kbps");
+                total_frame_size = 0;
+                last_time = std::floor(Simulator::Now().GetSeconds());
+            }
+            else if (std::floor(Simulator::Now().GetSeconds()) == last_time)
+            {
+                total_frame_size += payload_size + 12;
+            }
+        }
 
         m_total_packet_size += payload_size + 12;
 
@@ -508,16 +525,22 @@ namespace ns3
             // packets of the same frame
             if (src_client_info->frame_size_forwarded[dst_socket_id] < GetTargetFrameSize(dst_socket_id))
             {
-                NS_LOG_DEBUG("[VcaServer][Sock" << (uint16_t)dst_socket_id << "][FrameForward] Forward TargetFrameSize= " << GetTargetFrameSize(dst_socket_id) << " FrameSizeForwarded= " << src_client_info->frame_size_forwarded[dst_socket_id] << " PktSize= " << packet->GetSize());
+                NS_LOG_LOGIC("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] Forward TargetFrameSize= " << GetTargetFrameSize(dst_socket_id) << " FrameSizeForwarded= " << src_client_info->frame_size_forwarded[dst_socket_id] << " PktSize= " << packet->GetSize());
                 // have not reach the target transcode bitrate, forward the packet
                 src_client_info->frame_size_forwarded[dst_socket_id] += packet->GetSize();
+
+                if (src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
+                    forwarded_frame_size += packet->GetSize();
 
                 Ptr<Packet> packet_to_forward = Copy(packet);
                 return packet_to_forward;
             }
             else
             {
-                NS_LOG_DEBUG("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] TargetFrameSize= " << GetTargetFrameSize(dst_socket_id));
+                NS_LOG_LOGIC("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] TargetFrameSize= " << GetTargetFrameSize(dst_socket_id));
+
+                if (src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
+                    dropped_frame_size += packet->GetSize();
 
                 // have reach the target transcode bitrate, drop the packet
                 return nullptr;
@@ -525,10 +548,19 @@ namespace ns3
         }
         else if (frame_id > src_client_info->prev_frame_id[dst_socket_id])
         {
-            NS_LOG_DEBUG("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] Start FrameId= " << frame_id);
+            NS_LOG_LOGIC("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] Start FrameId= " << frame_id);
             // packets of a new frame, simply forward it
             src_client_info->prev_frame_id[dst_socket_id] = frame_id;
             src_client_info->frame_size_forwarded[dst_socket_id] = packet->GetSize();
+
+            // if(src_socket_id == 0 && dst_socket_id == 1)
+            // {
+            //     std::ofstream ofs("./debug-server.log", std::ios_base::app);
+            //     ofs << "FrameId= " << frame_id - 1 << " Forwarded " << forwarded_frame_size << " Dropped " << dropped_frame_size << std::endl;
+            //     forwarded_frame_size = packet->GetSize();
+            //     dropped_frame_size = 0;
+            //     ofs.close();
+            // }
 
             Ptr<Packet> packet_to_forward = Copy(packet);
             return packet_to_forward;
@@ -554,6 +586,7 @@ namespace ns3
             {
                 fair_share = client_info->cc_target_frame_size;
             }
+            // fair_share = std::round((double_t)fair_share * 1.25);
             return std::max(fair_share, kMinFrameSizeBytes);
         }
         else if (client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
@@ -571,6 +604,7 @@ namespace ns3
                 manual_dl_share = (uint32_t)std::ceil((double_t)client_info->capacity_frame_size * client_info->dl_bitrate_reduce_factor);
             }
             // limit the forwarding bitrate by capacity * reduce_factor
+            // fair_share = std::round((double_t)fair_share * 1.25);
             return std::max(std::min(fair_share, manual_dl_share), kMinFrameSizeBytes);
         }
         else
