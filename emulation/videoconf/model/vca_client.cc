@@ -661,6 +661,11 @@ namespace ns3
         {
             bool changed = 0;
 
+            if (m_node_id != (uint32_t)m_num_node + 1)
+            {
+                // ignore clients who are not the host
+                return;
+            }
 
             bool is_low_ul_bitrate;
             bool is_high_ul_bitrate;
