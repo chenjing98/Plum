@@ -48,7 +48,14 @@ namespace ns3
           kDampingCoef(0.5f),
           m_total_bitrate(0),
           m_encode_times(0),
-          m_increase_ul(false){};
+          m_increase_ul(false),
+          m_probe_state(NATURAL),
+          m_prev_ul_bitrate(0),
+          m_prev_ul_bottleneck_bw(0),
+          kUlImprove(3),
+          kDlYield(0.5),
+          kLowUlThresh(2e6),
+          kHighUlThresh(5e6)
 
     VcaClient::~VcaClient(){};
 
@@ -133,6 +140,18 @@ namespace ns3
     void VcaClient::SetLogFile(std::string log_file)
     {
         m_log_file = log_file;
+    };
+
+    void VcaClient::SetUlDlParams(uint32_t ul_improve, double_t dl_yield)
+    {
+        kUlImprove = ul_improve;
+        kDlYield = dl_yield;
+    };
+
+    void VcaClient::SetUlThresh(uint32_t low_ul_thresh, uint32_t high_ul_thresh)
+    {
+        kLowUlThresh = low_ul_thresh;
+        kHighUlThresh = high_ul_thresh;
     };
 
     // Application Methods
@@ -521,7 +540,7 @@ namespace ns3
 
                 if (m_increase_ul)
                 {
-                    m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * 5;
+                    m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * kUlImprove;
                 }
 
                 m_bitrateBps[ul_id] = std::min(m_bitrateBps[ul_id], kMaxEncodeBps);
@@ -635,6 +654,71 @@ namespace ns3
         {
             bool changed = 0;
 
+
+            bool is_low_ul_bitrate;
+            bool is_high_ul_bitrate;
+
+            if (m_bitrateBps.size() > 0)
+            {
+                is_low_ul_bitrate = m_bitrateBps[0] < kLowUlThresh;
+                is_high_ul_bitrate = m_bitrateBps[0] > kHighUlThresh;
+            }
+            else
+            {
+                is_low_ul_bitrate = false;
+                is_high_ul_bitrate = false;
+            }
+
+            if (is_low_ul_bitrate)
+            {
+                if (m_probe_state == PROBING)
+                {
+                    if (ElasticTest())
+                    {
+                        m_probe_state = YIELD;
+                        m_is_my_wifi_access_bottleneck = true;
+                        double_t dl_lambda = DecideDlParam();
+                        EnforceDlParam(dl_lambda);
+                        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] FSM PROBING -> YIELD");
+                    }
+                    else
+                    {
+                        // not half-duplex bottleneck
+                        m_probe_state = NATURAL;
+                        m_is_my_wifi_access_bottleneck = false;
+                        EnforceDlParam(1.0);
+                        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] FSM PROBING -> NATURAL");
+                    }
+                }
+                else if (m_probe_state == NATURAL)
+                {
+                    m_probe_state = PROBING;
+                    if (m_bitrateBps.size() > 0)
+                    {
+                        m_prev_ul_bitrate = m_bitrateBps[0];
+                    }
+                    m_prev_ul_bottleneck_bw = GetUlBottleneckBw();
+                    m_is_my_wifi_access_bottleneck = true;
+                    double_t dl_lambda = DecideDlParam();
+                    EnforceDlParam(dl_lambda);
+                    NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] FSM NATURAL -> PROBING");
+                }
+            }
+            else
+            {
+                if (is_high_ul_bitrate && m_probe_state == YIELD)
+                {
+                    m_probe_state = NATURAL;
+                    m_is_my_wifi_access_bottleneck = false;
+                    EnforceDlParam(1.0);
+                    NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] FSM YIELD -> NATURAL");
+                }
+            }
+
+            return;
+
+            // deprecated
+
             // decide to decrease rate
             if (IsBottleneck())
             {
@@ -674,12 +758,19 @@ namespace ns3
         // 1: sending rate exceeds the capacity, congested
 
         bool is_bottleneck = false;
-
         for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
         {
             Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
 
-            if (ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_CWR || ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_LOSS || ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_RECOVERY)
+            // if (ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_CWR || ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_LOSS || ul_socket->GetTcb()->m_congState == ul_socket->GetTcb()->CA_RECOVERY)
+            // {
+            //     is_bottleneck = true;
+            //     break;
+            // }
+
+            Ptr<TcpBbr> bbr = DynamicCast<TcpBbr, TcpCongestionOps>(ul_socket->GetCongCtrl());
+
+            if (bbr->m_state == 1)
             {
                 is_bottleneck = true;
                 break;
@@ -722,7 +813,7 @@ namespace ns3
 
             m_increase_ul = true;
 
-            return 0.1;
+            return kDlYield;
         }
         else
         {
@@ -750,6 +841,58 @@ namespace ns3
         {
             m_target_dl_bitrate_redc_factor = (uint32_t)(dl_lambda * 10000.0); // divided by 10000. to be the reduced factor
         }
+    };
+
+    bool
+    VcaClient::ElasticTest()
+    {
+        if (m_bitrateBps.size() > 0)
+        {
+            if (m_bitrateBps[0] > m_prev_ul_bitrate * 1.2)
+            {
+                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] ElasticTest currRate " << (double_t)m_bitrateBps[0] / 1000000. << " prevRate " << (double_t)m_prev_ul_bitrate / 1000000.);
+                return true;
+            }
+        }
+
+        // uint64_t curr_bw = GetUlBottleneckBw();
+        // if(curr_bw > m_prev_ul_bottleneck_bw * 1.1)
+        // {
+        //     NS_LOG_DEBUG("[VcaClient][Node" << m_node_id <<"] ElasticTest currbw " << curr_bw << " prevbw " << m_prev_ul_bottleneck_bw);
+        //     return true;
+        // }
+
+        return false;
+    };
+
+    uint64_t
+    VcaClient::GetUlBottleneckBw()
+    {
+        uint64_t bitrate = m_prev_ul_bottleneck_bw;
+        for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
+        {
+            Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
+
+            bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
+
+            Ptr<TcpBbr> bbr = DynamicCast<TcpBbr, TcpCongestionOps>(ul_socket->GetCongCtrl());
+
+            if (bbr)
+            {
+                double gain = 1.0;
+                if (bbr->m_state == 0)
+                { // startup
+                    gain = 2.89;
+                }
+                if (bbr->m_state == 2)
+                { // probebw
+                    gain = std::max(0.75, bbr->m_pacingGain);
+                }
+                // bitrate = 1.1 * bbr->m_maxBwFilter.GetBest().GetBitRate();
+                bitrate /= gain;
+            }
+        }
+        return bitrate;
     };
 
 }; // namespace ns3

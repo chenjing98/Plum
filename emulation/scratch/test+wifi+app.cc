@@ -103,6 +103,10 @@ int main(int argc, char *argv[])
   bool printPosition = false;
   bool savePcap = false;
   double_t minBitrateKbps = 4.0;
+  uint32_t kUlImprove = 3;
+  double_t kDlYield = 0.5;
+  uint32_t kLowUlThresh = 2e6;
+  uint32_t kHighUlThresh = 5e6;
   bool is_tack = false;
   uint32_t tack_max_count = 4;
 
@@ -118,6 +122,10 @@ int main(int argc, char *argv[])
   cmd.AddValue("printPosition", "Print position of nodes", printPosition);
   cmd.AddValue("minBitrate", "Minimum tolerable bitrate in kbps", minBitrateKbps);
   cmd.AddValue("savePcap", "Save pcap file", savePcap);
+  cmd.AddValue("ulImpv", "UL improvement param", kUlImprove);
+  cmd.AddValue("dlYield", "DL yield param", kDlYield);
+  cmd.AddValue("lowUlThresh", "Low UL threshold", kLowUlThresh);
+  cmd.AddValue("highUlThresh", "High UL threshold", kHighUlThresh);
   cmd.AddValue("isTack", "Is TACK enabled", is_tack);
   cmd.AddValue("tackMaxCount", "Max TACK count", tack_max_count);
 
@@ -309,6 +317,8 @@ int main(int argc, char *argv[])
         vcaClientApp->SetPeerPort(port_dl); // to other's port_dl
         vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
+        vcaClientApp->SetUlDlParams(kUlImprove, kDlYield);
+        vcaClientApp->SetUlDlParams(kLowUlThresh, kHighUlThresh);
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
         NS_LOG_DEBUG("[id=" << id << ",i=" << i << "] info:" << wifiStaNodes[id].Get(i)->GetId());
 

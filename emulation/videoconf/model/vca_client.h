@@ -30,6 +30,13 @@ enum YONGYULE_REALIZATION
     YONGYULE_APPRATE
 };
 
+enum PROBE_STATE
+{
+    YIELD,
+    PROBING,
+    NATURAL
+};
+
 namespace ns3
 {
 
@@ -63,6 +70,10 @@ namespace ns3
 
         void SetLogFile(std::string log_file);
 
+        void SetUlDlParams(uint32_t, double_t);
+
+        void SetUlThresh(uint32_t, uint32_t);
+
         static const uint32_t payloadSize = 524; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
 
     protected:
@@ -91,9 +102,11 @@ namespace ns3
 
         void AdjustBw();
         bool IsBottleneck();
+        uint64_t GetUlBottleneckBw();
         bool ShouldRecoverDl();
         double_t DecideDlParam();
         void EnforceDlParam(double_t param);
+        bool ElasticTest();
 
         void OutputStatistics();
 
@@ -165,6 +178,15 @@ namespace ns3
 
         std::string m_log_file;
 
+        PROBE_STATE m_probe_state;
+        bool is_half_duplex_bottleneck;
+        uint32_t m_prev_ul_bitrate;
+        uint64_t m_prev_ul_bottleneck_bw;
+
+        uint32_t kUlImprove;
+        double_t kDlYield;
+        uint32_t kLowUlThresh;
+        uint32_t kHighUlThresh;
     }; // class VcaClient
 
 }; // namespace ns3
