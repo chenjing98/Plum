@@ -55,7 +55,8 @@ namespace ns3
           kUlImprove(3),
           kDlYield(0.5),
           kLowUlThresh(2e6),
-          kHighUlThresh(5e6)
+          kHighUlThresh(5e6),
+          m_log(false){};
 
     VcaClient::~VcaClient(){};
 
@@ -139,6 +140,7 @@ namespace ns3
 
     void VcaClient::SetLogFile(std::string log_file)
     {
+        m_log = true;
         m_log_file = log_file;
     };
 
@@ -213,6 +215,8 @@ namespace ns3
             }
             m_socket_dl->Listen();
             m_socket_dl->ShutdownSend();
+
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] listening on " << m_local_dl << ":" << m_local_dl_port);
 
             m_socket_dl->SetRecvCallback(MakeCallback(&VcaClient::HandleRead, this));
             m_socket_dl->SetRecvPktInfo(true);
@@ -310,7 +314,6 @@ namespace ns3
                 {
                     m_transientRateBps[now_second][src_ip] += packet->GetSize() * 8;
                 }
-
                 NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
                 ReceiveData(packet);
             }
@@ -545,9 +548,9 @@ namespace ns3
 
                 m_bitrateBps[ul_id] = std::min(m_bitrateBps[ul_id], kMaxEncodeBps);
                 m_bitrateBps[ul_id] = std::max(m_bitrateBps[ul_id], kMinEncodeBps);
-                
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][UpdateBitrate] Time= " << Simulator::Now().GetMilliSeconds() << " Bitrate(bps) " << lastSendingRateBps << " Rtt(ms) " << (uint32_t)ul_socket->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << ul_socket->GetTcb()->m_cWnd.Get() << " pacingRate " << ul_socket->GetTcb()->m_pacingRate.Get() << " nowBuf " << curPendingBuf << " TcpCongState " << ul_socket->GetTcb()->m_congState);
-                
+
+                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][UpdateBitrate] Time= " << Simulator::Now().GetMilliSeconds() << " Bitrate(bps) " << lastSendingRateBps << " Rtt(ms) " << (uint32_t)ul_socket->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << ul_socket->GetTcb()->m_cWnd.Get() << " pacingRate " << ((double_t)ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate() / 1000000.) << " nowBuf " << curPendingBuf << " TcpCongState " << ul_socket->GetTcb()->m_congState);
+
                 m_lastPendingBuf[ul_id] = curPendingBuf;
             }
 
@@ -618,7 +621,7 @@ namespace ns3
             }
 
             sum_transient_rate_kbps += transient_rate_kbps;
-            if (transient_rate_kbps < m_min_bitrate * (m_num_node - 1))
+            if (transient_rate_kbps < (uint32_t)150 * (m_num_node - 1))
                 less_then_thresh_count++;
 
             auto it = transient_rate_distribution.find(transient_rate_kbps);
@@ -627,9 +630,13 @@ namespace ns3
             else
                 transient_rate_distribution[transient_rate_kbps] = 1;
 
-            std::ofstream logfile(m_log_file, std::ios_base::app);
-            logfile << transient_rate_kbps << "\n";
-            logfile.close();
+            if (m_log)
+            {
+                std::ofstream logfile(m_log_file, std::ios_base::app);
+                logfile << transient_rate_kbps << "\n";
+                logfile.close();
+            }
+
             // std::cout << transient_rate_kbps << " ";
         }
         // std::cout << std::endl;

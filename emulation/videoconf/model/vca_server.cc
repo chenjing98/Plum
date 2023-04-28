@@ -365,7 +365,7 @@ namespace ns3
     void
     VcaServer::HandleAccept(Ptr<Socket> socket, const Address &from)
     {
-        NS_LOG_LOGIC("[VcaServer][Node" << m_node_id << "] HandleAccept");
+        NS_LOG_DEBUG("[VcaServer][Node" << m_node_id << "] HandleAccept ul socket " << socket);
         socket->SetRecvCallback(MakeCallback(&VcaServer::HandleRead, this));
 
         Ptr<ClientInfo> client_info = CreateObject<ClientInfo>();
@@ -387,6 +387,7 @@ namespace ns3
         {
             dl_peer_ip = ul_peer_ip;
             dl_local_ip = m_local;
+            NS_LOG_DEBUG("[VcaServer] dl server ip " << dl_local_ip << " dl client ip " << dl_peer_ip << " ul client ip " << ul_peer_ip << " local_dl_port " << m_local_dl_port << " peer_dl_port " << m_peer_dl_port);
         }
 
         // Create downlink socket as well
@@ -453,7 +454,7 @@ namespace ns3
             }
             else
             {
-                NS_LOG_LOGIC("[VcaServer] SendData failed");
+                NS_LOG_DEBUG("[VcaServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " SendData failed");
             }
         }
     };
@@ -581,7 +582,7 @@ namespace ns3
             src_client_info->prev_frame_id[dst_socket_id] = frame_id;
             src_client_info->frame_size_forwarded[dst_socket_id] = packet->GetSize();
 
-            // if(src_socket_id == 0 && dst_socket_id == 1)
+            // if(src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
             // {
             //     std::ofstream ofs("./debug-server.log", std::ios_base::app);
             //     ofs << "FrameId= " << frame_id - 1 << " Forwarded " << forwarded_frame_size << " Dropped " << dropped_frame_size << std::endl;

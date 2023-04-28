@@ -187,6 +187,9 @@ namespace ns3
         double_t kDlYield;
         uint32_t kLowUlThresh;
         uint32_t kHighUlThresh;
+
+        bool m_log;
+
     }; // class VcaClient
 
 }; // namespace ns3

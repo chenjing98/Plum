@@ -102,6 +102,7 @@ int main(int argc, char *argv[])
   uint32_t nClient = 1;
   bool printPosition = false;
   bool savePcap = false;
+  bool saveTransRate = false;
   double_t minBitrateKbps = 4.0;
   uint32_t kUlImprove = 3;
   double_t kDlYield = 0.5;
@@ -126,6 +127,7 @@ int main(int argc, char *argv[])
   cmd.AddValue("dlYield", "DL yield param", kDlYield);
   cmd.AddValue("lowUlThresh", "Low UL threshold", kLowUlThresh);
   cmd.AddValue("highUlThresh", "High UL threshold", kHighUlThresh);
+  cmd.AddValue("saveTransRate", "Save transmission rate", saveTransRate);
   cmd.AddValue("isTack", "Is TACK enabled", is_tack);
   cmd.AddValue("tackMaxCount", "Max TACK count", tack_max_count);
 
@@ -506,7 +508,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetMinBitrate(minBitrateKbps);
-        wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
+        vcaClientApp->SetLogFile("../../../evaluation/results/transient_rate_debug_" + std::to_string(nClient) + "_node_" + std::to_string(local_node->GetId()) + ".txt");
 
         Simulator::Schedule(Seconds(simulationDuration), &VcaClient::StopEncodeFrame, vcaClientApp);
         vcaClientApp->SetStartTime(Seconds(0.0));
