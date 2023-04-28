@@ -103,6 +103,8 @@ int main(int argc, char *argv[])
   bool printPosition = false;
   bool savePcap = false;
   double_t minBitrateKbps = 4.0;
+  bool is_tack = false;
+  uint32_t tack_max_count = 4;
 
   // std::string Version = "80211n_5GHZ";
 
@@ -116,12 +118,21 @@ int main(int argc, char *argv[])
   cmd.AddValue("printPosition", "Print position of nodes", printPosition);
   cmd.AddValue("minBitrate", "Minimum tolerable bitrate in kbps", minBitrateKbps);
   cmd.AddValue("savePcap", "Save pcap file", savePcap);
+  cmd.AddValue("isTack", "Is TACK enabled", is_tack);
+  cmd.AddValue("tackMaxCount", "Max TACK count", tack_max_count);
 
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
 
-  Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
-  //  Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpCubic"));
+  if (is_tack)
+  {
+    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpCubic"));
+    Config::SetDefault("ns3::TcpSocketBase::DelAckMaxCount", UintegerValue(tack_max_count));
+  }
+  else
+  {
+    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
+  }
 
   // set log level
   if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::ERROR)

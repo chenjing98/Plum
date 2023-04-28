@@ -123,6 +123,11 @@ TcpSocketBase::GetTypeId()
                           BooleanValue(true),
                           MakeBooleanAccessor(&TcpSocketBase::m_timestampEnabled),
                           MakeBooleanChecker())
+            .AddAttribute("DelAckMaxCount",
+                          "Maximum number of delayed ACKs",
+                          UintegerValue(2),
+                          MakeUintegerAccessor(&TcpSocketBase::m_delAckMaxCount),
+                          MakeUintegerChecker<uint32_t>())
             .AddAttribute(
                 "MinRto",
                 "Minimum retransmit timeout value",

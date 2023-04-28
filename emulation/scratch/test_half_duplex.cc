@@ -241,6 +241,8 @@ int main(int argc, char *argv[])
     double_t ul_prop = 0.5;
     double_t minBitrateKbps = 1000.0;
     uint16_t seed = 1;
+    bool is_tack = false;
+    uint32_t tack_max_count = 4;
 
     uint32_t MAX_TRACE_COUNT = 1115;
 
@@ -260,13 +262,22 @@ int main(int argc, char *argv[])
     cmd.AddValue("traceMode", "0 for even split, 1 for uneven split", trace_mode);
     cmd.AddValue("ulProp", "Proportion of uplink bandwidth", ul_prop);
     cmd.AddValue("seed", "Random seed for trace selection", seed);
+    cmd.AddValue("isTack", "Is TACK enabled", is_tack);
+    cmd.AddValue("tackMaxCount", "Max TACK count", tack_max_count);
 
     cmd.Parse(argc, argv);
     Time::SetResolution(Time::NS);
     std::srand(seed);
 
-    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
-    //  Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpCubic"));
+    if (is_tack)
+    {
+        Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpCubic"));
+        Config::SetDefault("ns3::TcpSocketBase::DelAckMaxCount", UintegerValue(tack_max_count));
+    }
+    else
+    {
+        Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
+    }
 
     // set log level
     if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::ERROR)
