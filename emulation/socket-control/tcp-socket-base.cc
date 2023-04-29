@@ -123,11 +123,11 @@ TcpSocketBase::GetTypeId()
                           BooleanValue(true),
                           MakeBooleanAccessor(&TcpSocketBase::m_timestampEnabled),
                           MakeBooleanChecker())
-            .AddAttribute("DelAckMaxCount",
-                          "Maximum number of delayed ACKs",
-                          UintegerValue(2),
-                          MakeUintegerAccessor(&TcpSocketBase::m_delAckMaxCount),
-                          MakeUintegerChecker<uint32_t>())
+            .AddAttribute("IsTack",
+                          "Enable or disable TACK option",
+                          BooleanValue(false),
+                          MakeBooleanAccessor(&TcpSocketBase::m_isTackEnabled),
+                          MakeBooleanChecker())
             .AddAttribute(
                 "MinRto",
                 "Minimum retransmit timeout value",
@@ -339,6 +339,7 @@ TcpSocketBase::TcpSocketBase(const TcpSocketBase& sock)
       m_dupAckCount(sock.m_dupAckCount),
       m_delAckCount(0),
       m_delAckMaxCount(sock.m_delAckMaxCount),
+      m_isTackEnabled(sock.m_isTackEnabled),
       m_noDelay(sock.m_noDelay),
       m_synCount(sock.m_synCount),
       m_synRetries(sock.m_synRetries),
@@ -3624,6 +3625,23 @@ TcpSocketBase::ReceivedData(Ptr<Packet> p, const TcpHeader& tcpHeader)
         else if (m_delAckEvent.IsExpired())
         {
             m_congestionControl->CwndEvent(m_tcb, TcpSocketState::CA_EVENT_DELAYED_ACK);
+            if(m_isTackEnabled){
+                double_t beta = 4.0;
+                double_t L = 2.0;
+                if(m_tcb->m_segmentSize > 0){
+                    double_t ack_freq = (double_t)m_tcb->m_pacingRate.Get().GetBitRate() / L / (double_t)m_tcb->m_segmentSize / 8.0;
+                    NS_LOG_LOGIC("TACK bw/L/MSS " << ack_freq);
+                    if(m_tcb->m_minRtt.GetSeconds() > 0.0){
+                        NS_LOG_LOGIC("TACK beta/minRTT " << beta / m_tcb->m_minRtt.GetSeconds());
+                        ack_freq = std::min(ack_freq, beta / m_tcb->m_minRtt.GetSeconds());
+                    }
+                    if(ack_freq > 0.0){
+                        m_delAckTimeout = Seconds(1.0 / ack_freq);
+                        NS_LOG_LOGIC("TACK: " << ack_freq << " " << m_delAckTimeout.GetSeconds());
+                    }
+                }
+            }
+
             m_delAckEvent =
                 Simulator::Schedule(m_delAckTimeout, &TcpSocketBase::DelAckTimeout, this);
             NS_LOG_LOGIC(

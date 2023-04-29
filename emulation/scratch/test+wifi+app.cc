@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
   uint32_t kLowUlThresh = 2e6;
   uint32_t kHighUlThresh = 5e6;
   bool is_tack = false;
-  uint32_t tack_max_count = 4;
+  uint32_t tack_max_count = 32;
 
   // std::string Version = "80211n_5GHZ";
 
@@ -134,14 +134,12 @@ int main(int argc, char *argv[])
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
 
+  Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
+
   if (is_tack)
   {
-    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpCubic"));
-    Config::SetDefault("ns3::TcpSocketBase::DelAckMaxCount", UintegerValue(tack_max_count));
-  }
-  else
-  {
-    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
+    Config::SetDefault("ns3::TcpSocketBase::IsTack", BooleanValue(true));
+    Config::SetDefault("ns3::TcpSocket::DelAckCount", UintegerValue(tack_max_count));
   }
 
   // set log level
