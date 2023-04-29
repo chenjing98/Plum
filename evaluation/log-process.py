@@ -76,6 +76,7 @@ def main():
     parser.add_argument('--csv', '-c', type=str, default='')
     parser.add_argument('--avg', '-a', action='store_true')
     parser.add_argument('--tail', '-t', action='store_true')
+    parser.add_argument("--min", "-m", action='store_true')
 
     args = parser.parse_args()
 
@@ -85,6 +86,8 @@ def main():
             print("%.2f" % CalAverageThroughput(avg_thp_list))
         elif args.tail:
             print("%.2f" % CalAverageThroughput(tail_thp_list))
+        elif args.min:
+            print("%.2f" % min(avg_thp_list))
     else:
         avg_aggr_results, tail_aggr_results = AggregateCsvLog(args.csv)
         # print(aggr_results)
