@@ -42,7 +42,7 @@ namespace ns3
           m_yongyule_realization(YONGYULE_REALIZATION::YONGYULE_APPRATE),
           m_target_dl_bitrate_redc_factor(1e4),
           kTxRateUpdateWindowMs(20),
-          kMinEncodeBps((uint32_t)100E3),
+          kMinEncodeBps((uint32_t)1E6),
           kMaxEncodeBps((uint32_t)10E6),
           kTargetDutyRatio(0.9),
           kDampingCoef(0.5f),
@@ -383,7 +383,8 @@ namespace ns3
             else
             {
                 packet->RemoveHeader(app_header);
-                NS_LOG_LOGIC("[VcaClient][Send][Node" << m_node_id << "][Sock" << (uint16_t)socket_id_up << "] SendData failed");
+                if (m_node_id == 0 && Simulator::Now().GetSeconds() > 148)
+                    NS_LOG_DEBUG("[VcaClient][Send][Node" << m_node_id << "][Sock" << (uint16_t)socket_id_up << "] SendData failed");
                 break;
             }
         }
@@ -425,7 +426,7 @@ namespace ns3
             // Calculate frame size in bytes
             uint32_t frame_size = m_bitrateBps[i] / 8 / m_fps;
             // if (m_node_id == (uint32_t)m_num_node + 1)
-            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << m_frame_id << " BitrateMbps[" << (uint16_t)i << "]= " << m_bitrateBps[i] / 1e6 << " RedcFactor= " << m_target_dl_bitrate_redc_factor << " SendBufSize= " << m_send_buffer_pkt[i].size());
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << m_frame_id << " BitrateMbps[" << (uint16_t)i << "]= " << m_bitrateBps[i] / 1e6 << " RedcFactor= " << m_target_dl_bitrate_redc_factor << " SendBufSize= " << m_send_buffer_pkt[i].size() << " total_goodput " << m_total_packet_bit / 1000000.);
 
             // if (frame_size == 0)
             //     frame_size = m_bitrateBps * 1000 / 8 / m_fps;
@@ -782,7 +783,7 @@ namespace ns3
 
             Ptr<TcpBbr> bbr = DynamicCast<TcpBbr, TcpCongestionOps>(ul_socket->GetCongCtrl());
 
-            if (bbr->m_state == 1)
+            if (bbr->GetBbrState() == 1)
             {
                 is_bottleneck = true;
                 break;
@@ -885,23 +886,31 @@ namespace ns3
         {
             Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
 
-            bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
-
-            Ptr<TcpBbr> bbr = DynamicCast<TcpBbr, TcpCongestionOps>(ul_socket->GetCongCtrl());
-
-            if (bbr)
+            if (ul_socket->GetTcb()->m_pacing)
             {
-                double gain = 1.0;
-                if (bbr->m_state == 0)
-                { // startup
-                    gain = 2.89;
+                bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
+
+                Ptr<TcpBbr> bbr = DynamicCast<TcpBbr, TcpCongestionOps>(ul_socket->GetCongCtrl());
+
+                if (bbr)
+                {
+                    double gain = 1.0;
+                    if (bbr->GetBbrState() == 0)
+                    { // startup
+                        gain = 2.89;
+                    }
+                    if (bbr->GetBbrState() == 2)
+                    { // probebw
+                        gain = std::max(0.75, bbr->GetPacingGain());
+                    }
+                    // bitrate = 1.1 * bbr->m_maxBwFilter.GetBest().GetBitRate();
+                    bitrate /= gain;
                 }
-                if (bbr->m_state == 2)
-                { // probebw
-                    gain = std::max(0.75, bbr->m_pacingGain);
-                }
-                // bitrate = 1.1 * bbr->m_maxBwFilter.GetBest().GetBitRate();
-                bitrate /= gain;
+            }
+            else {
+                double_t rtt_estimate = ul_socket->GetRtt()->GetEstimate().GetSeconds();
+                if(rtt_estimate > 0)
+                    bitrate = ul_socket->GetTcb()->m_cWnd * 8 / rtt_estimate;
             }
         }
         return bitrate;

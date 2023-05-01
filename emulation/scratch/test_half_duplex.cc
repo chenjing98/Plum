@@ -58,6 +58,8 @@ struct TraceElem
     double_t minAppBitrateMbps;
     uint32_t node_id;
     double_t ul_prop = 0.5;
+    double_t prev_ul_bw = 0.0;
+    double_t prev_dl_bw = 0.0;
     std::streampos curr_pos = std::ios::beg;
 };
 
@@ -173,6 +175,9 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
         // dl_bw = total_bw * (1 - elem.ul_prop);
         NS_LOG_DEBUG("BwAlloc Node: " << (uint16_t)elem.node_id << " ul_bw: " << ul_bw << " dl_bw: " << dl_bw);
 
+        elem.prev_ul_bw = ul_bw;
+        elem.prev_dl_bw = dl_bw;
+
         // Update global Knowledge
         if (total_bw >= app_limit_bw)
         {
@@ -242,7 +247,7 @@ int main(int argc, char *argv[])
     double_t minBitrateKbps = 1000.0;
     uint16_t seed = 1;
     bool is_tack = false;
-    uint32_t tack_max_count = 4;
+    uint32_t tack_max_count = 32;
 
     uint32_t MAX_TRACE_COUNT = 1115;
 
@@ -269,14 +274,21 @@ int main(int argc, char *argv[])
     Time::SetResolution(Time::NS);
     std::srand(seed);
 
+    // Config::SetDefault ("ns3::DropTailQueue<Packet>::MaxSize", QueueSizeValue (QueueSize ("1p")));
+    // Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (5 << 20)); // if (rwnd > 5M)，retransmission (RTO) will accumulate
+    // Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (5 << 20)); // over 5M packets, causing packet metadata overflows.
+    Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
+    Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(1448));
+    // Config::SetDefault("ns3::TcpSocketBase::MinRto", TimeValue(MilliSeconds(200)));
+
     if (is_tack)
     {
-        Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpCubic"));
-        Config::SetDefault("ns3::TcpSocketBase::DelAckMaxCount", UintegerValue(tack_max_count));
+        Config::SetDefault("ns3::TcpSocketBase::IsTack", BooleanValue(true));
+        Config::SetDefault("ns3::TcpSocket::DelAckCount", UintegerValue(tack_max_count));
     }
     else
     {
-        Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
+        Config::SetDefault("ns3::TcpSocket::DelAckCount", UintegerValue(1));
     }
 
     // set log level
@@ -385,7 +397,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetMinBitrate(minBitrateKbps);
-        vcaClientApp->SetLogFile("../../../evaluation/results/transient_rate_debug_" + std::to_string(nClient) + "_" + std::to_string((uint16_t)trace_mode) + ".txt");
+        // vcaClientApp->SetLogFile("../../../evaluation/results/trlogs/transient_rate_n" + std::to_string(nClient) + "_p" + std::to_string(policy) + "_i" + std::to_string(clientNodes.Get(id)->GetId()) + ".txt");
         clientNodes.Get(id)->AddApplication(vcaClientApp);
 
         Simulator::Schedule(Seconds(simulationDuration), &VcaClient::StopEncodeFrame, vcaClientApp);
@@ -407,9 +419,14 @@ int main(int argc, char *argv[])
 
     if (savePcap)
     {
+        AsciiTraceHelper ascii;
         ulP2p[0].EnablePcapAll("sfu-p2p");
-        dlP2p[0].EnablePcapAll("sfu-p2p");
+        // dlP2p[0].EnablePcapAll("sfu-p2p");
+        ulP2p[0].EnableAsciiAll(ascii.CreateFileStream("sfu-ul.tr"));
+        // dlP2p[0].EnableAsciiAll(ascii.CreateFileStream("sfu-dl.tr"));
     }
+
+    
 
     FlowMonitorHelper flowmonHelper;
     flowmonHelper.InstallAll();

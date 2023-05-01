@@ -74,7 +74,7 @@ namespace ns3
 
         void SetUlThresh(uint32_t, uint32_t);
 
-        static const uint32_t payloadSize = 524; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
+        static const uint32_t payloadSize = 1436; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
 
     protected:
         void DoDispose(void);

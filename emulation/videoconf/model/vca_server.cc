@@ -208,13 +208,13 @@ namespace ns3
                 if (bbr)
                 {
                     double gain = 1.0;
-                    if (bbr->m_state == 0)
+                    if (bbr->GetBbrState() == 0)
                     { // startup
                         gain = 2.89;
                     }
-                    if (bbr->m_state == 2)
+                    if (bbr->GetBbrState() == 2)
                     { // probebw
-                        gain = std::max(0.75, bbr->m_pacingGain);
+                        gain = std::max(0.75, bbr->GetPacingGain());
                     }
                     // bitrate = 1.1 * bbr->m_maxBwFilter.GetBest().GetBitRate();
                     bitrate /= gain;
@@ -228,12 +228,24 @@ namespace ns3
                 socket_dl->GetAttribute("SndBufSize", val);
                 uint32_t curPendingBuf = (uint32_t)val.Get() - sentsize - txbufferavailable;
 
-                NS_LOG_DEBUG("[VcaServer] Pacing rate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << (uint32_t)dl_socketbase->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf);
+                NS_LOG_DEBUG("[VcaServer] Pacing rate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << (uint32_t)dl_socketbase->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf << " bbr " << bbr);
             }
             else
             {
-                uint64_t bitrate = dl_socketbase->GetTcb()->m_cWnd * 8 / 40;
+                double_t rtt_estimate = dl_socketbase->GetRtt()->GetEstimate().GetSeconds();
+                if (rtt_estimate == 0)
+                {
+                    rtt_estimate = 0.02;
+                }
+                uint64_t bitrate = dl_socketbase->GetTcb()->m_cWnd * 8 / rtt_estimate;
                 client_info->cc_target_frame_size = bitrate / 8 / m_fps;
+
+                uint32_t sentsize = dl_socketbase->GetTxBuffer()->GetSentSize(); //
+                uint32_t txbufferavailable = dl_socketbase->GetTxAvailable();
+                UintegerValue val;
+                socket_dl->GetAttribute("SndBufSize", val);
+                uint32_t curPendingBuf = (uint32_t)val.Get() - sentsize - txbufferavailable;
+                NS_LOG_DEBUG("[VcaServer] ccRate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << rtt_estimate*1000 << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf);
             }
         }
 
@@ -454,7 +466,7 @@ namespace ns3
             }
             else
             {
-                NS_LOG_DEBUG("[VcaServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " SendData failed");
+                NS_LOG_LOGIC("[VcaServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " SendData failed");
             }
         }
     };
