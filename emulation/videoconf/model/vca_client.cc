@@ -372,8 +372,9 @@ namespace ns3
             packet->AddHeader(app_header);
 
             int actual = 0;
-            bool is_paused = m_paused.find(socket_id_up)==m_paused.end()?0:1;
-            NS_LOG_UNCOND("lastN[Client] check "<<socket_id_up<<" is_paused="<<is_paused);
+            bool is_paused = m_paused.find(m_node_id)==m_paused.end()?0:1;
+            NS_LOG_UNCOND("lastN[Client] check "<<(uint32_t)m_node_id<<" is_paused="<<is_paused);
+            is_paused = 0;
             if(is_paused==0 ||  //not paused
                 (is_paused && (((int)(random()))%3 == 1))) //paused and random
                     socket->Send(packet);

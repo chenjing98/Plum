@@ -485,30 +485,34 @@ namespace ns3
 
         /*
             Having decoded customized header and payload,
-            we're going to maintain a lastNqueue based on socket_id
+            we're going to maintain a lastNqueue based on m_node_id
         */
-        uint8_t lastN_mode = 1;
+        uint8_t lastN_mode = 0;
         uint32_t lastN_number = 2;
         if(lastN_mode){
-            NS_LOG_UNCOND("lastN[Server] insert "<<socket_id);
+            NS_LOG_UNCOND("lastN[Server] insert "<<(uint32_t)m_node_id);
             //Push: add lastest socket_id
-            lastN.push_back(socket_id);
-            if(in_queue[socket_id]==0){//paused -> not paused
-                if(m_paused.find(socket_id) != m_paused.end())
-                    m_paused.erase(m_paused.find(socket_id));
+            lastN.push_back(m_node_id);
+            if(in_queue[m_node_id]==0){//paused -> not paused
+                if(m_paused.find(m_node_id) != m_paused.end()){
+                    m_paused.erase(m_paused.find(m_node_id));
+                    NS_LOG_UNCOND("m_paused.erase("<<(uint32_t)m_node_id<<")");
+                }
             }
-            in_queue[socket_id] += 1;
+            in_queue[m_node_id] += 1;
 
             //Pop: maintain queue
             while(in_queue.size() > lastN_number){
-                uint8_t old_socket_id = lastN.front();
-                NS_LOG_UNCOND("lastN[Server] erase "<<old_socket_id);
+                uint8_t old_node_id = lastN.front();
+                NS_LOG_UNCOND("lastN[Server] erase "<<(uint32_t)old_node_id);
                 lastN.pop_front();
-                in_queue[old_socket_id] -= 1;
-                if(in_queue[old_socket_id] == 0){//not paused -> paused
-                    if(m_paused.find(socket_id) == m_paused.end())
-                        m_paused.insert(socket_id);
-                    in_queue.erase(old_socket_id);
+                in_queue[old_node_id] -= 1;
+                if(in_queue[old_node_id] == 0){//not paused -> paused
+                    if(m_paused.find(old_node_id) == m_paused.end()){
+                        m_paused.insert(old_node_id);
+                        NS_LOG_UNCOND("m_paused.insert("<<(uint32_t)old_node_id<<")");
+                    }
+                    in_queue.erase(old_node_id);
                 } 
             }
         }

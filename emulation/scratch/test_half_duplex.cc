@@ -18,6 +18,8 @@
 #include <sstream>
 #include <cstdlib>
 
+#include "../../../callback.h"
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("MulticastEmulation");
@@ -109,7 +111,18 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
 
     double_t total_bw = std::stod(traceData[2]) * 1.5;
     double_t ul_bw = 300, dl_bw = 300;
-    if (elem.mode == EVEN_SPLIT)
+    
+    bool is_paused = m_paused.find(elem.node_id)==m_paused.end()?0:1;
+    NS_LOG_UNCOND("[half-duplex] node_id = "<<(uint16_t)elem.node_id<<" is_paused = "<<is_paused);
+    is_paused = 0;
+
+    if (is_paused)
+    {
+        ul_bw = total_bw / 5;
+        dl_bw = total_bw - ul_bw;
+        NS_LOG_DEBUG("BwAlloc Node: " << (uint16_t)elem.node_id << " ul_bw: " << ul_bw << " dl_bw: " << dl_bw);
+    }
+    else if (elem.mode == EVEN_SPLIT)
     {
         ul_bw = total_bw / 2;
         dl_bw = total_bw / 2;
