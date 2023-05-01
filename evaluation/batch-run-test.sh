@@ -1,11 +1,11 @@
 #!/bin/bash
 
-export CORE_COUNT=60
+export CORE_COUNT=20
 
 declare -a seeds=(1 2 3 4 5 12946 129 777)
 declare -a nclients=(3 4 5)
 declare simTime=(1800)
-declare -a policies=(0 1)
+declare -a policies=(0)
 declare -a ulprops=(0.8)
 declare -a ackmaxcounts=(32)
 
