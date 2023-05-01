@@ -73,6 +73,7 @@ namespace ns3
         void SetPeerDlPort(uint16_t port);
 
         void SetNodeId(uint32_t node_id);
+        void SetLastNid(uint32_t m_lastN_id);
         void SetSeparateSocket();
 
     protected:
@@ -159,8 +160,10 @@ namespace ns3
         uint32_t total_frame_size = 0;
         uint32_t last_time = 0;
 
-        std::deque<uint8_t> lastN;
-        std::map<uint8_t,uint32_t> in_queue;
+        std::deque<uint32_t> lastN;
+        std::map<uint32_t,uint32_t> in_queue;
+
+        uint32_t lastN_id;
     }; // class VcaServer
 
 }; // namespace ns3

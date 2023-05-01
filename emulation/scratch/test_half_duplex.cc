@@ -20,6 +20,10 @@
 
 #include "../../../callback.h"
 
+extern std::set<uint32_t> m_paused[24];
+std::map<ns3::Ipv4Address,uint32_t> ip_to_node[24];
+uint32_t m_lastN_id;
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("MulticastEmulation");
@@ -112,9 +116,9 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
     double_t total_bw = std::stod(traceData[2]) * 1.5;
     double_t ul_bw = 300, dl_bw = 300;
     
-    bool is_paused = m_paused.find(elem.node_id)==m_paused.end()?0:1;
-    NS_LOG_UNCOND("[half-duplex] node_id = "<<(uint16_t)elem.node_id<<" is_paused = "<<is_paused);
-    is_paused = 0;
+    bool is_paused = m_paused[m_lastN_id].find(elem.node_id)==m_paused[m_lastN_id].end()?0:1;
+//    NS_LOG_UNCOND("[half-duplex] node_id = "<<elem.node_id<<" is_paused = "<<is_paused);
+//    is_paused = 0;
 
     if (is_paused)
     {
@@ -287,6 +291,20 @@ int main(int argc, char *argv[])
     Time::SetResolution(Time::NS);
     std::srand(seed);
 
+
+    uint32_t id_seed = seed;
+    if(seed == 12946) id_seed = 6;
+    if(seed == 129) id_seed = 7;
+    if(seed == 777) id_seed = 8;    
+    m_lastN_id = (id_seed-1)*3+(nClient-3);
+//    NS_LOG_UNCOND("seed = "<<seed<<"   nClient = "<<nClient<<" m_lastN_id ="<<m_lastN_id);
+    /*
+        (seed,nClient) 
+            (1,3)->0  (1,4)->1  (1,5)->2
+            (2,3)->3  (2,4)->4  ...
+            (777,5)->23
+    */
+
     // Config::SetDefault ("ns3::DropTailQueue<Packet>::MaxSize", QueueSizeValue (QueueSize ("1p")));
     // Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (5 << 20)); // if (rwnd > 5M)，retransmission (RTO) will accumulate
     // Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (5 << 20)); // over 5M packets, causing packet metadata overflows.
@@ -375,6 +393,10 @@ int main(int argc, char *argv[])
         ipAddr.SetBase(ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
         ulIpIfaces[i] = ipAddr.Assign(ulDevices[i]);
 
+        ip = "10.1." + std::to_string(i) + ".1";
+//        NS_LOG_UNCOND("ip_to_node["<<ns3::Ipv4Address(ip.c_str())<<"]="<<i);
+        ip_to_node[m_lastN_id][ns3::Ipv4Address(ip.c_str())] = i;
+
         ip = "10.2." + std::to_string(i) + ".0";
         ipAddr.SetBase(ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
         dlIpIfaces[i] = ipAddr.Assign(dlDevices[i]);
@@ -410,6 +432,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetMinBitrate(minBitrateKbps);
+        vcaClientApp->SetLastNid(m_lastN_id);
         // vcaClientApp->SetLogFile("../../../evaluation/results/trlogs/transient_rate_n" + std::to_string(nClient) + "_p" + std::to_string(policy) + "_i" + std::to_string(clientNodes.Get(id)->GetId()) + ".txt");
         clientNodes.Get(id)->AddApplication(vcaClientApp);
 
@@ -426,9 +449,11 @@ int main(int argc, char *argv[])
     vcaServerApp->SetLocalDlPort(client_dl);
     vcaServerApp->SetNodeId(sfuCenter.Get(0)->GetId());
     vcaServerApp->SetSeparateSocket();
+    vcaServerApp->SetLastNid(m_lastN_id);
     sfuCenter.Get(0)->AddApplication(vcaServerApp);
     vcaServerApp->SetStartTime(Seconds(0.0));
     vcaServerApp->SetStopTime(Seconds(simulationDuration + 2));
+    
 
     if (savePcap)
     {

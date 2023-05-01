@@ -1,6 +1,8 @@
 #include "vca_server.h"
 #include "../../callback.h"
-std::set<uint8_t> m_paused;
+std::set<uint32_t> m_paused[24];
+std::map<uint8_t,ns3::Ipv4Address> socket_to_ip[24];
+extern std::map<ns3::Ipv4Address,uint32_t> ip_to_node[24];
 
 namespace ns3
 {
@@ -102,6 +104,12 @@ namespace ns3
     VcaServer::SetSeparateSocket()
     {
         m_separate_socket = 1;
+    };
+    
+    void 
+    VcaServer::SetLastNid(uint32_t m_lastN_id)
+    {
+        lastN_id = m_lastN_id;
     };
 
     // Application Methods
@@ -281,6 +289,8 @@ namespace ns3
         uint8_t socket_id = m_ul_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
 
         Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
+//        NS_LOG_UNCOND("socket_to_ip["<<(uint32_t)socket_id<<"] = "<<client_info->ul_addr);
+        socket_to_ip[lastN_id][socket_id] = client_info->ul_addr;
 
         while (true)
         {
@@ -487,30 +497,32 @@ namespace ns3
             Having decoded customized header and payload,
             we're going to maintain a lastNqueue based on m_node_id
         */
-        uint8_t lastN_mode = 0;
+        uint8_t lastN_mode = 1;
         uint32_t lastN_number = 2;
         if(lastN_mode){
-            NS_LOG_UNCOND("lastN[Server] insert "<<(uint32_t)m_node_id);
-            //Push: add lastest socket_id
-            lastN.push_back(m_node_id);
-            if(in_queue[m_node_id]==0){//paused -> not paused
-                if(m_paused.find(m_node_id) != m_paused.end()){
-                    m_paused.erase(m_paused.find(m_node_id));
-                    NS_LOG_UNCOND("m_paused.erase("<<(uint32_t)m_node_id<<")");
+            uint32_t client_node_id = ip_to_node[lastN_id][socket_to_ip[lastN_id][socket_id]];
+//            NS_LOG_UNCOND("client_node_id ::: socket_id="<<(uint32_t)socket_id<<"  ip="<<socket_to_ip[lastN_id][socket_id]<<" node_id="<<client_node_id);
+//           NS_LOG_UNCOND("lastN[Server] insert "<<client_node_id);
+            //Push: add lastest client_node_id
+            lastN.push_back(client_node_id);
+            if(in_queue[client_node_id]==0){//paused -> not paused
+                if(m_paused[lastN_id].find(client_node_id) != m_paused[lastN_id].end()){
+                    m_paused[lastN_id].erase(m_paused[lastN_id].find(client_node_id));
+                    // NS_LOG_UNCOND("m_paused.erase("<<client_node_id<<")");
                 }
             }
-            in_queue[m_node_id] += 1;
+            in_queue[client_node_id] += 1;
 
             //Pop: maintain queue
             while(in_queue.size() > lastN_number){
-                uint8_t old_node_id = lastN.front();
-                NS_LOG_UNCOND("lastN[Server] erase "<<(uint32_t)old_node_id);
+                uint32_t old_node_id = lastN.front();
+                // NS_LOG_UNCOND("lastN[Server] erase "<<old_node_id);
                 lastN.pop_front();
                 in_queue[old_node_id] -= 1;
                 if(in_queue[old_node_id] == 0){//not paused -> paused
-                    if(m_paused.find(old_node_id) == m_paused.end()){
-                        m_paused.insert(old_node_id);
-                        NS_LOG_UNCOND("m_paused.insert("<<(uint32_t)old_node_id<<")");
+                    if(m_paused[lastN_id].find(old_node_id) == m_paused[lastN_id].end()){
+                        m_paused[lastN_id].insert(old_node_id);
+                        // NS_LOG_UNCOND("m_paused.insert("<<old_node_id<<")");
                     }
                     in_queue.erase(old_node_id);
                 } 

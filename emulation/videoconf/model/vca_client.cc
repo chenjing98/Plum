@@ -1,6 +1,6 @@
 #include "vca_client.h"
 #include "../../callback.h"
-extern std::set<uint8_t> m_paused;
+extern std::set<uint32_t> m_paused[24];
 
 namespace ns3
 {
@@ -157,7 +157,10 @@ namespace ns3
         kLowUlThresh = low_ul_thresh;
         kHighUlThresh = high_ul_thresh;
     };
-
+    void VcaClient::SetLastNid(uint32_t m_lastN_id)
+    {
+        lastN_id = m_lastN_id;
+    };
     // Application Methods
     void VcaClient::StartApplication()
     {
@@ -372,12 +375,12 @@ namespace ns3
             packet->AddHeader(app_header);
 
             int actual = 0;
-            bool is_paused = m_paused.find(m_node_id)==m_paused.end()?0:1;
-            NS_LOG_UNCOND("lastN[Client] check "<<(uint32_t)m_node_id<<" is_paused="<<is_paused);
-            is_paused = 0;
+            bool is_paused = m_paused[lastN_id].find(m_node_id)==m_paused[lastN_id].end()?0:1;
+//            NS_LOG_UNCOND("lastN[Client] check "<<(uint32_t)m_node_id<<" is_paused="<<is_paused);
+//            is_paused = 0;
             if(is_paused==0 ||  //not paused
                 (is_paused && (((int)(random()))%3 == 1))) //paused and random
-                    socket->Send(packet);
+                    actual = socket->Send(packet);
 
             if (actual > 0)
             {
