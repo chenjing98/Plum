@@ -158,6 +158,9 @@ namespace ns3
         uint32_t dropped_frame_size = 0;
         uint32_t total_frame_size = 0;
         uint32_t last_time = 0;
+
+        std::deque<uint8_t> lastN;
+        std::map<uint8_t,uint32_t> in_queue;
     }; // class VcaServer
 
 }; // namespace ns3

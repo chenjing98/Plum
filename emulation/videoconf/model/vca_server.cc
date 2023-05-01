@@ -1,4 +1,6 @@
 #include "vca_server.h"
+#include "../../callback.h"
+std::set<uint8_t> m_paused;
 
 namespace ns3
 {
@@ -467,6 +469,36 @@ namespace ns3
         uint16_t pkt_id = client_info->app_header.GetPacketId();
         uint32_t dl_redc_factor = client_info->app_header.GetDlRedcFactor();
         uint32_t payload_size = client_info->app_header.GetPayloadSize();
+
+        /*
+            Having decoded customized header and payload,
+            we're going to maintain a lastNqueue based on socket_id
+        */
+        uint8_t lastN_mode = 1;
+        uint32_t lastN_number = 2;
+        if(lastN_mode){
+            NS_LOG_UNCOND("lastN[Server] insert "<<socket_id);
+            //Push: add lastest socket_id
+            lastN.push_back(socket_id);
+            if(in_queue[socket_id]==0){//paused -> not paused
+                if(m_paused.find(socket_id) != m_paused.end())
+                    m_paused.erase(m_paused.find(socket_id));
+            }
+            in_queue[socket_id] += 1;
+
+            //Pop: maintain queue
+            while(in_queue.size() > lastN_number){
+                uint8_t old_socket_id = lastN.front();
+                NS_LOG_UNCOND("lastN[Server] erase "<<old_socket_id);
+                lastN.pop_front();
+                in_queue[old_socket_id] -= 1;
+                if(in_queue[old_socket_id] == 0){//not paused -> paused
+                    if(m_paused.find(socket_id) == m_paused.end())
+                        m_paused.insert(socket_id);
+                    in_queue.erase(old_socket_id);
+                } 
+            }
+        }
 
         NS_LOG_LOGIC("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000. << " NumDegradedUsers= " << m_num_degraded_users);
 
