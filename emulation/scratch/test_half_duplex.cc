@@ -296,7 +296,11 @@ int main(int argc, char *argv[])
     if(seed == 12946) id_seed = 6;
     if(seed == 129) id_seed = 7;
     if(seed == 777) id_seed = 8;    
-    m_lastN_id = (id_seed-1)*3+(nClient-3);
+    uint32_t id_ncli = nClient;
+    if(nClient == 8) id_ncli = 0;
+    if(nClient == 10) id_ncli = 1;
+    if(nClient == 20) id_ncli = 2;
+    m_lastN_id = (id_seed-1)*3+id_ncli;
 //    NS_LOG_UNCOND("seed = "<<seed<<"   nClient = "<<nClient<<" m_lastN_id ="<<m_lastN_id);
     /*
         (seed,nClient) 
