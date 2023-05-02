@@ -55,8 +55,12 @@ namespace ns3
           kUlImprove(3),
           kDlYield(0.5),
           kLowUlThresh(2e6),
-          kHighUlThresh(5e6),
-          m_log(false){};
+          kHighUlThresh(kMaxEncodeBps),
+          m_log(false),
+          m_probe_cooloff_count(0),
+          m_probe_cooloff_count_max(8),
+          m_probe_patience_count(0),
+          m_probe_patience_count_max(8){};
 
     VcaClient::~VcaClient(){};
 
@@ -312,6 +316,10 @@ namespace ns3
                 }
                 else
                 {
+                    auto latest_rate = m_transientRateBps.back();
+                    // if(latest_rate.size() > 0) {
+                    //     NS_LOG_UNCOND("[VcaClient][Node" << m_node_id << "] LatestRate Time= " << m_transientRateBps.size() << " Rate= " << latest_rate[src_ip]);
+                    // }
                     m_transientRateBps[now_second][src_ip] += packet->GetSize() * 8;
                 }
                 NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
@@ -668,19 +676,19 @@ namespace ns3
                 return;
             }
 
-            bool is_low_ul_bitrate;
-            bool is_high_ul_bitrate;
+            bool is_low_ul_bitrate = IsLowRate();
+            bool is_high_ul_bitrate = IsHighRate();
 
-            if (m_bitrateBps.size() > 0)
-            {
-                is_low_ul_bitrate = m_bitrateBps[0] < kLowUlThresh;
-                is_high_ul_bitrate = m_bitrateBps[0] > kHighUlThresh;
-            }
-            else
-            {
-                is_low_ul_bitrate = false;
-                is_high_ul_bitrate = false;
-            }
+            // if (m_bitrateBps.size() > 0)
+            // {
+            //     is_low_ul_bitrate = m_bitrateBps[0] < kLowUlThresh;
+            //     is_high_ul_bitrate = m_bitrateBps[0] >= kHighUlThresh;
+            // }
+            // else
+            // {
+            //     is_low_ul_bitrate = false;
+            //     is_high_ul_bitrate = false;
+            // }
 
             if (is_low_ul_bitrate)
             {
@@ -696,6 +704,11 @@ namespace ns3
                     }
                     else
                     {
+                        if (m_probe_patience_count > 0)
+                        {
+                            m_probe_patience_count--;
+                            return;
+                        }
                         // not half-duplex bottleneck
                         m_probe_state = NATURAL;
                         m_is_my_wifi_access_bottleneck = false;
@@ -705,6 +718,12 @@ namespace ns3
                 }
                 else if (m_probe_state == NATURAL)
                 {
+                    // do not enter probe if has just probed recently
+                    if (m_probe_cooloff_count > 0)
+                    {
+                        m_probe_cooloff_count--;
+                        return;
+                    }
                     m_probe_state = PROBING;
                     if (m_bitrateBps.size() > 0)
                     {
@@ -714,6 +733,8 @@ namespace ns3
                     m_is_my_wifi_access_bottleneck = true;
                     double_t dl_lambda = DecideDlParam();
                     EnforceDlParam(dl_lambda);
+                    m_probe_cooloff_count = m_probe_cooloff_count_max;
+                    m_probe_patience_count = m_probe_patience_count_max;
                     NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] FSM NATURAL -> PROBING");
                 }
             }
@@ -794,6 +815,50 @@ namespace ns3
     };
 
     bool
+    VcaClient::IsLowRate()
+    {
+        bool is_low = false;
+
+        if (m_socket_list_ul.size() == 0)
+            return false;
+
+        Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(m_socket_list_ul.front());
+
+        if(!ul_socket->GetTcb()->m_pacing) return false;
+
+        Ptr<TcpBbr> bbr = DynamicCast<TcpBbr, TcpCongestionOps>(ul_socket->GetCongCtrl());
+
+        if (bbr)
+        {
+
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] islowrate: bbr state = "<<bbr->GetBbrState()<<" pacing= " << GetUlBottleneckBw() << " klowthresh " << kLowUlThresh);
+            if (bbr->GetBbrState() != 2)
+            {
+                return false;
+            }
+        }
+
+        if (GetUlBottleneckBw() < kLowUlThresh)
+        {
+            is_low = true;
+        }
+
+        return is_low;
+    };
+
+    bool
+    VcaClient::IsHighRate()
+    {
+        bool is_high = true;
+        if (GetUlBottleneckBw() >= kHighUlThresh)
+        {
+            is_high = true;
+        }
+
+        return is_high;
+    };
+
+    bool
     VcaClient::ShouldRecoverDl()
     {
         bool should_recover_dl = false;
@@ -859,21 +924,21 @@ namespace ns3
     bool
     VcaClient::ElasticTest()
     {
-        if (m_bitrateBps.size() > 0)
-        {
-            if (m_bitrateBps[0] > m_prev_ul_bitrate * 1.2)
-            {
-                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] ElasticTest currRate " << (double_t)m_bitrateBps[0] / 1000000. << " prevRate " << (double_t)m_prev_ul_bitrate / 1000000.);
-                return true;
-            }
-        }
-
-        // uint64_t curr_bw = GetUlBottleneckBw();
-        // if(curr_bw > m_prev_ul_bottleneck_bw * 1.1)
+        // if (m_bitrateBps.size() > 0)
         // {
-        //     NS_LOG_DEBUG("[VcaClient][Node" << m_node_id <<"] ElasticTest currbw " << curr_bw << " prevbw " << m_prev_ul_bottleneck_bw);
-        //     return true;
+        //     if (m_bitrateBps[0] > m_prev_ul_bitrate * 1.2)
+        //     {
+        //         NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] ElasticTest currRate " << (double_t)m_bitrateBps[0] / 1000000. << " prevRate " << (double_t)m_prev_ul_bitrate / 1000000.);
+        //         return true;
+        //     }
         // }
+
+        uint64_t curr_bw = GetUlBottleneckBw();
+        if (curr_bw > m_prev_ul_bottleneck_bw * 1.2)
+        {
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] ElasticTest currbw " << curr_bw << " prevbw " << m_prev_ul_bottleneck_bw);
+            return true;
+        }
 
         return false;
     };
@@ -907,9 +972,10 @@ namespace ns3
                     bitrate /= gain;
                 }
             }
-            else {
+            else
+            {
                 double_t rtt_estimate = ul_socket->GetRtt()->GetEstimate().GetSeconds();
-                if(rtt_estimate > 0)
+                if (rtt_estimate > 0)
                     bitrate = ul_socket->GetTcb()->m_cWnd * 8 / rtt_estimate;
             }
         }

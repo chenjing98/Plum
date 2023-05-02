@@ -102,6 +102,8 @@ namespace ns3
 
         void AdjustBw();
         bool IsBottleneck();
+        bool IsLowRate();
+        bool IsHighRate();
         uint64_t GetUlBottleneckBw();
         bool ShouldRecoverDl();
         double_t DecideDlParam();
@@ -190,6 +192,11 @@ namespace ns3
 
         bool m_log;
 
+        uint16_t m_probe_cooloff_count;
+        uint16_t m_probe_cooloff_count_max;
+        uint16_t m_probe_patience_count;
+        uint16_t m_probe_patience_count_max;
+        
     }; // class VcaClient
 
 }; // namespace ns3
