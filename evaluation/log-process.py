@@ -59,23 +59,23 @@ def AggregateCsvLog(csv_file):
     for key in avg_thp_results:
         avg_thp_aggr_results[key] = (
             np.mean(np.array(avg_thp_results[key])), np.std(np.array(avg_thp_results[key])),
-            np.mean(np.array(tot_waste_results[key])))
+            np.mean(np.array(tot_waste_results[key])), np.std(np.array(tot_waste_results[key])))
     tail_thp_aggr_results = {}
     for key in tail_thp_results:
         tail_thp_aggr_results[key] = (np.mean(
             np.array(tail_thp_results[key])), np.std(np.array(tail_thp_results[key])),
-            np.mean(np.array(tot_waste_results[key])))
+            np.mean(np.array(tot_waste_results[key])), np.std(np.array(tot_waste_results[key])))
 
     return avg_thp_aggr_results, tail_thp_aggr_results
 
 
 def PrintAggregatedResults(aggr_results):
-    print("policy nclient thp_avg thp_std waste_avg")
+    print("policy nclient thp_avg thp_std waste_avg waste_std")
     # for key in aggr_results:
     #     print("%d %d %.2f %.2f" % (key[0], key[1], aggr_results[key][0], aggr_results[key][1]))
 
     for key, val in sorted(aggr_results.items()):
-        print("%d %d %.2f %.2f %.2f" % (key[0], key[1], val[0], val[1], val[2]))
+        print("%d %d %.2f %.2f %.2f %.2f" % (key[0], key[1], val[0], val[1], val[2], val[3]))
 
 
 def main():
