@@ -2,10 +2,16 @@
 emulation/ns-allinone-3.37/
 emulation/ns-allinone-3.37.tar.bz2
 evaluation/results/
-scripts/traces/
-scripts/wifi-office-traces
-scripts/wifi-rest-traces
+
+scripts/traces-origin/
 scripts/tracefile_names
+scripts/wifi-office-traces/
+scripts/real-office-wifi-traces/
+scripts/tracefile_names_realoffice
+scripts/wifi-rest-traces/
+scripts/real-rest-wifi-traces/
+scripts/tracefile_names_realrest
+
 scripts/app_traffic_log/
 
 # Byte-compiled / optimized / DLL files
