@@ -1,12 +1,12 @@
 #!/bin/bash
 
-export CORE_COUNT=50
+export CORE_COUNT=20
 
 # declare -a seeds=(1 2 3 4 5 12946 129 777)
 # declare -a nclients=(3 4 5)
 declare -a seeds=(1 2 3 4 5 777)
 declare -a nclients=(4)
-declare simTime=(1800)
+declare simTime=(30)
 declare -a policies=(0)
 declare -a kUlImproves=(3)
 declare -a kDlYields=(0.2 0.5)
@@ -19,7 +19,7 @@ export BITRATE=16  # Mbps
 mtu=1406
 export DATA_PER_FRAME=$(awk 'BEGIN{printf "%d\n", '$BITRATE'*1e6/8/'$FPS'/'$mtu+1'}')
 
-export NS3_THROUGHPUT_REGEX="\[VcaClient\]\[Result\] Throughput= ([0-9\.e\-]+)"
+export NS3_THROUGHPUT_REGEX="\[VcaClient\]\[Result\]"
 
 export NS3_VER="3.37"
 export CURRENT_DIR=$PWD

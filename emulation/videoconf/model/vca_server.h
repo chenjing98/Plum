@@ -158,6 +158,8 @@ namespace ns3
         uint32_t dropped_frame_size = 0;
         uint32_t total_frame_size = 0;
         uint32_t last_time = 0;
+
+        uint32_t totwaste = 0;
     }; // class VcaServer
 
 }; // namespace ns3

@@ -2,7 +2,7 @@
 
 namespace ns3
 {
-    uint8_t DEBUG_SRC_SOCKET_ID = 0;
+    uint8_t DEBUG_SRC_SOCKET_ID = 3;
     uint8_t DEBUG_DST_SOCKET_ID = 1;
 
     NS_LOG_COMPONENT_DEFINE("VcaServer");
@@ -161,6 +161,7 @@ namespace ns3
     void
     VcaServer::StopApplication()
     {
+        NS_LOG_UNCOND("[VcaClient][Result] Totwaste= "<<totwaste<<" ");
         // NS_LOG_UNCOND("Average thoughput (all clients) = "<<1.0*m_total_packet_size/Simulator::Now().GetSeconds());
         if (m_update_rate_event.IsRunning())
         {
@@ -523,6 +524,7 @@ namespace ns3
             NS_LOG_DEBUG("[VcaServer][DlRateControlStateNatural][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds());
         }
 
+        bool wasted_flag = 1;
         for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
         {
 
@@ -534,15 +536,28 @@ namespace ns3
             if (other_socket_id == socket_id)
                 continue;
 
+//             Ptr<Packet> packet_dl ;
+//             std::string ip = "10.1." + std::to_string(5) + ".1";
+//             Ipv4Address move_addr = Ipv4Address(ip.c_str());
+// //            NS_LOG_UNCOND("addr: "<<client_info->ul_addr);
+//             if (client_info->ul_addr == move_addr) packet_dl = TranscodeFrame(socket_id, other_socket_id, packet, frame_id);
+//             else{
+//                 packet_dl = Copy(packet);
+//                 NS_LOG_UNCOND("skip transcode addr = "<<client_info->ul_addr);
+//             }
             Ptr<Packet> packet_dl = TranscodeFrame(socket_id, other_socket_id, packet, frame_id);
 
             if (packet_dl == nullptr)
                 continue;
+            
+            wasted_flag = 0;//if there is one sent successfully, then not wasted
 
             other_client_info->send_buffer.push_back(packet_dl);
 
             SendData(other_client_info->socket_dl);
         }
+
+        if(wasted_flag) totwaste += packet->GetSize(); 
     };
 
     Ptr<Packet>
@@ -628,6 +643,7 @@ namespace ns3
                 fair_share = client_info->cc_target_frame_size;
             }
             // fair_share = std::round((double_t)fair_share * 1.25);
+            // NS_LOG_UNCOND("ICARE socket_id="<<(uint32_t)socket_id<<" client_number = "<<(m_client_info_map.size() - 1)<<" cc_target_frame_size = "<<client_info->cc_target_frame_size<<" fair share = "<<fair_share);
             return std::max(fair_share, kMinFrameSizeBytes);
         }
         else if (client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
