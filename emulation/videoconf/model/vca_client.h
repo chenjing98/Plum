@@ -73,6 +73,8 @@ namespace ns3
         void SetUlDlParams(uint32_t, double_t);
 
         void SetUlThresh(uint32_t, uint32_t);
+        
+        void SetLastNid(uint32_t m_lastN_id);
 
         static const uint32_t payloadSize = 1436; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
 
@@ -197,6 +199,8 @@ namespace ns3
         uint16_t m_probe_patience_count;
         uint16_t m_probe_patience_count_max;
         
+        uint32_t lastN_id;
+
     }; // class VcaClient
 
 }; // namespace ns3
