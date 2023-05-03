@@ -74,6 +74,7 @@ namespace ns3
 
         void SetNodeId(uint32_t node_id);
         void SetLastNid(uint32_t m_lastN_id);
+        void SetClientNum(uint32_t nClient);
         void SetSeparateSocket();
 
     protected:
@@ -164,6 +165,7 @@ namespace ns3
         std::map<uint32_t,uint32_t> in_queue;
 
         uint32_t lastN_id;
+        uint32_t m_client_number;
 
         uint32_t totwaste = 0;
     }; // class VcaServer

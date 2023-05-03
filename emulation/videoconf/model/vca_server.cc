@@ -110,6 +110,11 @@ namespace ns3
     VcaServer::SetLastNid(uint32_t m_lastN_id)
     {
         lastN_id = m_lastN_id;
+    };  
+    void 
+    VcaServer::SetClientNum(uint32_t nClient)
+    {
+        m_client_number = nClient;
     };
 
     // Application Methods
@@ -499,7 +504,7 @@ namespace ns3
             we're going to maintain a lastNqueue based on m_node_id
         */
         uint8_t lastN_mode = 1;
-        uint32_t lastN_number = 2;
+        uint32_t lastN_number = m_client_number-1;
         if(lastN_mode){
             uint32_t client_node_id = ip_to_node[lastN_id][socket_to_ip[lastN_id][socket_id]];
 //            NS_LOG_UNCOND("client_node_id ::: socket_id="<<(uint32_t)socket_id<<"  ip="<<socket_to_ip[lastN_id][socket_id]<<" node_id="<<client_node_id);
