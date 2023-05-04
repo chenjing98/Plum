@@ -176,7 +176,8 @@ namespace ns3
     void
     VcaServer::StopApplication()
     {
-        NS_LOG_UNCOND("[VcaClient][Result] Totwaste= "<<totwaste<<" ");
+        double Tottime = Simulator::Now().GetSeconds();
+        NS_LOG_UNCOND("[VcaClient][Result] Totwaste= "<<((totwaste/Tottime)/1e6)*8<<" ");//Mbps
         // NS_LOG_UNCOND("Average thoughput (all clients) = "<<1.0*m_total_packet_size/Simulator::Now().GetSeconds());
         if (m_update_rate_event.IsRunning())
         {
@@ -376,15 +377,6 @@ namespace ns3
             // status = 0  (1\ all empty then return    2\ all ready)
             if (client_info->read_status == 4)
             {
-
-                uint8_t *buffer = new uint8_t[client_info->half_payload->GetSize()];               // 创建一个buffer，用于存储packet元素
-                client_info->half_payload->CopyData(buffer, client_info->half_payload->GetSize()); // 将packet元素复制到buffer中
-                // for (int i = 0; i < m_half_payload[socket_id]->GetSize(); i++){
-                //     uint8_t element = buffer[i]; // 获取第i个元素
-                // if(element != 0)
-                //     NS_LOG_UNCOND("i = " <<i<<"  ele = "<<(uint32_t)element);
-                // }
-
                 ReceiveData(client_info->half_payload, socket_id);
                 client_info->read_status = 0;
                 client_info->set_header = 0;
@@ -505,6 +497,7 @@ namespace ns3
         */
         uint8_t lastN_mode = 1;
         uint32_t lastN_number = m_client_number-1;
+//        NS_LOG_UNCOND("lastN_number = "<<lastN_number<<"  nclient = "<<m_client_number);
         if(lastN_mode){
             uint32_t client_node_id = ip_to_node[lastN_id][socket_to_ip[lastN_id][socket_id]];
 //            NS_LOG_UNCOND("client_node_id ::: socket_id="<<(uint32_t)socket_id<<"  ip="<<socket_to_ip[lastN_id][socket_id]<<" node_id="<<client_node_id);

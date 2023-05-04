@@ -167,7 +167,7 @@ namespace ns3
         uint32_t lastN_id;
         uint32_t m_client_number;
 
-        uint32_t totwaste = 0;
+        uint64_t totwaste = 0;
     }; // class VcaServer
 
 }; // namespace ns3
