@@ -70,12 +70,12 @@ def AggregateCsvLog(csv_file):
 
 
 def PrintAggregatedResults(aggr_results):
-    print("policy nclient thp_avg thp_std waste_avg waste_std")
+    print("policy nclient thp_avg thp_std waste_avg waste_std waste_avg/n waste_std/n")
     # for key in aggr_results:
     #     print("%d %d %.2f %.2f" % (key[0], key[1], aggr_results[key][0], aggr_results[key][1]))
 
     for key, val in sorted(aggr_results.items()):
-        print("%d %d %.2f %.2f %.2f %.2f" % (key[0], key[1], val[0], val[1], val[2], val[3]))
+        print("%d %d %.2f %.2f %.2f %.2f %.2f %.2f" % (key[0], key[1], val[0], val[1], val[2], val[3], val[2]/key[1], val[3]/key[1]))
 
 
 def main():

@@ -1,8 +1,8 @@
 #include "vca_server.h"
-#include "../../callback.h"
-std::set<uint32_t> m_paused[24];
-std::map<uint8_t,ns3::Ipv4Address> socket_to_ip[24];
-extern std::map<ns3::Ipv4Address,uint32_t> ip_to_node[24];
+#include "../../localcallback.h"
+std::set<uint32_t> m_paused[48];
+std::map<uint8_t,ns3::Ipv4Address> socket_to_ip[48];
+extern std::map<ns3::Ipv4Address,uint32_t> ip_to_node[48];
 
 namespace ns3
 {
@@ -495,7 +495,7 @@ namespace ns3
             Having decoded customized header and payload,
             we're going to maintain a lastNqueue based on m_node_id
         */
-        uint8_t lastN_mode = 1;
+        uint8_t lastN_mode = 0;
         uint32_t lastN_number = m_client_number-1;
 //        NS_LOG_UNCOND("lastN_number = "<<lastN_number<<"  nclient = "<<m_client_number);
         if(lastN_mode){

@@ -3,9 +3,9 @@
 export CORE_COUNT=20
 
 declare -a seeds=(1 2 3 4 5 12946 129 777)
-declare -a nclients=(3 4 5)
+declare -a nclients=(3 4 5 8 10 20)
 declare simTime=(120)
-declare -a policies=(0)
+declare -a policies=(0 1)
 declare -a ulprops=(0.8)
 declare -a ackmaxcounts=(32)
 

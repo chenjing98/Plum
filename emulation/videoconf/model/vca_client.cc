@@ -1,6 +1,6 @@
 #include "vca_client.h"
-#include "../../callback.h"
-extern std::set<uint32_t> m_paused[24];
+#include "../../localcallback.h"
+extern std::set<uint32_t> m_paused[48];
 
 namespace ns3
 {
@@ -385,7 +385,7 @@ namespace ns3
             int actual = 0;
             bool is_paused = m_paused[lastN_id].find(m_node_id)==m_paused[lastN_id].end()?0:1;
 //            NS_LOG_UNCOND("lastN[Client] check "<<(uint32_t)m_node_id<<" is_paused="<<is_paused);
-//            is_paused = 0;
+            is_paused = 0;
             if(is_paused==0 ||  //not paused
                 (is_paused && (((int)(random()))%3 == 1))) //paused and random
                     actual = socket->Send(packet);

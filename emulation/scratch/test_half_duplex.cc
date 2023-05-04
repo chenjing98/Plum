@@ -18,10 +18,10 @@
 #include <sstream>
 #include <cstdlib>
 
-#include "../../../callback.h"
+#include "../../../localcallback.h"
 
-extern std::set<uint32_t> m_paused[24];
-std::map<ns3::Ipv4Address,uint32_t> ip_to_node[24];
+extern std::set<uint32_t> m_paused[48];
+std::map<ns3::Ipv4Address,uint32_t> ip_to_node[48];
 uint32_t m_lastN_id;
 
 using namespace ns3;
@@ -118,7 +118,7 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
     
     bool is_paused = m_paused[m_lastN_id].find(elem.node_id)==m_paused[m_lastN_id].end()?0:1;
 //    NS_LOG_UNCOND("[half-duplex] node_id = "<<elem.node_id<<" is_paused = "<<is_paused);
-//    is_paused = 0;
+    is_paused = 0;
 
     if (is_paused)
     {
@@ -234,7 +234,7 @@ std::string GetRandomTraceFile(uint32_t max_trace_count)
     uint32_t n_line = 0;
     std::string trace_file;
     std::fstream index_file;
-    index_file.open("../../../scripts/tracefile_names_realoffice", std::ios::in);
+    index_file.open("../../../scripts/tracefile_names", std::ios::in);
     while (getline(index_file, trace_file) && n_line < trace_count)
     {
         n_line++;
@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
     bool is_tack = false;
     uint32_t tack_max_count = 32;
 
-    uint32_t MAX_TRACE_COUNT = 16;
+    uint32_t MAX_TRACE_COUNT = 1115;
 
     // std::string Version = "80211n_5GHZ";
 
@@ -301,7 +301,10 @@ int main(int argc, char *argv[])
     if(nClient == 3) id_ncli = 0;
     if(nClient == 4) id_ncli = 1;
     if(nClient == 5) id_ncli = 2;
-    m_lastN_id = (id_seed-1)*3+id_ncli;
+    if(nClient == 8) id_ncli = 3;
+    if(nClient == 10) id_ncli = 4;
+    if(nClient == 20) id_ncli = 5;
+    m_lastN_id = (id_seed-1)*6+id_ncli;
 //    NS_LOG_UNCOND("seed = "<<seed<<"   nClient = "<<nClient<<" m_lastN_id ="<<m_lastN_id);
     /*
         (seed,nClient) 
@@ -373,12 +376,12 @@ int main(int argc, char *argv[])
 
         if (vary_bw)
         {
-            std::string trace_dir = "../../../scripts/real-office-wifi-traces/";
+            std::string trace_dir = "../../../scripts/traces-origin/";
             std::string trace_name = GetRandomTraceFile(MAX_TRACE_COUNT);
             // std::string trace_dir = "../../../scripts/";
             // std::string trace_name = "trace-debug.csv";
             std::string tracefile = trace_dir + trace_name;
-            // NS_LOG_UNCOND("tracefile:"<<tracefile);
+//            NS_LOG_UNCOND("tracefile:"<<tracefile);
             TraceElem elem = {tracefile, static_cast<TRACE_MODE>(trace_mode), ulDevices[i].Get(0), dlDevices[i].Get(1), 16, simulationDuration, (double_t)maxBitrateKbps / 1000., minBitrateKbps / 1000., i, ul_prop};
             BandwidthTrace(elem, nClient);
         }
