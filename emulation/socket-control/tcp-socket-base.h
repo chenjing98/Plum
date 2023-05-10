@@ -1285,6 +1285,8 @@ class TcpSocketBase : public TcpSocket
     uint32_t m_delAckCount{0};    //!< Delayed ACK counter
     uint32_t m_delAckMaxCount{0}; //!< Number of packet to fire an ACK before delay timeout
 
+    bool m_isTackEnabled{false};
+
     // Nagle algorithm
     bool m_noDelay{false}; //!< Set to true to disable Nagle's algorithm
 
@@ -1401,6 +1403,8 @@ class TcpSocketBase : public TcpSocket
     Ptr<RttEstimator> GetRtt() const; //!< Get the Rtt
 
     Ptr<TcpSocketState> GetTcb(); //!< Get the TCB
+
+    Ptr<TcpCongestionOps> GetCongCtrl(); //!< Get the congestion control
 
   private:
     float m_rWndLambda; //!< Rwnd lambda

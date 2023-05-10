@@ -14,6 +14,8 @@
 #include <numeric>
 #include <map>
 
+#include <fstream>
+
 #include "prot-header.h"
 
 enum POLICY
@@ -28,6 +30,13 @@ enum YONGYULE_REALIZATION
     YONGYULE_APPRATE
 };
 
+enum PROBE_STATE
+{
+    YIELD,
+    PROBING,
+    NATURAL
+};
+
 namespace ns3
 {
 
@@ -39,6 +48,7 @@ namespace ns3
         ~VcaClient();
 
         void SetLocalAddress(Ipv4Address local);
+        void SetLocalAddress(Ipv4Address local_ul, Ipv4Address local_dl);
         void SetPeerAddress(std::vector<Ipv4Address> peer_list);
         void SetLocalUlPort(uint16_t port);
         void SetLocalDlPort(uint16_t port);
@@ -52,12 +62,19 @@ namespace ns3
         void SetMinBitrate(uint32_t bitrate);
 
         void SetNodeId(uint32_t node_id);
+        void SetNumNode(uint8_t num_node);
 
         void SetPolicy(POLICY policy);
 
         void StopEncodeFrame();
 
-        static const uint32_t payloadSize = 524; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
+        void SetLogFile(std::string log_file);
+
+        void SetUlDlParams(uint32_t, double_t);
+
+        void SetUlThresh(uint32_t, uint32_t);
+
+        static const uint32_t payloadSize = 1436; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
 
     protected:
         void DoDispose(void);
@@ -85,15 +102,20 @@ namespace ns3
 
         void AdjustBw();
         bool IsBottleneck();
+        bool IsLowRate();
+        bool IsHighRate();
+        uint64_t GetUlBottleneckBw();
         bool ShouldRecoverDl();
         double_t DecideDlParam();
         void EnforceDlParam(double_t param);
+        bool ElasticTest();
 
         void OutputStatistics();
 
         double_t GetDutyRatio(uint8_t);
 
         uint32_t m_node_id;
+        uint8_t m_num_node;
 
         Ptr<Socket> m_socket_dl;
 
@@ -107,7 +129,8 @@ namespace ns3
 
         TypeId m_tid;
 
-        Ipv4Address m_local;
+        Ipv4Address m_local_ul;
+        Ipv4Address m_local_dl;
 
         uint16_t m_local_ul_port;
         uint16_t m_local_dl_port;
@@ -124,7 +147,7 @@ namespace ns3
         std::vector<uint32_t> m_lastPendingBuf;
         std::vector<bool> m_firstUpdate;
 
-        uint32_t m_total_packet_bit;
+        uint64_t m_total_packet_bit;
         std::vector<std::unordered_map<uint32_t, uint32_t>> m_transientRateBps; // vector index: time in second, map key: source ip, map value: bitrate in bps
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_pkt;
@@ -150,6 +173,30 @@ namespace ns3
         std::vector<std::deque<int64_t>> m_time_history;
         std::vector<std::deque<uint32_t>> m_write_history;
 
+        uint64_t m_total_bitrate;
+        uint32_t m_encode_times;
+
+        bool m_increase_ul;
+
+        std::string m_log_file;
+
+        PROBE_STATE m_probe_state;
+        bool is_half_duplex_bottleneck;
+        uint32_t m_prev_ul_bitrate;
+        uint64_t m_prev_ul_bottleneck_bw;
+
+        uint32_t kUlImprove;
+        double_t kDlYield;
+        uint32_t kLowUlThresh;
+        uint32_t kHighUlThresh;
+
+        bool m_log;
+
+        uint16_t m_probe_cooloff_count;
+        uint16_t m_probe_cooloff_count_max;
+        uint16_t m_probe_patience_count;
+        uint16_t m_probe_patience_count_max;
+        
     }; // class VcaClient
 
 }; // namespace ns3

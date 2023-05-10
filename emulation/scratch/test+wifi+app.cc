@@ -38,6 +38,59 @@ void showPosition(Ptr<Node> node, double deltaTime)
   Simulator::Schedule(Seconds(deltaTime), &showPosition, node, deltaTime);
 };
 
+std::pair<WifiStandard, WifiPhyBand>
+ConvertStringToStandardAndBand(std::string version)
+{
+  WifiStandard standard = WIFI_STANDARD_80211a;
+  WifiPhyBand band = WIFI_PHY_BAND_5GHZ;
+  if (version == "80211a")
+  {
+    standard = WIFI_STANDARD_80211a;
+    band = WIFI_PHY_BAND_5GHZ;
+  }
+  else if (version == "80211b")
+  {
+    standard = WIFI_STANDARD_80211b;
+    band = WIFI_PHY_BAND_2_4GHZ;
+  }
+  else if (version == "80211g")
+  {
+    standard = WIFI_STANDARD_80211g;
+    band = WIFI_PHY_BAND_2_4GHZ;
+  }
+  else if (version == "80211p")
+  {
+    standard = WIFI_STANDARD_80211p;
+    band = WIFI_PHY_BAND_5GHZ;
+  }
+  else if (version == "80211n_2_4GHZ")
+  {
+    standard = WIFI_STANDARD_80211n;
+    band = WIFI_PHY_BAND_2_4GHZ;
+  }
+  else if (version == "80211n_5GHZ")
+  {
+    standard = WIFI_STANDARD_80211n;
+    band = WIFI_PHY_BAND_5GHZ;
+  }
+  else if (version == "80211ac")
+  {
+    standard = WIFI_STANDARD_80211ac;
+    band = WIFI_PHY_BAND_5GHZ;
+  }
+  else if (version == "80211ax_2_4GHZ")
+  {
+    standard = WIFI_STANDARD_80211ax;
+    band = WIFI_PHY_BAND_2_4GHZ;
+  }
+  else if (version == "80211ax_5GHZ")
+  {
+    standard = WIFI_STANDARD_80211ax;
+    band = WIFI_PHY_BAND_5GHZ;
+  }
+  return {standard, band};
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -48,7 +101,17 @@ int main(int argc, char *argv[])
   uint8_t policy = 0;
   uint32_t nClient = 1;
   bool printPosition = false;
+  bool savePcap = false;
+  bool saveTransRate = false;
   double_t minBitrateKbps = 4.0;
+  uint32_t kUlImprove = 3;
+  double_t kDlYield = 0.5;
+  uint32_t kLowUlThresh = 2e6;
+  uint32_t kHighUlThresh = 5e6;
+  bool is_tack = false;
+  uint32_t tack_max_count = 32;
+
+  // std::string Version = "80211n_5GHZ";
 
   CommandLine cmd(__FILE__);
   cmd.AddValue("mode", "p2p or sfu mode", mode);
@@ -59,11 +122,25 @@ int main(int argc, char *argv[])
   cmd.AddValue("nClient", "Number of clients", nClient);
   cmd.AddValue("printPosition", "Print position of nodes", printPosition);
   cmd.AddValue("minBitrate", "Minimum tolerable bitrate in kbps", minBitrateKbps);
+  cmd.AddValue("savePcap", "Save pcap file", savePcap);
+  cmd.AddValue("ulImpv", "UL improvement param", kUlImprove);
+  cmd.AddValue("dlYield", "DL yield param", kDlYield);
+  cmd.AddValue("lowUlThresh", "Low UL threshold", kLowUlThresh);
+  cmd.AddValue("highUlThresh", "High UL threshold", kHighUlThresh);
+  cmd.AddValue("saveTransRate", "Save transmission rate", saveTransRate);
+  cmd.AddValue("isTack", "Is TACK enabled", is_tack);
+  cmd.AddValue("tackMaxCount", "Max TACK count", tack_max_count);
 
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
 
   Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
+
+  if (is_tack)
+  {
+    Config::SetDefault("ns3::TcpSocketBase::IsTack", BooleanValue(true));
+    Config::SetDefault("ns3::TcpSocket::DelAckCount", UintegerValue(tack_max_count));
+  }
 
   // set log level
   if (static_cast<LOG_LEVEL>(logLevel) == LOG_LEVEL::ERROR)
@@ -185,12 +262,12 @@ int main(int argc, char *argv[])
 
     // 给NetDevices分配IPv4地址
     Ipv4AddressHelper P2Paddress[num];
-    Ipv4InterfaceContainer interfaces[num];
+    Ipv4InterfaceContainer BackhaulIf[num];
     for (uint32_t i = 0; i < num; i++)
     {
       std::string ip = "10.1." + std::to_string(i + 1) + ".0";
       P2Paddress[i].SetBase(ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
-      interfaces[i] = P2Paddress[i].Assign(p2pDevices[i]);
+      BackhaulIf[i] = P2Paddress[i].Assign(p2pDevices[i]);
     }
     Ipv4AddressHelper Wifiaddress[nClient];
     Ipv4InterfaceContainer APinterfaces[nClient];
@@ -240,6 +317,8 @@ int main(int argc, char *argv[])
         vcaClientApp->SetPeerPort(port_dl); // to other's port_dl
         vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
+        vcaClientApp->SetUlDlParams(kUlImprove, kDlYield);
+        vcaClientApp->SetUlThresh(kLowUlThresh, kHighUlThresh);
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
         NS_LOG_DEBUG("[id=" << id << ",i=" << i << "] info:" << wifiStaNodes[id].Get(i)->GetId());
 
@@ -282,9 +361,9 @@ int main(int argc, char *argv[])
     }
 
     // 在AP的p2p信道上安装NetDevice
-    NetDeviceContainer sfuDevices[nClient];
+    NetDeviceContainer backhaulDevices[nClient];
     for (uint32_t i = 0; i < nClient; i++)
-      sfuDevices[i] = pointToPoint[i].Install(wifiApNode[i].Get(0), sfuCenter.Get(0));
+      backhaulDevices[i] = pointToPoint[i].Install(wifiApNode[i].Get(0), sfuCenter.Get(0));
     // for(int i=0;i<nClient;i++)
     //   for(int j=0;j<nClient;j++)
     //     NS_LOG_DEBUG("dev[%d][%d]=%d\nClient",i,j,dev[i][j]);
@@ -298,9 +377,25 @@ int main(int argc, char *argv[])
     NetDeviceContainer staDevices[nClient];
     NetDeviceContainer apDevices[nClient];
 
+    // const auto &[Standard, Band] = ConvertStringToStandardAndBand(Version);
+    wifi.SetStandard(WIFI_STANDARD_80211p);
+    phy.Set("ChannelSettings", StringValue("{0, 10, BAND_5GHZ, 0}"));
+
+
     // Set different SSID (+ PHY channel) for each BSS
     for (uint32_t i = 0; i < nClient; i++)
     {
+
+      // if(i >= 0) {
+      //   PointToPointHelper p2phelper;
+      //   p2phelper.SetDeviceAttribute("DataRate", StringValue("100Mbps"));
+      //   p2phelper.SetChannelAttribute("Delay", StringValue("5ms"));
+      //   NetDeviceContainer p2pDevices = p2phelper.Install(wifiStaNodes[i].Get(0), wifiApNode[i].Get(0));
+      //   staDevices[i] = p2pDevices.Get(0);
+      //   apDevices[i] = p2pDevices.Get(1);
+      //   continue;
+      // }
+
       std::string id = "ssid" + std::to_string(i + 1);
       ssid = Ssid(id);
       NS_LOG_DEBUG("[Scratch] Ssid= " << ssid);
@@ -358,12 +453,12 @@ int main(int argc, char *argv[])
 
     // 给NetDevices分配IPv4地址
     Ipv4AddressHelper P2Paddress[nClient];
-    Ipv4InterfaceContainer interfaces[nClient];
+    Ipv4InterfaceContainer BackhaulIf[nClient];
     for (uint32_t i = 0; i < nClient; i++)
     {
       std::string ip = "10.1." + std::to_string(i + 1) + ".0";
       P2Paddress[i].SetBase(ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
-      interfaces[i] = P2Paddress[i].Assign(sfuDevices[i]);
+      BackhaulIf[i] = P2Paddress[i].Assign(backhaulDevices[i]);
     }
     Ipv4AddressHelper Wifiaddress[nClient];
     Ipv4InterfaceContainer APinterfaces[nClient];
@@ -394,7 +489,7 @@ int main(int argc, char *argv[])
     uint16_t client_dl = 8080; // dl_port may increase in VcaServer, make sure it doesn't overlap with ul_port
     uint16_t client_peer = 80;
 
-    Ipv4Address serverAddr = interfaces[0].GetAddress(1); // sfuCenter
+    Ipv4Address serverAddr = BackhaulIf[0].GetAddress(1); // sfuCenter
     Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
     vcaServerApp->SetLocalAddress(serverAddr);
     vcaServerApp->SetLocalUlPort(client_peer);
@@ -411,19 +506,40 @@ int main(int argc, char *argv[])
       for (uint8_t i = 0; i < nWifi[id]; i++)
       {
         Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
-        NS_LOG_DEBUG("SFU VCA NodeId " << wifiStaNodes[id].Get(i)->GetId() << " " << sfuCenter.Get(0)->GetId());
+        Ipv4Address apAddr = BackhaulIf[id].GetAddress(i);
+
+        Ipv4Address local;
+        Ptr<Node> local_node;
+        if (id == 0)
+        {
+          local = staAddr;
+          local_node = wifiStaNodes[id].Get(i);
+        }
+        else
+        {
+          local = apAddr;
+          local_node = wifiApNode[id].Get(i);
+        }
+        Ptr<Node> node = wifiStaNodes[id].Get(i);
+        NS_LOG_DEBUG("SFU VCA NodeId " << local_node->GetId() << " " << sfuCenter.Get(0)->GetId());
         Ptr<VcaClient> vcaClientApp = CreateObject<VcaClient>();
         vcaClientApp->SetFps(20);
-        vcaClientApp->SetLocalAddress(staAddr);
+        vcaClientApp->SetLocalAddress(local);
         vcaClientApp->SetPeerAddress(std::vector<Ipv4Address>{serverAddr});
         vcaClientApp->SetLocalUlPort(client_ul);
         vcaClientApp->SetLocalDlPort(client_dl);
         vcaClientApp->SetPeerPort(client_peer);
-        vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
+        vcaClientApp->SetNodeId(local_node->GetId());
+        vcaClientApp->SetNumNode(nClient);
         vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
+        vcaClientApp->SetUlDlParams(kUlImprove, kDlYield);
+        vcaClientApp->SetUlThresh(kLowUlThresh, kHighUlThresh);
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetMinBitrate(minBitrateKbps);
-        wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
+        // vcaClientApp->SetLogFile("../../../evaluation/results/transient_rate_debug_" + std::to_string(nClient) + "_node_" + std::to_string(local_node->GetId()) + ".txt");
+        // wifiApNode[id].Get(0)->AddApplication(vcaClientApp);
+        // wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
+        local_node->AddApplication(vcaClientApp);
 
         Simulator::Schedule(Seconds(simulationDuration), &VcaClient::StopEncodeFrame, vcaClientApp);
         vcaClientApp->SetStartTime(Seconds(0.0));
@@ -431,13 +547,14 @@ int main(int argc, char *argv[])
       }
     }
 
-    int tracing = 0;
-    if (tracing)
+    if (savePcap)
     {
       phy.SetPcapDataLinkType(WifiPhyHelper::DLT_IEEE802_11_RADIO);
       pointToPoint[0].EnablePcapAll("sfu");
       phy.EnablePcap("sfu-ap", apDevices[0].Get(0));
       phy.EnablePcap("sfu-sta", staDevices[0].Get(0));
+      phy.EnablePcap("sfu-ap", apDevices[2].Get(0));
+      phy.EnablePcap("sfu-sta", staDevices[2].Get(0));
     }
   }
 

@@ -111,6 +111,15 @@ namespace ns3
         return m_payload_size;
     };
 
+    void
+    VcaAppProtHeader::Reset()
+    {
+        m_frame_id = 0;
+        m_packet_id = 0;
+        m_dl_bitrate_reduce_factor = 1e4;
+        m_payload_size = 0;
+    };
+
     // VcaAppProtHeaderInfo
 
     TypeId
