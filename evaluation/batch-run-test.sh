@@ -1,13 +1,16 @@
 #!/bin/bash
 
-export CORE_COUNT=60
+export CORE_COUNT=50
 
 declare -a seeds=(1 2 3 4 5 12946 129 777)
-declare -a nclients=(3 4 5)
-declare simTime=(1800)
+declare -a nclients=(3 4 5 8 10 20)
+declare simTime=(120)
 declare -a policies=(0 1)
 declare -a ulprops=(0.8)
-declare -a ackmaxcounts=(32)
+declare -a ackmaxcounts=(16)
+
+export baseline_policy=0
+export filename_prefix="result_p2p_large_clients"
 
 # export FPS=60
 # export BITRATE=10  # Mbps
@@ -26,7 +29,7 @@ run_ns3() {
     seed=$2
     nclient=$3
     simt=$4
-    filename=${RESULT_DIR}/result_p2p
+    filename=${RESULT_DIR}/${filename_prefix}
     output_file=${filename}.txt
     output_file_clean=${filename}.csv
     echo At policy: $policy, nclient: $nclient, seed: $seed, output_file: $filename.txt/csv...
@@ -51,7 +54,7 @@ run_ns3_tack() {
     nclient=$3
     simt=$4
     ackmaxcount=$5
-    filename=${RESULT_DIR}/result_p2p_tack
+    filename=${RESULT_DIR}/${filename_prefix}_tack
     output_file=${filename}.txt
     output_file_clean=${filename}.csv
     echo At policy: $policy, nclient: $nclient, seed: $seed, output_file: $filename.txt/csv...
@@ -79,10 +82,10 @@ export -f run_ns3
 export -f run_ns3_tack
 
 
-echo "policy, nclient, seed, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/result_p2p.csv
+echo "policy, nclient, seed, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/${filename_prefix}.csv
 
 parallel -j${CORE_COUNT} run_ns3 ::: ${policies[@]} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${simTime}
 
-echo "policy, nclient, seed, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/result_p2p_tack.csv
+echo "policy, nclient, seed, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/${filename_prefix}_tack.csv
 
-parallel -j${CORE_COUNT} run_ns3_tack ::: ${policies[@]} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${simTime} ::: ${ackmaxcounts[@]}
+parallel -j${CORE_COUNT} run_ns3_tack ::: ${baseline_policy} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${simTime} ::: ${ackmaxcounts[@]}

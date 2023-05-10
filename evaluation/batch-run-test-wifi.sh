@@ -2,18 +2,19 @@
 
 export CORE_COUNT=50
 
-# declare -a seeds=(1 2 3 4 5 12946 129 777)
-# declare -a nclients=(3 4 5)
-declare -a seeds=(1 2 3 4 5 777)
-declare -a nclients=(4)
-declare simTime=(1800)
-declare -a policies=(0)
+declare -a seeds=(1 2 3 4 5 12946 129 777)
+declare -a nclients=(3 4 5 8 10 20)
+# declare -a seeds=(6 7 8 9 10 11 12 13)
+# declare -a nclients=(4)
+declare -a simTime=(120)
+declare -a policies=(0 1)
 declare -a kUlImproves=(3)
-declare -a kDlYields=(0.2 0.5)
-declare -a kLowUlThreshs=(2e6)
-declare -a kHighUlThreshs=(5e6)
-declare -a ackmaxcounts=(32)
+declare -a kDlYields=(0.5)
+declare -a kLowUlThreshs=(5000000)
+declare -a kHighUlThreshs=(10000000)
+declare -a ackmaxcounts=(16)
 
+export baseline_policy=0
 export FPS=60
 export BITRATE=16  # Mbps
 mtu=1406
@@ -25,6 +26,7 @@ export NS3_VER="3.37"
 export CURRENT_DIR=$PWD
 export RESULT_DIR=${CURRENT_DIR}/results
 export NS3_DIR=$PWD/../emulation/ns-allinone-${NS3_VER}/ns-${NS3_VER}
+export filename_prefix="result_wifi_80211p_5m"
 
 run_ns3() {
     policy=$1
@@ -35,7 +37,7 @@ run_ns3() {
     dlYield=$6
     lowUlThresh=$7
     highUlThresh=$8
-    filename=${RESULT_DIR}/result_wifi_${ulImpv}_${dlYield}_${lowUlThresh}_${highUlThresh}
+    filename=${RESULT_DIR}/${filename_prefix}_${ulImpv}_${dlYield}_${lowUlThresh}_${highUlThresh}
     output_file=${filename}.txt
     output_file_clean=${filename}.csv
     echo At policy: $policy, nclient: $nclient, seed: $seed, output_file: $filename.txt/csv...
@@ -64,7 +66,7 @@ run_ns3_tack() {
     lowUlThresh=$7
     highUlThresh=$8
     ackmaxcount=$9
-    filename=${RESULT_DIR}/result_wifi_tack_${ulImpv}_${dlYield}_${lowUlThresh}_${highUlThresh}
+    filename=${RESULT_DIR}/${filename_prefix}_tack_${ulImpv}_${dlYield}_${lowUlThresh}_${highUlThresh}
     output_file=${filename}.txt
     output_file_clean=${filename}.csv
     echo At policy: $policy, nclient: $nclient, seed: $seed, output_file: $filename.txt/csv...
@@ -97,8 +99,8 @@ do
         do
             for highUlThresh in ${kHighUlThreshs[@]}
             do
-                echo "policy, nclient, seed, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/result_wifi_${ulImpv}_${dlYield}_${lowUlThresh}_${highUlThresh}.csv
-                echo "policy, nclient, seed, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/result_wifi_tack_${ulImpv}_${dlYield}_${lowUlThresh}_${highUlThresh}.csv
+                echo "policy, nclient, seed, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/${filename_prefix}_${ulImpv}_${dlYield}_${lowUlThresh}_${highUlThresh}.csv
+                echo "policy, nclient, seed, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/${filename_prefix}_tack_${ulImpv}_${dlYield}_${lowUlThresh}_${highUlThresh}.csv
             done
         done
     done
@@ -107,4 +109,4 @@ done
 
 parallel -j${CORE_COUNT} run_ns3 ::: ${policies[@]} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${simTime} ::: ${kUlImproves[@]} ::: ${kDlYields[@]} ::: ${kLowUlThreshs[@]} ::: ${kHighUlThreshs[@]}
 
-parallel -j${CORE_COUNT} run_ns3 ::: ${policies[@]} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${simTime} ::: ${kUlImproves[@]} ::: ${kDlYields[@]} ::: ${kLowUlThreshs[@]} ::: ${kHighUlThreshs[@]} ::: ${ackmaxcounts[@]}
+parallel -j${CORE_COUNT} run_ns3_tack ::: ${baseline_policy} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${simTime} ::: ${kUlImproves[@]} ::: ${kDlYields[@]} ::: ${kLowUlThreshs[@]} ::: ${kHighUlThreshs[@]} ::: ${ackmaxcounts[@]}
