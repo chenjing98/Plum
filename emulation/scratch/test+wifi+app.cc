@@ -110,6 +110,7 @@ int main(int argc, char *argv[])
   uint32_t kHighUlThresh = 5e6;
   bool is_tack = false;
   uint32_t tack_max_count = 32;
+  uint16_t seed = 0;
 
   // std::string Version = "80211n_5GHZ";
 
@@ -130,6 +131,7 @@ int main(int argc, char *argv[])
   cmd.AddValue("saveTransRate", "Save transmission rate", saveTransRate);
   cmd.AddValue("isTack", "Is TACK enabled", is_tack);
   cmd.AddValue("tackMaxCount", "Max TACK count", tack_max_count);
+  cmd.AddValue("seed", "simulation seed to differentiate logfile names", seed);
 
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
@@ -531,12 +533,13 @@ int main(int argc, char *argv[])
         vcaClientApp->SetPeerPort(client_peer);
         vcaClientApp->SetNodeId(local_node->GetId());
         vcaClientApp->SetNumNode(nClient);
+        vcaClientApp->SetSeed(seed);
         vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
         vcaClientApp->SetUlDlParams(kUlImprove, kDlYield);
         vcaClientApp->SetUlThresh(kLowUlThresh, kHighUlThresh);
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetMinBitrate(minBitrateKbps);
-        // vcaClientApp->SetLogFile("../../../evaluation/results/transient_rate_debug_" + std::to_string(nClient) + "_node_" + std::to_string(local_node->GetId()) + ".txt");
+        vcaClientApp->SetLogFile("../../../evaluation/results/trlogs/transient_rate_n" + std::to_string(nClient) + "_p" + std::to_string(policy) + "_i" + std::to_string(local_node->GetId()) + ".txt"); // deprecated, logfile name is set in VcaClient::GetLogFileName()
         // wifiApNode[id].Get(0)->AddApplication(vcaClientApp);
         // wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
         local_node->AddApplication(vcaClientApp);
