@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetNodeId(wifiStaNodes[id].Get(i)->GetId());
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetUlDlParams(kUlImprove, kDlYield);
-        vcaClientApp->SetUlDlParams(kLowUlThresh, kHighUlThresh);
+        vcaClientApp->SetUlThresh(kLowUlThresh, kHighUlThresh);
         wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
         NS_LOG_DEBUG("[id=" << id << ",i=" << i << "] info:" << wifiStaNodes[id].Get(i)->GetId());
 
@@ -380,7 +380,9 @@ int main(int argc, char *argv[])
     NetDeviceContainer apDevices[nClient];
 
     // const auto &[Standard, Band] = ConvertStringToStandardAndBand(Version);
-    // wifi.SetStandard(Standard);
+    wifi.SetStandard(WIFI_STANDARD_80211p);
+    phy.Set("ChannelSettings", StringValue("{0, 10, BAND_5GHZ, 0}"));
+
 
     // Set different SSID (+ PHY channel) for each BSS
     for (uint32_t i = 0; i < nClient; i++)
@@ -533,6 +535,8 @@ int main(int argc, char *argv[])
         vcaClientApp->SetNumNode(nClient);
         vcaClientApp->SetSeed(seed);
         vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
+        vcaClientApp->SetUlDlParams(kUlImprove, kDlYield);
+        vcaClientApp->SetUlThresh(kLowUlThresh, kHighUlThresh);
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetMinBitrate(minBitrateKbps);
         vcaClientApp->SetLogFile("../../../evaluation/results/trlogs/transient_rate_n" + std::to_string(nClient) + "_p" + std::to_string(policy) + "_i" + std::to_string(local_node->GetId()) + ".txt"); // deprecated, logfile name is set in VcaClient::GetLogFileName()
