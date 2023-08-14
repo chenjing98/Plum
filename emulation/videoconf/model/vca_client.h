@@ -125,6 +125,9 @@ namespace ns3
         void EnforceDlParam(double_t param);
         bool ElasticTest();
 
+        std::string GetLogFileName();
+        PerfStat_t GetTransientRateStatistics();
+
         void OutputStatistics();
 
         double_t GetDutyRatio(uint8_t);
