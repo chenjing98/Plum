@@ -9,6 +9,21 @@ namespace ns3
         return a.second < b.second;
     }
 
+    TypeId SourceInfo::GetTypeId()
+    {
+        static TypeId tid = TypeId("ns3::SourceInfo")
+                                .SetParent<Object>()
+                                .SetGroupName("videoconf")
+                                .AddConstructor<SourceInfo>();
+        return tid;
+    };
+
+    SourceInfo::SourceInfo()
+        : log_second(0),
+          received_bytes_in_this_second(0){};
+
+    SourceInfo::~SourceInfo(){};
+
     TypeId VcaClient::GetTypeId()
     {
         static TypeId tid = TypeId("ns3::VcaClient")
@@ -56,7 +71,9 @@ namespace ns3
           kDlYield(0.5),
           kLowUlThresh(2e6),
           kHighUlThresh(5e6),
-          m_log(false){};
+          m_log(false),
+          m_prefix("tr"), /* hard-coded */
+          m_seed(0){};
 
     VcaClient::~VcaClient(){};
 
@@ -131,6 +148,11 @@ namespace ns3
     void VcaClient::SetNumNode(uint8_t num_nodes)
     {
         m_num_node = num_nodes;
+    };
+
+    void VcaClient::SetSeed(uint16_t seed)
+    {
+        m_seed = seed;
     };
 
     void VcaClient::SetPolicy(POLICY policy)
@@ -227,6 +249,11 @@ namespace ns3
                 MakeCallback(&VcaClient::HandlePeerClose, this),
                 MakeCallback(&VcaClient::HandlePeerError, this));
         }
+
+        // rm log file if exists
+        std::string filename = GetLogFileName();
+        std::ofstream logfile(filename, std::ios_base::out);
+        logfile.close();
     };
 
     void VcaClient::StopApplication()
@@ -291,29 +318,58 @@ namespace ns3
 
             if (InetSocketAddress::IsMatchingType(from))
             {
-                uint32_t src_ip = InetSocketAddress::ConvertFrom(from).GetIpv4().Get();
+                Ipv4Address src_ip_addr = InetSocketAddress::ConvertFrom(from).GetIpv4();
+                // uint32_t src_ip = InetSocketAddress::ConvertFrom(from).GetIpv4().Get();
+                uint32_t src_ip = src_ip_addr.Get();
+
+                Ptr<SourceInfo> src_info;
+                if (m_source_flow_info_map.find(src_ip) == m_source_flow_info_map.end())
+                {
+                    src_info = CreateObject<SourceInfo>();
+                    m_source_flow_info_map[src_ip] = src_info;
+                }
+                else
+                {
+                    src_info = m_source_flow_info_map[src_ip];
+                }
 
                 // Statistics: transient rate
 
                 uint32_t now_second = Simulator::Now().GetSeconds();
 
-                while (m_transientRateBps.size() < now_second + 1)
+                std::string log_file = GetLogFileName();
+
+                std::ofstream logfile(log_file, std::ios_base::app);
+
+                while (src_info->log_second < now_second + 1)
                 {
-                    m_transientRateBps.push_back(std::unordered_map<uint32_t, uint32_t>());
-                    if (m_transientRateBps.size() < now_second + 1)
-                    {
-                        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] ZeroRate in " << m_transientRateBps.size() - 1);
-                    }
+                    logfile << src_info->received_bytes_in_this_second << std::endl;
+                    src_info->received_bytes_in_this_second = 0;
+                    src_info->log_second++;
                 }
-                // if (packet->GetSize() * 8 < m_transientRateBps[now_second] || m_transientRateBps[now_second] == 0)
-                if (m_transientRateBps[now_second].find(src_ip) == m_transientRateBps[now_second].end())
+                if (src_info->log_second == now_second + 1)
                 {
-                    m_transientRateBps[now_second][src_ip] = packet->GetSize() * 8;
+                    src_info->received_bytes_in_this_second += packet->GetSize();
                 }
-                else
-                {
-                    m_transientRateBps[now_second][src_ip] += packet->GetSize() * 8;
-                }
+
+                logfile.close();
+
+                // while (m_transientRateBps.size() < now_second + 1)
+                // {
+                //     m_transientRateBps.push_back(std::unordered_map<uint32_t, uint32_t>());
+                //     if (m_transientRateBps.size() < now_second + 1)
+                //     {
+                //         NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] ZeroRate in " << m_transientRateBps.size() - 1);
+                //     }
+                // }
+                // if (m_transientRateBps[now_second].find(src_ip) == m_transientRateBps[now_second].end())
+                // {
+                //     m_transientRateBps[now_second][src_ip] = packet->GetSize() * 8;
+                // }
+                // else
+                // {
+                //     m_transientRateBps[now_second][src_ip] += packet->GetSize() * 8;
+                // }
                 NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SrcIp= " << InetSocketAddress::ConvertFrom(from).GetIpv4() << " SrcPort= " << InetSocketAddress::ConvertFrom(from).GetPort());
                 ReceiveData(packet);
             }
@@ -578,8 +634,18 @@ namespace ns3
         average_throughput = 1.0 * m_total_packet_bit / Simulator::Now().GetSeconds();
         // NS_LOG_ERROR("[VcaClient][Result] Throughput= " << average_throughput << " NodeId= " << m_node_id);
 
-        uint8_t InitPhaseFilterSec = 5;
+        // uint8_t InitPhaseFilterSec = 5;
 
+        PerfStat_t perfstat = GetTransientRateStatistics();
+
+        NS_LOG_ERROR("[VcaClient][Result] TailThroughput= "
+                     << perfstat.tail_thp
+                     << " AvgThroughput= "
+                     << perfstat.avg_thp
+                     << " NodeId= "
+                     << m_node_id);
+
+        /*
         uint64_t pkt_history_length = m_transientRateBps.size();
         if (pkt_history_length <= InitPhaseFilterSec)
         {
@@ -647,8 +713,65 @@ namespace ns3
         {
             NS_LOG_DEBUG("TransientRate= " << transient_rate_kbps.first << " Count= " << transient_rate_kbps.second);
         }
+        */
 
-        NS_LOG_ERROR("[VcaClient][Result] TailThroughput= " << (double_t)less_then_thresh_count / (double_t)(m_transientRateBps.size() - InitPhaseFilterSec) << " AvgThroughput= " << /*(double_t)sum_transient_rate_kbps / (double_t)(pkt_history_length - InitPhaseFilterSec)*/ average_throughput << " NodeId= " << m_node_id);
+        // NS_LOG_ERROR("[VcaClient][Result] TailThroughput= "
+        //             << (double_t)less_then_thresh_count / (double_t)(m_transientRateBps.size() - InitPhaseFilterSec)
+        //             << " AvgThroughput= "
+        //             << /*(double_t)sum_transient_rate_kbps / (double_t)(pkt_history_length - InitPhaseFilterSec)*/ average_throughput
+        //             << " NodeId= "
+        //             << m_node_id);
+    };
+
+    std::string
+    VcaClient::GetLogFileName()
+    {
+        return m_prefix + std::to_string(m_node_id) + "_" + std::to_string(m_seed) + ".log";
+    };
+
+    PerfStat_t
+    VcaClient::GetTransientRateStatistics()
+    {
+        uint128_t transient_rate_total = 0;
+        uint64_t less_then_thresh_count = 0;
+        uint32_t time_length = 0, transient_rate;
+
+        PerfStat_t perfstat;
+
+        std::string filename = GetLogFileName();
+        std::ifstream logfile;
+        logfile.open(filename, std::ios::in);
+        if (logfile.fail())
+        {
+            NS_LOG_ERROR("[VcaClient] File " << filename << " not found");
+            return perfstat;
+        }
+        while (!logfile.eof())
+        {
+            std::string line;
+            getline(logfile, line);
+            if (line == "")
+            {
+                break;
+            }
+            transient_rate = std::stod(line);
+
+            time_length += 1;
+            transient_rate_total += transient_rate;
+            if (transient_rate < (uint32_t)18000 * (m_num_node - 1))
+                less_then_thresh_count++;
+        }
+
+        if (time_length < 1)
+            return perfstat;
+        else
+        {
+            perfstat.avg_thp = transient_rate_total / time_length;
+            perfstat.tail_thp = (double_t)less_then_thresh_count / (double_t)time_length;
+            return perfstat;
+        }
+
+        logfile.close();
     };
 
     void
@@ -907,13 +1030,14 @@ namespace ns3
                     bitrate /= gain;
                 }
             }
-            else {
+            else
+            {
                 double_t rtt_estimate = ul_socket->GetRtt()->GetEstimate().GetSeconds();
-                if(rtt_estimate > 0)
+                if (rtt_estimate > 0)
                     bitrate = ul_socket->GetTcb()->m_cWnd * 8 / rtt_estimate;
             }
         }
-        return bitrate;
+        return bitrate; // in bps
     };
 
 }; // namespace ns3

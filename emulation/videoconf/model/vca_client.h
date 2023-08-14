@@ -39,6 +39,22 @@ enum PROBE_STATE
 
 namespace ns3
 {
+    typedef struct 
+    {
+        double_t avg_thp = 0.0;
+        double_t tail_thp = 0.0;
+    } PerfStat_t;
+
+    class SourceInfo : public Object
+    {
+    public:
+        static TypeId GetTypeId(void);
+        SourceInfo();
+        ~SourceInfo();
+        uint32_t log_second;
+        uint32_t received_bytes_in_this_second;
+        std::deque<uint32_t> latest_received_window;
+    }; // class SourceInfo
 
     class VcaClient : public Application
     {
@@ -63,6 +79,7 @@ namespace ns3
 
         void SetNodeId(uint32_t node_id);
         void SetNumNode(uint8_t num_node);
+        void SetSeed(uint16_t seed);
 
         void SetPolicy(POLICY policy);
 
@@ -147,6 +164,7 @@ namespace ns3
 
         uint64_t m_total_packet_bit;
         std::vector<std::unordered_map<uint32_t, uint32_t>> m_transientRateBps; // vector index: time in second, map key: source ip, map value: bitrate in bps
+        std::unordered_map<uint32_t, Ptr<SourceInfo>> m_source_flow_info_map;  // map key: source ip, map value: source info (note that under sfu mode the src_ip is always the ip of the server, no matter which client actually generates the video content)
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_pkt;
         std::vector<std::deque<Ptr<VcaAppProtHeaderInfo>>> m_send_buffer_hdr;
@@ -189,6 +207,8 @@ namespace ns3
         uint32_t kHighUlThresh;
 
         bool m_log;
+        std::string m_prefix;
+        uint16_t m_seed;
 
     }; // class VcaClient
 
