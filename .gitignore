@@ -5,6 +5,8 @@ evaluation/results/
 scripts/traces/
 scripts/tracefile_names
 scripts/app_traffic_log/
+scripts/wifi-traces/
+scripts/apptraffic.summary
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
