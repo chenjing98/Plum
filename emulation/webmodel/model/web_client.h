@@ -1,5 +1,5 @@
-#ifndef VCA_CLIENT_H
-#define VCA_CLIENT_H
+#ifndef WEB_CLIENT_H
+#define WEB_CLIENT_H
 
 #include "ns3/application.h"
 #include "ns3/core-module.h"
@@ -17,7 +17,7 @@
 #include <fstream>
 
 #include "prot-header.h"
-#include "vca_server.h"
+#include "web_server.h"
 
 enum POLICY
 {
@@ -42,12 +42,12 @@ enum PROBE_STATE
 namespace ns3
 {
 
-    class VcaClient : public Application
+    class WebClient : public Application
     {
     public:
         static TypeId GetTypeId(void);
-        VcaClient();
-        ~VcaClient();
+        WebClient();
+        ~WebClient();
 
         void SetLocalAddress(Ipv4Address local);
         void SetLocalAddress(Ipv4Address local_ul, Ipv4Address local_dl);
@@ -76,7 +76,7 @@ namespace ns3
 
         void SetUlThresh(uint32_t, uint32_t);
 
-        static const uint32_t payloadSize = 1436; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
+        static const uint32_t payloadSize = 1436; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(WEB header)
 
     protected:
         void DoDispose(void);
@@ -154,7 +154,7 @@ namespace ns3
         std::vector<std::unordered_map<uint32_t, uint32_t>> m_transientRateBps; // vector index: time in second, map key: source ip, map value: bitrate in bps
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_pkt;
-        std::vector<std::deque<Ptr<VcaAppProtHeaderInfo>>> m_send_buffer_hdr;
+        std::vector<std::deque<Ptr<WebAppProtHeaderInfo>>> m_send_buffer_hdr;
 
         bool m_is_my_wifi_access_bottleneck;
 
@@ -201,7 +201,7 @@ namespace ns3
         uint16_t m_probe_patience_count_max;
 
         Ptr<ClientInfo> client_info;
-    }; // class VcaClient
+    }; // class WebClient
 
     // enum DL_RATE_CONTROL_STATE
     // {
@@ -240,7 +240,7 @@ namespace ns3
     //     uint32_t payload_size;
     //     Ptr<Packet> half_header;
     //     Ptr<Packet> half_payload;
-    //     VcaAppProtHeader app_header;
+    //     WebAppProtHeader app_header;
 
     //     double lambda;
 

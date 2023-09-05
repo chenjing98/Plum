@@ -1,5 +1,5 @@
-#ifndef VCA_SERVER_H
-#define VCA_SERVER_H
+#ifndef WEB_SERVER_H
+#define WEB_SERVER_H
 
 #include "ns3/application.h"
 #include "ns3/core-module.h"
@@ -55,18 +55,18 @@ namespace ns3
         uint32_t payload_size;
         Ptr<Packet> half_header;
         Ptr<Packet> half_payload;
-        VcaAppProtHeader app_header;
+        WebAppProtHeader app_header;
 
         double lambda;
 
     }; // class ClientInfo
 
-    class VcaServer : public Application
+    class WebServer : public Application
     {
     public:
         static TypeId GetTypeId(void);
-        VcaServer();
-        ~VcaServer();
+        WebServer();
+        ~WebServer();
 
         void SetLocalAddress(Ipv4Address local);
         void SetLocalAddress(std::list<Ipv4Address> local);
@@ -161,7 +161,9 @@ namespace ns3
         uint32_t dropped_frame_size = 0;
         uint32_t total_frame_size = 0;
         uint32_t last_time = 0;
-    }; // class VcaServer
+        uint32_t content_source_size = 0;
+        const uint32_t content_response_size = 0;
+    }; // class WebServer
 
 }; // namespace ns3
 
