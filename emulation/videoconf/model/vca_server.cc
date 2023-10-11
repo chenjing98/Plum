@@ -49,7 +49,10 @@ namespace ns3
           m_fps(20),
           m_num_degraded_users(0),
           m_total_packet_size(0),
-          m_separate_socket(0){};
+          m_separate_socket(0),
+          m_max_throughput_kbps(30000),
+          m_qoe_type(QOE_TYPE_LIN),
+          m_rho(0.5){};
 
     VcaServer::~VcaServer(){};
 
@@ -100,6 +103,24 @@ namespace ns3
     VcaServer::SetSeparateSocket()
     {
         m_separate_socket = 1;
+    };
+
+    void
+    VcaServer::SetRho(double_t rho)
+    {
+        m_rho = rho;
+    };
+
+    void
+    VcaServer::SetQoEType(QOE_TYPE qoe_type)
+    {
+        m_qoe_type = qoe_type;
+    };
+
+    void
+    VcaServer::SetMaxThroughput(double_t max_throughput_kbps)
+    {
+        m_max_throughput_kbps = max_throughput_kbps;
     };
 
     // Application Methods

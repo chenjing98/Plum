@@ -23,6 +23,14 @@ namespace ns3
         DL_RATE_CONTROL_STATE_LIMIT
     };
 
+    enum QOE_TYPE
+    {
+        QOE_TYPE_LIN,
+        QOE_TYPE_LOG,
+        QOE_TYPE_SQR_CONVEX,
+        QOE_TYPE_SQR_CONCAVE
+    };
+
     class ClientInfo : public Object
     {
     public:
@@ -74,6 +82,10 @@ namespace ns3
 
         void SetNodeId(uint32_t node_id);
         void SetSeparateSocket();
+
+        void SetRho(double_t rho);
+        void SetQoEType(QOE_TYPE qoe_type);
+        void SetMaxThroughput(double_t max_throughput_kbps);
 
     protected:
         void DoDispose(void);
@@ -158,6 +170,12 @@ namespace ns3
         uint32_t dropped_frame_size = 0;
         uint32_t total_frame_size = 0;
         uint32_t last_time = 0;
+
+        double_t m_max_throughput_kbps = 30000.0;
+        QOE_TYPE m_qoe_type = QOE_TYPE_LIN;
+
+        // optimization related
+        double_t m_rho;
     }; // class VcaServer
 
 }; // namespace ns3
