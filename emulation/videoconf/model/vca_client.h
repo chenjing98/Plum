@@ -17,7 +17,6 @@
 #include <fstream>
 
 #include "prot-header.h"
-#include "vca_server.h"
 
 enum POLICY
 {
@@ -41,6 +40,29 @@ enum PROBE_STATE
 
 namespace ns3
 {
+    class PktInfo : public Object
+    {
+    public:
+        PktInfo();
+        ~PktInfo();
+
+
+        // Decode self-defined header in TCP payload
+        uint8_t set_header;
+        uint8_t read_status;
+        /*
+            m_status = 0   start to read header
+            m_status = 1   continue to read header
+            m_status = 2   start to read payload
+            m_status = 3   continue to read payload
+            m_status = 4   ready to send
+        */
+        uint32_t payload_size;
+        Ptr<Packet> half_header;
+        Ptr<Packet> half_payload;
+        VcaAppProtHeader app_header;
+
+    }; // class ClientInfo
 
     class VcaClient : public Application
     {
@@ -200,7 +222,7 @@ namespace ns3
         uint16_t m_probe_patience_count;
         uint16_t m_probe_patience_count_max;
 
-        Ptr<ClientInfo> client_info;
+        Ptr<PktInfo> pkt_info;
     }; // class VcaClient
 
     // enum DL_RATE_CONTROL_STATE

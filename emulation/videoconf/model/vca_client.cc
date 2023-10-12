@@ -61,7 +61,7 @@ namespace ns3
           m_probe_cooloff_count_max(8),
           m_probe_patience_count(0),
           m_probe_patience_count_max(8),
-          client_info(CreateObject<ClientInfo>()){};
+          pkt_info(CreateObject<PktInfo>()){};
 
     VcaClient::~VcaClient(){};
 
@@ -351,90 +351,90 @@ namespace ns3
         while (true)
         {
             // start to read header
-            if (client_info->read_status == 0)
+            if (pkt_info->read_status == 0)
             {
                 packet = socket->Recv(12, false);
                 if (packet == NULL)
                     return;
                 if (packet->GetSize() == 0)
                     return;
-                client_info->half_header = packet;
-                if (client_info->half_header->GetSize() < 12)
-                    client_info->read_status = 1; // continue to read header;
-                if (client_info->half_header->GetSize() == 12)
-                    client_info->read_status = 2; // start to read payload;
+                pkt_info->half_header = packet;
+                if (pkt_info->half_header->GetSize() < 12)
+                    pkt_info->read_status = 1; // continue to read header;
+                if (pkt_info->half_header->GetSize() == 12)
+                    pkt_info->read_status = 2; // start to read payload;
             }
             // continue to read header
-            if (client_info->read_status == 1)
+            if (pkt_info->read_status == 1)
             {
-                packet = socket->Recv(12 - client_info->half_header->GetSize(), false);
+                packet = socket->Recv(12 - pkt_info->half_header->GetSize(), false);
                 if (packet == NULL)
                     return;
                 if (packet->GetSize() == 0)
                     return;
-                client_info->half_header->AddAtEnd(packet);
-                if (client_info->half_header->GetSize() == 12)
-                    client_info->read_status = 2; // start to read payload;
+                pkt_info->half_header->AddAtEnd(packet);
+                if (pkt_info->half_header->GetSize() == 12)
+                    pkt_info->read_status = 2; // start to read payload;
             }
             // start to read payload
-            if (client_info->read_status == 2)
+            if (pkt_info->read_status == 2)
             {
 
-                if (client_info->set_header == 0)
+                if (pkt_info->set_header == 0)
                 {
-                    client_info->app_header.Reset();
-                    client_info->half_header->RemoveHeader(client_info->app_header);
-                    client_info->payload_size = client_info->app_header.GetPayloadSize();
+                    pkt_info->app_header.Reset();
+                    pkt_info->half_header->RemoveHeader(pkt_info->app_header);
+                    pkt_info->payload_size = pkt_info->app_header.GetPayloadSize();
 
-                    client_info->set_header = 1;
-                    if (client_info->payload_size == 0)
+                    pkt_info->set_header = 1;
+                    if (pkt_info->payload_size == 0)
                     {
                         // read again
-                        client_info->read_status = 0;
-                        client_info->set_header = 0;
+                        pkt_info->read_status = 0;
+                        pkt_info->set_header = 0;
                         return;
                     }
                 }
-                packet = socket->Recv(client_info->payload_size, false);
+                packet = socket->Recv(pkt_info->payload_size, false);
                 if (packet == NULL)
                     return;
                 if (packet->GetSize() == 0)
                     return;
-                client_info->half_payload = packet;
-                if (client_info->half_payload->GetSize() < client_info->payload_size)
-                    client_info->read_status = 3; // continue to read payload;
-                if (client_info->half_payload->GetSize() == client_info->payload_size)
-                    client_info->read_status = 4; // READY TO SEND;
+                pkt_info->half_payload = packet;
+                if (pkt_info->half_payload->GetSize() < pkt_info->payload_size)
+                    pkt_info->read_status = 3; // continue to read payload;
+                if (pkt_info->half_payload->GetSize() == pkt_info->payload_size)
+                    pkt_info->read_status = 4; // READY TO SEND;
             }
             // continue to read payload
-            if (client_info->read_status == 3)
+            if (pkt_info->read_status == 3)
             {
-                packet = socket->Recv(client_info->payload_size - client_info->half_payload->GetSize(), false);
+                packet = socket->Recv(pkt_info->payload_size - pkt_info->half_payload->GetSize(), false);
                 if (packet == NULL)
                     return;
                 if (packet->GetSize() == 0)
                     return;
-                client_info->half_payload->AddAtEnd(packet);
-                if (client_info->half_payload->GetSize() == client_info->payload_size)
-                    client_info->read_status = 4; // READY TO SEND;
+                pkt_info->half_payload->AddAtEnd(packet);
+                if (pkt_info->half_payload->GetSize() == pkt_info->payload_size)
+                    pkt_info->read_status = 4; // READY TO SEND;
             }
             // Send packets only when header+payload is ready
             // status = 0  (1\ all empty then return    2\ all ready)
-            if (client_info->read_status == 4)
+            if (pkt_info->read_status == 4)
             {
 
-                uint8_t *buffer = new uint8_t[client_info->half_payload->GetSize()];               // 创建一个buffer，用于存储packet元素
-                client_info->half_payload->CopyData(buffer, client_info->half_payload->GetSize()); // 将packet元素复制到buffer中
+                uint8_t *buffer = new uint8_t[pkt_info->half_payload->GetSize()];               // 创建一个buffer，用于存储packet元素
+                pkt_info->half_payload->CopyData(buffer, pkt_info->half_payload->GetSize()); // 将packet元素复制到buffer中
 
-                HandleRead2(client_info->half_payload);
-                client_info->read_status = 0;
-                client_info->set_header = 0;
+                HandleRead2(pkt_info->half_payload);
+                pkt_info->read_status = 0;
+                pkt_info->set_header = 0;
                 break;
             }
         }
 
-        double dl_lambda = client_info->app_header.GetFrameId()+
-                            client_info->app_header.GetPacketId()/10000.0;
+        double dl_lambda = pkt_info->app_header.GetFrameId()+
+                            pkt_info->app_header.GetPacketId()/10000.0;
 //        NS_LOG_UNCOND("Hello!!!Lambda="<<dl_lambda);
         if (m_policy == SERVINIT) {
             EnforceDlParam(dl_lambda);
