@@ -12,10 +12,19 @@
 #include <vector>
 #include <unordered_map>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
 #include "prot-header.h"
 
 namespace ns3
 {
+    // must stay aligned with the value in solver.py
+    const uint8_t MAX_NUM_USERS = 20;
+    const uint16_t SOLVER_SOCKET_PORT = 11999;
 
     enum DL_RATE_CONTROL_STATE
     {
@@ -137,6 +146,10 @@ namespace ns3
 
         uint32_t GetDlAddr(uint32_t ulAddr, int node);
 
+        void OptimizeAllocation();
+
+        void UpdateCapacities();
+
         uint32_t m_node_id;
 
         Ptr<Socket> m_socket_ul;
@@ -171,11 +184,25 @@ namespace ns3
         uint32_t total_frame_size = 0;
         uint32_t last_time = 0;
 
-        double_t m_max_throughput_kbps = 30000.0;
-        QOE_TYPE m_qoe_type = QOE_TYPE_LIN;
-
         // optimization related
-        double_t m_rho;
+
+        struct OptParams
+        {
+            // don't change the order of the following parameters
+            uint16_t num_users;
+            uint16_t num_view = 25;
+            QOE_TYPE qoe_type = QOE_TYPE_LIN;
+            double_t rho = 0.5;
+            double_t max_bitrate_kbps = 30000;
+            double_t qoe_func_alpha = 0.0;
+            double_t qoe_func_beta = 0.0;
+            double_t capacities_kbps[MAX_NUM_USERS];
+        } m_opt_params;
+
+        double_t m_opt_alloc[MAX_NUM_USERS];
+
+        int m_py_socket;
+
     }; // class VcaServer
 
 }; // namespace ns3

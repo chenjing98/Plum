@@ -50,9 +50,7 @@ namespace ns3
           m_num_degraded_users(0),
           m_total_packet_size(0),
           m_separate_socket(0),
-          m_max_throughput_kbps(30000),
-          m_qoe_type(QOE_TYPE_LIN),
-          m_rho(0.5){};
+          m_opt_params(){};
 
     VcaServer::~VcaServer(){};
 
@@ -108,19 +106,19 @@ namespace ns3
     void
     VcaServer::SetRho(double_t rho)
     {
-        m_rho = rho;
+        m_opt_params.rho = rho;
     };
 
     void
     VcaServer::SetQoEType(QOE_TYPE qoe_type)
     {
-        m_qoe_type = qoe_type;
+        m_opt_params.qoe_type = qoe_type;
     };
 
     void
     VcaServer::SetMaxThroughput(double_t max_throughput_kbps)
     {
-        m_max_throughput_kbps = max_throughput_kbps;
+        m_opt_params.max_bitrate_kbps = max_throughput_kbps;
     };
 
     // Application Methods
@@ -177,6 +175,23 @@ namespace ns3
                 m_socket_ul_list.push_back(socket_ul);
             }
         }
+
+        m_py_socket = socket(AF_INET, SOCK_STREAM, 0);
+        if (m_py_socket == -1)
+        {
+            NS_FATAL_ERROR("Failed to create socket");
+        }
+        struct sockaddr_in sock_addr;
+        sock_addr.sin_family = AF_INET;
+        sock_addr.sin_port = htons(SOLVER_SOCKET_PORT);
+        sock_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+        while (connect(m_py_socket, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) == -1)
+        {
+            NS_LOG_LOGIC("[VcaServer] Connecting to the python server to connect");
+        }
+
+        Simulator::Schedule(Seconds(1), &VcaServer::OptimizeAllocation, this); // TODO: change triggering time
     };
 
     void
@@ -203,6 +218,8 @@ namespace ns3
             m_socket_ul->Close();
             m_socket_ul->SetRecvCallback(MakeNullCallback<void, Ptr<Socket>>());
         }
+
+        close(m_py_socket);
     };
 
     void
@@ -266,7 +283,7 @@ namespace ns3
                 UintegerValue val;
                 socket_dl->GetAttribute("SndBufSize", val);
                 uint32_t curPendingBuf = (uint32_t)val.Get() - sentsize - txbufferavailable;
-                NS_LOG_DEBUG("[VcaServer] ccRate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << rtt_estimate*1000 << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf);
+                NS_LOG_DEBUG("[VcaServer] ccRate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << rtt_estimate * 1000 << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf);
             }
         }
 
@@ -698,5 +715,30 @@ namespace ns3
         // NS_LOG_UNCOND("Input addr " << ul_addr << " Output addr " << dl_addr << " first8b " << first8b << " second8b " << second8b << " third8b " << third8b << " fourth8b " << fourth8b);
         return dl_addr;
     };
+
+    void
+    VcaServer::OptimizeAllocation()
+    {
+        NS_LOG_LOGIC("[VcaServer] OptimizeAllocation");
+        // define the communication format
+        // params for solver: n, capacities
+        // params for solver: [rho, max_bitrate, qoe_type, qoe_func_alpha, qoe_func_beta, num_view, method, init_bw, plot]
+
+        m_opt_params.num_users = m_client_info_map.size();
+        send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
+
+        recv(m_py_socket, m_opt_alloc, sizeof(double_t) * m_opt_params.num_users, 0);
+        NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
+        // TODO: send back to clients
+    };
+
+    void
+    VcaServer::UpdateCapacities()
+    {
+        // TODO
+        m_opt_params.capacities_kbps[0] = 300.0;
+        m_opt_params.capacities_kbps[1] = 500.0;
+        m_opt_params.capacities_kbps[2] = 700.0;
+    }
 
 }; // namespace ns3
