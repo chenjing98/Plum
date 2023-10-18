@@ -1,5 +1,5 @@
-#ifndef VCA_CLIENT_H
-#define VCA_CLIENT_H
+#ifndef WEB_CLIENT_H
+#define WEB_CLIENT_H
 
 #include "ns3/application.h"
 #include "ns3/core-module.h"
@@ -17,6 +17,7 @@
 #include <fstream>
 
 #include "prot-header.h"
+#include "web_server.h"
 
 enum POLICY
 {
@@ -40,37 +41,13 @@ enum PROBE_STATE
 
 namespace ns3
 {
-    class PktInfo : public Object
+
+    class WebClient : public Application
     {
     public:
         static TypeId GetTypeId(void);
-        PktInfo();
-        ~PktInfo();
-
-
-        // Decode self-defined header in TCP payload
-        uint8_t set_header;
-        uint8_t read_status;
-        /*
-            m_status = 0   start to read header
-            m_status = 1   continue to read header
-            m_status = 2   start to read payload
-            m_status = 3   continue to read payload
-            m_status = 4   ready to send
-        */
-        uint32_t payload_size;
-        Ptr<Packet> half_header;
-        Ptr<Packet> half_payload;
-        VcaAppProtHeader app_header;
-
-    }; // class ClientInfo
-
-    class VcaClient : public Application
-    {
-    public:
-        static TypeId GetTypeId(void);
-        VcaClient();
-        ~VcaClient();
+        WebClient();
+        ~WebClient();
 
         void SetLocalAddress(Ipv4Address local);
         void SetLocalAddress(Ipv4Address local_ul, Ipv4Address local_dl);
@@ -99,7 +76,7 @@ namespace ns3
 
         void SetUlThresh(uint32_t, uint32_t);
 
-        static const uint32_t payloadSize = 1436; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
+        static const uint32_t payloadSize = 1436; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(WEB header)
 
     protected:
         void DoDispose(void);
@@ -113,11 +90,10 @@ namespace ns3
         void DataSendUl(Ptr<Socket> socket);
 
         void HandleRead(Ptr<Socket> socket);
+        void HandleRead2(Ptr<Packet> packet);
         void HandleAccept(Ptr<Socket> socket, const Address &from);
         void HandlePeerClose(Ptr<Socket> socket);
         void HandlePeerError(Ptr<Socket> socket);
-
-        void ReadPacket(Ptr<Packet> packet);
 
         void SendData(Ptr<Socket> socket);
         void SendData();
@@ -178,7 +154,7 @@ namespace ns3
         std::vector<std::unordered_map<uint32_t, uint32_t>> m_transientRateBps; // vector index: time in second, map key: source ip, map value: bitrate in bps
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_pkt;
-        std::vector<std::deque<Ptr<VcaAppProtHeaderInfo>>> m_send_buffer_hdr;
+        std::vector<std::deque<Ptr<WebAppProtHeaderInfo>>> m_send_buffer_hdr;
 
         bool m_is_my_wifi_access_bottleneck;
 
@@ -224,8 +200,51 @@ namespace ns3
         uint16_t m_probe_patience_count;
         uint16_t m_probe_patience_count_max;
 
-        Ptr<PktInfo> pkt_info;
-    }; // class VcaClient
+        Ptr<ClientInfo> client_info;
+    }; // class WebClient
+
+    // enum DL_RATE_CONTROL_STATE
+    // {
+    //     DL_RATE_CONTROL_STATE_NATRUAL,
+    //     DL_RATE_CONTROL_STATE_LIMIT
+    // };
+    // class ClientInfo : public Object
+    // {
+    // public:
+    //     static TypeId GetTypeId(void);
+    //     ClientInfo();
+    //     ~ClientInfo();
+
+    //     Ptr<Socket> socket_ul;
+    //     Ptr<Socket> socket_dl;
+    //     Ipv4Address ul_addr;
+    //     std::deque<Ptr<Packet>> send_buffer;
+    //     uint32_t cc_target_frame_size;
+    //     uint32_t capacity_frame_size;
+    //     std::unordered_map<uint8_t, uint32_t> frame_size_forwarded; // map key: dst_socket_id, value: frame_size_forwarded
+    //     std::unordered_map<uint8_t, uint16_t> prev_frame_id;        // map key: dst_socket_id, value: prev_frame_id
+
+    //     double_t dl_bitrate_reduce_factor;
+    //     DL_RATE_CONTROL_STATE dl_rate_control_state;
+
+    //     // Decode self-defined header in TCP payload
+    //     uint8_t set_header;
+    //     uint8_t read_status;
+    //     /*
+    //         m_status = 0   start to read header
+    //         m_status = 1   continue to read header
+    //         m_status = 2   start to read payload
+    //         m_status = 3   continue to read payload
+    //         m_status = 4   ready to send
+    //     */
+    //     uint32_t payload_size;
+    //     Ptr<Packet> half_header;
+    //     Ptr<Packet> half_payload;
+    //     WebAppProtHeader app_header;
+
+    //     double lambda;
+
+    // }; // class ClientInfo
 
 }; // namespace ns3
 

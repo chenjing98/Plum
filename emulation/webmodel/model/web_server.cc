@@ -1,11 +1,11 @@
-#include "vca_server.h"
+#include "web_server.h"
 
 namespace ns3
 {
     uint8_t DEBUG_SRC_SOCKET_ID = 0;
     uint8_t DEBUG_DST_SOCKET_ID = 1;
 
-    NS_LOG_COMPONENT_DEFINE("VcaServer");
+    NS_LOG_COMPONENT_DEFINE("WebServer");
 
     TypeId ClientInfo::GetTypeId()
     {
@@ -26,20 +26,20 @@ namespace ns3
           payload_size(0),
           half_header(nullptr),
           half_payload(nullptr),
-          app_header(VcaAppProtHeader()){};
+          app_header(WebAppProtHeader()){};
 
     ClientInfo::~ClientInfo(){};
 
-    TypeId VcaServer::GetTypeId()
+    TypeId WebServer::GetTypeId()
     {
-        static TypeId tid = TypeId("ns3::VcaServer")
+        static TypeId tid = TypeId("ns3::WebServer")
                                 .SetParent<Application>()
                                 .SetGroupName("videoconf")
-                                .AddConstructor<VcaServer>();
+                                .AddConstructor<WebServer>();
         return tid;
     };
 
-    VcaServer::VcaServer()
+    WebServer::WebServer()
         : m_socket_ul(nullptr),
           m_ul_socket_id_map(),
           m_dl_socket_id_map(),
@@ -49,83 +49,64 @@ namespace ns3
           m_fps(20),
           m_num_degraded_users(0),
           m_total_packet_size(0),
-          m_separate_socket(0),
-          m_opt_params(){};
+          m_separate_socket(0){};
 
-    VcaServer::~VcaServer(){};
+    WebServer::~WebServer(){};
 
     void
-    VcaServer::DoDispose()
+    WebServer::DoDispose()
     {
         Application::DoDispose();
     };
 
     // Public helpers
     void
-    VcaServer::SetLocalAddress(Ipv4Address local)
+    WebServer::SetLocalAddress(Ipv4Address local)
     {
         m_local = local;
     };
 
     void
-    VcaServer::SetLocalAddress(std::list<Ipv4Address> local)
+    WebServer::SetLocalAddress(std::list<Ipv4Address> local)
     {
         m_local_list = local;
     };
 
     void
-    VcaServer::SetLocalUlPort(uint16_t port)
+    WebServer::SetLocalUlPort(uint16_t port)
     {
         m_local_ul_port = port;
     };
 
     void
-    VcaServer::SetLocalDlPort(uint16_t port)
+    WebServer::SetLocalDlPort(uint16_t port)
     {
         m_local_dl_port = port;
     };
 
     void
-    VcaServer::SetPeerDlPort(uint16_t port)
+    WebServer::SetPeerDlPort(uint16_t port)
     {
         m_peer_dl_port = port;
     };
 
     void
-    VcaServer::SetNodeId(uint32_t node_id)
+    WebServer::SetNodeId(uint32_t node_id)
     {
         m_node_id = node_id;
     };
 
     void
-    VcaServer::SetSeparateSocket()
+    WebServer::SetSeparateSocket()
     {
         m_separate_socket = 1;
     };
 
-    void
-    VcaServer::SetRho(double_t rho)
-    {
-        m_opt_params.rho = rho;
-    };
-
-    void
-    VcaServer::SetQoEType(QOE_TYPE qoe_type)
-    {
-        m_opt_params.qoe_type = qoe_type;
-    };
-
-    void
-    VcaServer::SetMaxThroughput(double_t max_throughput_kbps)
-    {
-        m_opt_params.max_bitrate_kbps = max_throughput_kbps;
-    };
-
     // Application Methods
     void
-    VcaServer::StartApplication()
+    WebServer::StartApplication()
     {
-        m_update_rate_event = Simulator::ScheduleNow(&VcaServer::UpdateRate, this);
+        m_update_rate_event = Simulator::ScheduleNow(&WebServer::UpdateRate, this);
 
         // Create the socket if not already
         if (!m_separate_socket)
@@ -140,14 +121,14 @@ namespace ns3
                 m_socket_ul->Listen();
                 m_socket_ul->ShutdownSend();
 
-                m_socket_ul->SetRecvCallback(MakeCallback(&VcaServer::HandleRead, this));
+                m_socket_ul->SetRecvCallback(MakeCallback(&WebServer::HandleRead, this));
                 m_socket_ul->SetRecvPktInfo(true);
                 m_socket_ul->SetAcceptCallback(
                     MakeNullCallback<bool, Ptr<Socket>, const Address &>(),
-                    MakeCallback(&VcaServer::HandleAccept, this));
+                    MakeCallback(&WebServer::HandleAccept, this));
                 m_socket_ul->SetCloseCallbacks(
-                    MakeCallback(&VcaServer::HandlePeerClose, this),
-                    MakeCallback(&VcaServer::HandlePeerError, this));
+                    MakeCallback(&WebServer::HandlePeerClose, this),
+                    MakeCallback(&WebServer::HandlePeerError, this));
             }
         }
         else
@@ -162,40 +143,23 @@ namespace ns3
                 socket_ul->Listen();
                 socket_ul->ShutdownSend();
 
-                NS_LOG_LOGIC("[VcaServer] listening on " << ip << ":" << m_local_ul_port);
+                NS_LOG_LOGIC("[WebServer] listening on " << ip << ":" << m_local_ul_port);
 
-                socket_ul->SetRecvCallback(MakeCallback(&VcaServer::HandleRead, this));
+                socket_ul->SetRecvCallback(MakeCallback(&WebServer::HandleRead, this));
                 socket_ul->SetRecvPktInfo(true);
                 socket_ul->SetAcceptCallback(
                     MakeNullCallback<bool, Ptr<Socket>, const Address &>(),
-                    MakeCallback(&VcaServer::HandleAccept, this));
+                    MakeCallback(&WebServer::HandleAccept, this));
                 socket_ul->SetCloseCallbacks(
-                    MakeCallback(&VcaServer::HandlePeerClose, this),
-                    MakeCallback(&VcaServer::HandlePeerError, this));
+                    MakeCallback(&WebServer::HandlePeerClose, this),
+                    MakeCallback(&WebServer::HandlePeerError, this));
                 m_socket_ul_list.push_back(socket_ul);
             }
         }
-
-        m_py_socket = socket(AF_INET, SOCK_STREAM, 0);
-        if (m_py_socket == -1)
-        {
-            NS_FATAL_ERROR("Failed to create socket");
-        }
-        struct sockaddr_in sock_addr;
-        sock_addr.sin_family = AF_INET;
-        sock_addr.sin_port = htons(SOLVER_SOCKET_PORT);
-        sock_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-        while (connect(m_py_socket, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) == -1)
-        {
-            NS_LOG_LOGIC("[VcaServer] Connecting to the python server to connect");
-        }
-
-        Simulator::Schedule(Seconds(1), &VcaServer::OptimizeAllocation, this); // TODO: change triggering time
     };
 
     void
-    VcaServer::StopApplication()
+    WebServer::StopApplication()
     {
         // NS_LOG_UNCOND("Average thoughput (all clients) = "<<1.0*m_total_packet_size/Simulator::Now().GetSeconds());
         if (m_update_rate_event.IsRunning())
@@ -218,12 +182,10 @@ namespace ns3
             m_socket_ul->Close();
             m_socket_ul->SetRecvCallback(MakeNullCallback<void, Ptr<Socket>>());
         }
-
-        close(m_py_socket);
     };
 
     void
-    VcaServer::UpdateRate()
+    WebServer::UpdateRate()
     {
         // Update m_cc_target_frame_size in a periodically invoked function
         for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
@@ -266,7 +228,7 @@ namespace ns3
                 socket_dl->GetAttribute("SndBufSize", val);
                 uint32_t curPendingBuf = (uint32_t)val.Get() - sentsize - txbufferavailable;
 
-                NS_LOG_DEBUG("[VcaServer] Pacing rate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << (uint32_t)dl_socketbase->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf << " bbr " << bbr);
+                NS_LOG_DEBUG("[WebServer] Pacing rate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << (uint32_t)dl_socketbase->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf << " bbr " << bbr);
             }
             else
             {
@@ -283,34 +245,34 @@ namespace ns3
                 UintegerValue val;
                 socket_dl->GetAttribute("SndBufSize", val);
                 uint32_t curPendingBuf = (uint32_t)val.Get() - sentsize - txbufferavailable;
-                NS_LOG_DEBUG("[VcaServer] ccRate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << rtt_estimate * 1000 << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf);
+                NS_LOG_DEBUG("[WebServer] ccRate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << rtt_estimate*1000 << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf);
             }
         }
 
         Time next_update_rate_time = MicroSeconds(1e6 / m_fps);
-        m_update_rate_event = Simulator::Schedule(next_update_rate_time, &VcaServer::UpdateRate, this);
+        m_update_rate_event = Simulator::Schedule(next_update_rate_time, &WebServer::UpdateRate, this);
     };
 
     // private helpers
 
     void
-    VcaServer::ConnectionSucceededDl(Ptr<Socket> socket)
+    WebServer::ConnectionSucceededDl(Ptr<Socket> socket)
     {
-        NS_LOG_LOGIC("[VcaServer] Downlink connection succeeded");
+        NS_LOG_LOGIC("[WebServer] Downlink connection succeeded");
 
         SendData(socket);
     };
 
     void
-    VcaServer::ConnectionFailedDl(Ptr<Socket> socket)
+    WebServer::ConnectionFailedDl(Ptr<Socket> socket)
     {
-        NS_LOG_LOGIC("[VcaServer] Connection Failed");
+        NS_LOG_LOGIC("[WebServer] Connection Failed");
     };
 
     void
-    VcaServer::HandleRead(Ptr<Socket> socket)
+    WebServer::HandleRead(Ptr<Socket> socket)
     {
-        NS_LOG_LOGIC("[VcaServer] HandleRead");
+        NS_LOG_LOGIC("[WebServer] HandleRead");
         Ptr<Packet> packet;
         Address peerAddress;
         socket->GetPeerName(peerAddress);
@@ -413,10 +375,10 @@ namespace ns3
     };
 
     void
-    VcaServer::HandleAccept(Ptr<Socket> socket, const Address &from)
+    WebServer::HandleAccept(Ptr<Socket> socket, const Address &from)
     {
-        NS_LOG_DEBUG("[VcaServer][Node" << m_node_id << "] HandleAccept ul socket " << socket);
-        socket->SetRecvCallback(MakeCallback(&VcaServer::HandleRead, this));
+        NS_LOG_DEBUG("[WebServer][Node" << m_node_id << "] HandleAccept ul socket " << socket);
+        socket->SetRecvCallback(MakeCallback(&WebServer::HandleRead, this));
 
         Ptr<ClientInfo> client_info = CreateObject<ClientInfo>();
         client_info->socket_ul = socket;
@@ -431,13 +393,13 @@ namespace ns3
             dl_peer_ip = Ipv4Address(GetDlAddr(ul_peer_ip.Get(), 0));
             dl_local_ip = Ipv4Address(GetDlAddr(ul_peer_ip.Get(), 1));
 
-            NS_LOG_LOGIC("[VcaServer] dl server ip " << dl_local_ip.Get() << " dl client ip " << dl_peer_ip.Get() << " ul client ip " << ul_peer_ip.Get());
+            NS_LOG_LOGIC("[WebServer] dl server ip " << dl_local_ip.Get() << " dl client ip " << dl_peer_ip.Get() << " ul client ip " << ul_peer_ip.Get());
         }
         else
         {
             dl_peer_ip = ul_peer_ip;
             dl_local_ip = m_local;
-            NS_LOG_DEBUG("[VcaServer] dl server ip " << dl_local_ip << " dl client ip " << dl_peer_ip << " ul client ip " << ul_peer_ip << " local_dl_port " << m_local_dl_port << " peer_dl_port " << m_peer_dl_port);
+            NS_LOG_DEBUG("[WebServer] dl server ip " << dl_local_ip << " dl client ip " << dl_peer_ip << " ul client ip " << ul_peer_ip << " local_dl_port " << m_local_dl_port << " peer_dl_port " << m_peer_dl_port);
         }
 
         // Create downlink socket as well
@@ -451,8 +413,8 @@ namespace ns3
         socket_dl->Connect(InetSocketAddress{dl_peer_ip, m_peer_dl_port}); // note here while setting client dl port number
         socket_dl->ShutdownRecv();
         socket_dl->SetConnectCallback(
-            MakeCallback(&VcaServer::ConnectionSucceededDl, this),
-            MakeCallback(&VcaServer::ConnectionFailedDl, this));
+            MakeCallback(&WebServer::ConnectionSucceededDl, this),
+            MakeCallback(&WebServer::ConnectionFailedDl, this));
 
         client_info->socket_dl = socket_dl;
         client_info->cc_target_frame_size = 1e7 / 8 / 20;
@@ -471,21 +433,21 @@ namespace ns3
     };
 
     void
-    VcaServer::HandlePeerClose(Ptr<Socket> socket)
+    WebServer::HandlePeerClose(Ptr<Socket> socket)
     {
-        NS_LOG_LOGIC("[VcaServer] HandlePeerClose");
+        NS_LOG_LOGIC("[WebServer] HandlePeerClose");
     };
 
     void
-    VcaServer::HandlePeerError(Ptr<Socket> socket)
+    WebServer::HandlePeerError(Ptr<Socket> socket)
     {
-        NS_LOG_LOGIC("[VcaServer] HandlePeerError");
+        NS_LOG_LOGIC("[WebServer] HandlePeerError");
     };
 
     void
-    VcaServer::SendData(Ptr<Socket> socket)
+    WebServer::SendData(Ptr<Socket> socket)
     {
-        NS_LOG_LOGIC("[VcaServer] SendData");
+        NS_LOG_LOGIC("[WebServer] SendData");
         Address peerAddress;
         socket->GetPeerName(peerAddress);
         uint8_t socket_id = m_dl_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
@@ -498,34 +460,36 @@ namespace ns3
             int actual = socket->Send(packet);
             if (actual > 0)
             {
-                NS_LOG_LOGIC("[VcaServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << client_info->send_buffer.size() - 1);
+                NS_LOG_LOGIC("[WebServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << client_info->send_buffer.size() - 1);
 
                 client_info->send_buffer.pop_front();
             }
             else
             {
-                NS_LOG_LOGIC("[VcaServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " SendData failed");
+                NS_LOG_LOGIC("[WebServer][Send][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " SendData failed");
             }
         }
     };
 
     void
-    VcaServer::ReceiveData(Ptr<Packet> packet, uint8_t socket_id)
+    WebServer::ReceiveData(Ptr<Packet> packet, uint8_t socket_id)
     {
-        NS_LOG_LOGIC("[VcaServer] ReceiveData");
+        NS_LOG_LOGIC("[WebServer] ReceiveData");
         Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
         uint16_t frame_id = client_info->app_header.GetFrameId();
         uint16_t pkt_id = client_info->app_header.GetPacketId();
         uint32_t dl_redc_factor = client_info->app_header.GetDlRedcFactor();
         uint32_t payload_size = client_info->app_header.GetPayloadSize();
 
-        NS_LOG_LOGIC("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000. << " NumDegradedUsers= " << m_num_degraded_users);
+        content_source_size += payload_size;
+
+        NS_LOG_LOGIC("[WebServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000. << " NumDegradedUsers= " << m_num_degraded_users);
 
         if (socket_id == DEBUG_SRC_SOCKET_ID)
         {
             if (std::floor(Simulator::Now().GetSeconds()) > last_time)
             {
-                NS_LOG_LOGIC("[VcaServer] ServerRate " << total_frame_size * 8 / 1000.0 << " kbps");
+                NS_LOG_LOGIC("[WebServer] ServerRate " << total_frame_size * 8 / 1000.0 << " kbps");
                 total_frame_size = 0;
                 last_time = std::floor(Simulator::Now().GetSeconds());
             }
@@ -548,7 +512,7 @@ namespace ns3
             client_info->capacity_frame_size = client_info->cc_target_frame_size;
             m_num_degraded_users += 1;
 
-            NS_LOG_DEBUG("[VcaServer][DlRateControlStateLimit][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000.);
+            NS_LOG_DEBUG("[WebServer][DlRateControlStateLimit][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000.);
         }
         else if (client_info->dl_bitrate_reduce_factor == 1.0 && client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
         {
@@ -558,36 +522,51 @@ namespace ns3
             client_info->cc_target_frame_size = client_info->capacity_frame_size;
             m_num_degraded_users -= 1;
 
-            NS_LOG_DEBUG("[VcaServer][DlRateControlStateNatural][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds());
+            NS_LOG_DEBUG("[WebServer][DlRateControlStateNatural][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds());
         }
 
-        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+        // for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+        // {
+
+        //     // Address peerAddress;
+        //     // socket_dl->GetPeerName(peerAddress);
+        //     // uint8_t other_socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
+        //     uint8_t other_socket_id = it->first;
+        //     Ptr<ClientInfo> other_client_info = it->second;
+        //     if (other_socket_id == socket_id)
+        //         continue;
+
+        //     Ptr<Packet> packet_dl = TranscodeFrame(socket_id, other_socket_id, packet, frame_id);
+
+        //     if (packet_dl == nullptr)
+        //         continue;
+
+        //     //todo : update other_client_info -> lambda
+        //     Add_Pkt_Header_Serv(packet_dl,other_client_info->lambda);
+
+        //     other_client_info->send_buffer.push_back(packet_dl);
+
+        //     SendData(other_client_info->socket_dl);
+        // }
+
+
+        if(content_source_size >= content_response_size)
         {
+            Ptr<Packet> packet_dl = TranscodeFrame(socket_id, socket_id, packet, frame_id);
+            if (packet_dl == nullptr) return;
 
-            // Address peerAddress;
-            // socket_dl->GetPeerName(peerAddress);
-            // uint8_t other_socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
-            uint8_t other_socket_id = it->first;
-            Ptr<ClientInfo> other_client_info = it->second;
-            if (other_socket_id == socket_id)
-                continue;
+            //todo1 : prepare packetdl(different from vca)
+            //todo2 : update other_client_info -> lambda
+            Add_Pkt_Header_Serv(packet_dl,client_info->lambda);
+            client_info->send_buffer.push_back(packet_dl);
+            SendData(client_info->socket_dl);
 
-            Ptr<Packet> packet_dl = TranscodeFrame(socket_id, other_socket_id, packet, frame_id);
-
-            if (packet_dl == nullptr)
-                continue;
-
-            //todo : update other_client_info -> lambda
-            Add_Pkt_Header_Serv(packet_dl,other_client_info->lambda);
-
-            other_client_info->send_buffer.push_back(packet_dl);
-
-            SendData(other_client_info->socket_dl);
+            content_source_size = 0;
         }
     };
 
     Ptr<Packet>
-    VcaServer::TranscodeFrame(uint8_t src_socket_id, uint8_t dst_socket_id, Ptr<Packet> packet, uint16_t frame_id)
+    WebServer::TranscodeFrame(uint8_t src_socket_id, uint8_t dst_socket_id, Ptr<Packet> packet, uint16_t frame_id)
     {
 
         // std::pair<uint8_t, uint8_t> socket_id_pair = std::pair<uint8_t, uint8_t>(src_socket_id, dst_socket_id);
@@ -600,14 +579,14 @@ namespace ns3
             src_client_info->frame_size_forwarded[dst_socket_id] = 0;
         }
 
-        NS_LOG_LOGIC("[VcaServer] B4RmHeader PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)src_socket_id << " DstSocketId= " << (uint16_t)dst_socket_id << " FrameId= " << frame_id << " prevframeid " << src_client_info->prev_frame_id[dst_socket_id] << " FrameSizeForwarded= " << src_client_info->frame_size_forwarded[dst_socket_id]);
+        NS_LOG_LOGIC("[WebServer] B4RmHeader PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)src_socket_id << " DstSocketId= " << (uint16_t)dst_socket_id << " FrameId= " << frame_id << " prevframeid " << src_client_info->prev_frame_id[dst_socket_id] << " FrameSizeForwarded= " << src_client_info->frame_size_forwarded[dst_socket_id]);
 
         if (frame_id == src_client_info->prev_frame_id[dst_socket_id])
         {
             // packets of the same frame
             if (src_client_info->frame_size_forwarded[dst_socket_id] < GetTargetFrameSize(dst_socket_id))
             {
-                NS_LOG_LOGIC("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] Forward TargetFrameSize= " << GetTargetFrameSize(dst_socket_id) << " FrameSizeForwarded= " << src_client_info->frame_size_forwarded[dst_socket_id] << " PktSize= " << packet->GetSize());
+                NS_LOG_LOGIC("[WebServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] Forward TargetFrameSize= " << GetTargetFrameSize(dst_socket_id) << " FrameSizeForwarded= " << src_client_info->frame_size_forwarded[dst_socket_id] << " PktSize= " << packet->GetSize());
                 // have not reach the target transcode bitrate, forward the packet
                 src_client_info->frame_size_forwarded[dst_socket_id] += packet->GetSize();
 
@@ -619,7 +598,7 @@ namespace ns3
             }
             else
             {
-                NS_LOG_LOGIC("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] TargetFrameSize= " << GetTargetFrameSize(dst_socket_id));
+                NS_LOG_LOGIC("[WebServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] TargetFrameSize= " << GetTargetFrameSize(dst_socket_id));
 
                 if (src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
                     dropped_frame_size += packet->GetSize();
@@ -630,7 +609,7 @@ namespace ns3
         }
         else if (frame_id > src_client_info->prev_frame_id[dst_socket_id])
         {
-            NS_LOG_LOGIC("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] Start FrameId= " << frame_id);
+            NS_LOG_LOGIC("[WebServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] Start FrameId= " << frame_id);
             // packets of a new frame, simply forward it
             src_client_info->prev_frame_id[dst_socket_id] = frame_id;
             src_client_info->frame_size_forwarded[dst_socket_id] = packet->GetSize();
@@ -653,7 +632,7 @@ namespace ns3
     };
 
     uint32_t
-    VcaServer::GetTargetFrameSize(uint8_t socket_id)
+    WebServer::GetTargetFrameSize(uint8_t socket_id)
     {
         Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
         if (client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_NATRUAL)
@@ -695,7 +674,7 @@ namespace ns3
         }
     };
 
-    uint32_t VcaServer::GetDlAddr(uint32_t ul_addr, int node)
+    uint32_t WebServer::GetDlAddr(uint32_t ul_addr, int node)
     {
         NS_ASSERT_MSG(node == 0 || node == 1, "node should be 0 or 1");
         // param node: 0: client, 1: server
@@ -719,43 +698,18 @@ namespace ns3
         return dl_addr;
     };
 
-    void
-    VcaServer::OptimizeAllocation()
-    {
-        NS_LOG_LOGIC("[VcaServer] OptimizeAllocation");
-        // define the communication format
-        // params for solver: n, capacities
-        // params for solver: [rho, max_bitrate, qoe_type, qoe_func_alpha, qoe_func_beta, num_view, method, init_bw, plot]
-
-        m_opt_params.num_users = m_client_info_map.size();
-        send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
-
-        recv(m_py_socket, m_opt_alloc, sizeof(double_t) * m_opt_params.num_users, 0);
-        NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
-        // TODO: send back to clients
-    };
-
-    void
-    VcaServer::UpdateCapacities()
-    {
-        // TODO
-        m_opt_params.capacities_kbps[0] = 300.0;
-        m_opt_params.capacities_kbps[1] = 500.0;
-        m_opt_params.capacities_kbps[2] = 700.0;
-    };
-
     void 
-    VcaServer::Add_Pkt_Header_Serv(Ptr<Packet> packet, double lambda){
+    WebServer::Add_Pkt_Header_Serv(Ptr<Packet> packet, double lambda){
         //reuse these uint16_t. (65536)
         //store integer part and fractional part respectively
         uint16_t m_frame_id = (int)lambda;
         uint16_t pkt_id_in_frame = ((int)(lambda*10000))%10000;
-        VcaAppProtHeader app_header_info = 
-                VcaAppProtHeader(m_frame_id, pkt_id_in_frame);
+        WebAppProtHeader app_header_info = 
+                WebAppProtHeader(m_frame_id, pkt_id_in_frame);
         
         uint32_t packet_size = packet->GetSize();
         app_header_info.SetPayloadSize(packet_size);
         packet->AddHeader(app_header_info);
-    };
+    }
 
 }; // namespace ns3

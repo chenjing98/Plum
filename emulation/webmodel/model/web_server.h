@@ -1,5 +1,5 @@
-#ifndef VCA_SERVER_H
-#define VCA_SERVER_H
+#ifndef WEB_SERVER_H
+#define WEB_SERVER_H
 
 #include "ns3/application.h"
 #include "ns3/core-module.h"
@@ -12,32 +12,15 @@
 #include <vector>
 #include <unordered_map>
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-
 #include "prot-header.h"
 
 namespace ns3
 {
-    // must stay aligned with the value in solver.py
-    const uint8_t MAX_NUM_USERS = 20;
-    const uint16_t SOLVER_SOCKET_PORT = 11999;
 
     enum DL_RATE_CONTROL_STATE
     {
         DL_RATE_CONTROL_STATE_NATRUAL,
         DL_RATE_CONTROL_STATE_LIMIT
-    };
-
-    enum QOE_TYPE
-    {
-        QOE_TYPE_LIN,
-        QOE_TYPE_LOG,
-        QOE_TYPE_SQR_CONVEX,
-        QOE_TYPE_SQR_CONCAVE
     };
 
     class ClientInfo : public Object
@@ -72,18 +55,18 @@ namespace ns3
         uint32_t payload_size;
         Ptr<Packet> half_header;
         Ptr<Packet> half_payload;
-        VcaAppProtHeader app_header;
+        WebAppProtHeader app_header;
 
         double lambda;
 
     }; // class ClientInfo
 
-    class VcaServer : public Application
+    class WebServer : public Application
     {
     public:
         static TypeId GetTypeId(void);
-        VcaServer();
-        ~VcaServer();
+        WebServer();
+        ~WebServer();
 
         void SetLocalAddress(Ipv4Address local);
         void SetLocalAddress(std::list<Ipv4Address> local);
@@ -93,10 +76,6 @@ namespace ns3
 
         void SetNodeId(uint32_t node_id);
         void SetSeparateSocket();
-
-        void SetRho(double_t rho);
-        void SetQoEType(QOE_TYPE qoe_type);
-        void SetMaxThroughput(double_t max_throughput_kbps);
 
     protected:
         void DoDispose(void);
@@ -149,10 +128,6 @@ namespace ns3
 
         uint32_t GetDlAddr(uint32_t ulAddr, int node);
 
-        void OptimizeAllocation();
-
-        void UpdateCapacities();
-
         uint32_t m_node_id;
 
         Ptr<Socket> m_socket_ul;
@@ -186,27 +161,9 @@ namespace ns3
         uint32_t dropped_frame_size = 0;
         uint32_t total_frame_size = 0;
         uint32_t last_time = 0;
-
-        // optimization related
-
-        struct OptParams
-        {
-            // don't change the order of the following parameters
-            uint16_t num_users;
-            uint16_t num_view = 25;
-            QOE_TYPE qoe_type = QOE_TYPE_LIN;
-            double_t rho = 0.5;
-            double_t max_bitrate_kbps = 30000;
-            double_t qoe_func_alpha = 0.0;
-            double_t qoe_func_beta = 0.0;
-            double_t capacities_kbps[MAX_NUM_USERS];
-        } m_opt_params;
-
-        double_t m_opt_alloc[MAX_NUM_USERS];
-
-        int m_py_socket;
-
-    }; // class VcaServer
+        uint32_t content_source_size = 0;
+        const uint32_t content_response_size = 0;
+    }; // class WebServer
 
 }; // namespace ns3
 

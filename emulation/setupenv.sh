@@ -49,6 +49,33 @@ else
     ln -s -v ${current_dir}/${scratch_folder}/* ${ns3_scratch}/
 fi
 
+
+app_folder="webmodel"
+scratch_folder="scratch"
+socket_control_folder="socket-control"
+
+# creat soft link
+if [ ! -d "${current_dir}/${app_folder}" ]
+then
+    echo "${app_folder} does not exist!"
+    return
+else
+    # if soft link already exists, delete it
+    if [ -d "${ns3_src}/${app_folder}" ]
+    then
+        # check out if the var exists
+        rm -rf ${ns3_src:?}/${app_folder:?}
+    fi
+    echo "Linking all files..."
+    # linking ./videoconf
+    ln -s -v ${current_dir}/${app_folder} ${ns3_src}/${app_folder}
+    # linking ./scratch
+    ##find -wholename "${current_dir}/scratch/*.cc" -exec ln -s -f -v {} "${ns3_scratch}" \;
+    ln -s -v ${current_dir}/${scratch_folder}/* ${ns3_scratch}/
+fi
+
+
+
 # create soft link for tcp-socket-base]
 cp ${socket_control_folder}/* ${ns3_src}/internet/model/
 
