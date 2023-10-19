@@ -728,6 +728,7 @@ namespace ns3
         // params for solver: [rho, max_bitrate, qoe_type, qoe_func_alpha, qoe_func_beta, num_view, method, init_bw, plot]
 
         m_opt_params.num_users = m_client_info_map.size();
+        UpdateCapacities();
         send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
 
         recv(m_py_socket, m_opt_alloc, sizeof(double_t) * m_opt_params.num_users, 0);

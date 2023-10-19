@@ -5,13 +5,24 @@ import math
 import numpy as np
 import scipy.optimize as opt
 import matplotlib.pyplot as plt
+import socket
+import struct
+from enum import Enum
+from struct import unpack
+
+
+class QoeType(Enum):
+    lin = 0
+    log = 1
+    sqr_concave = 3
+    sqr_convex = 2
 
 
 def qoe(dl_bw, params):
     qoe = 0.0
     if params[2] == "lin":
         qoe = params[3] * dl_bw
-    elif params[2] == "sqr":
+    elif params[2] == "sqr_concave" or params[2] == "sqr_convex":
         qoe = (params[3] * dl_bw + params[4]) * dl_bw
     elif params[2] == "log":
         qoe = params[3] * math.log(dl_bw + 1)
@@ -79,6 +90,77 @@ def solve(N, B, params):
         plt.plot(x[:], [utility(x[i], params) for i in range(len(x))], 'o-')
         plt.savefig('opt-process.png')
 
+    return res.x
+
+
+def socket_server(N):
+    max_num = 20
+
+    if N < 3:
+        print('N must be greater than 2')
+        return
+
+    addr = ("127.0.0.1", 11999)
+    sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+    sk.bind(addr)
+    sk.listen(0)
+    csk, c_addr = sk.accept()
+
+    while True:
+        recv_req = csk.recv(1024)
+        if recv_req == b'':
+            continue
+
+        print(len(recv_req))
+
+        num_users, num_view, qoe_type, rho, max_bitrate, qoe_func_alpha, qoe_func_beta, capacity_string = unpack(
+            '2Hi4d%ds' % (max_num * 8), recv_req)
+        # print(capacity_string)
+        capacities = []
+        capacities = unpack('%dd' % max_num, capacity_string)[:N]
+
+        print("num_users", num_users)
+        print("num_view", num_view)
+        print("qoe_type", qoe_type)
+        print("rho", rho)
+        print("max_bitrate", max_bitrate)
+        print("qoe_func_alpha", qoe_func_alpha)
+        print("qoe_func_beta", qoe_func_beta)
+        print("capacities", capacities)
+
+        assert(num_users == N)
+
+        qoe_type_name = QoeType(qoe_type).name
+
+        if max_bitrate <= 0:
+            print('MaxBitrate must be positive')
+            return
+        if qoe_type_name not in ['lin', 'log', 'sqr_concave', 'sqr_convex']:
+            print(
+                'QoeType must be one of ''lin'', ''log'', ''sqr_concave'', ''sqr_convex''')
+            return
+        if qoe_type_name == 'lin':
+            qoe_func_alpha = 1.0 / max_bitrate
+        elif qoe_type_name == 'log':
+            qoe_func_alpha = 1.0 / math.log(max_bitrate + 1)
+        elif qoe_type_name == 'sqr_concave':
+            if qoe_func_alpha < 0 and qoe_func_alpha >= - 1.0 / max_bitrate / max_bitrate:
+                qoe_func_alpha = qoe_func_alpha
+            else:
+                qoe_func_alpha = - 1.0 / max_bitrate / max_bitrate
+            qoe_func_beta = 1.0 / max_bitrate - qoe_func_alpha * max_bitrate
+        elif qoe_type_name == 'sqr_convex':
+            if qoe_func_alpha > 0 and qoe_func_alpha < 1 / max_bitrate / (max_bitrate - 2):
+                qoe_func_alpha = qoe_func_alpha
+            else:
+                qoe_func_alpha = 1.0 / max_bitrate / max_bitrate
+            qoe_func_beta = 1.0 / max_bitrate - qoe_func_alpha * max_bitrate
+
+        solution = solve(N, capacities, [
+                         rho, max_bitrate, qoe_type_name, qoe_func_alpha, qoe_func_beta, num_view, 'SLSQP', 30000.0, False]).tolist()
+
+        csk.send(struct.pack('%dd' % N, *solution))
+
 
 def main():
 
@@ -90,6 +172,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--N', type=int, default=3,
                         help='number of users')
+    parser.add_argument('-s', '--Server', action='store_false',
+                        default=True, help='run as a socket server')
     parser.add_argument('-b', '--Bandwidth', nargs='+',
                         default=[10, 10, 10], help='available bandwidth for each users path')
     parser.add_argument('-r', '--Rho', type=float, default=0.5,
@@ -97,7 +181,7 @@ def main():
     parser.add_argument('-m', '--MaxBitrate', type=float,
                         default=10.0, help='maximum bitrate for the application')
     parser.add_argument('-q', '--QoeType', type=str, default='lin',
-                        help='type of the QoE function, to choose from [''lin'', ''log'', ''sqr-concave'', ''sqr-convex'']')
+                        help='type of the QoE function, to choose from [''lin'', ''log'', ''sqr_concave'', ''sqr_convex'']')
     parser.add_argument('-a', '--QoeFuncAlpha', type=float,
                         default=0, help='alpha in the QoE function')
     parser.add_argument('-v', '--ViewNum', type=float,
@@ -113,6 +197,11 @@ def main():
     if args.N < 3:
         print('N must be greater than 2')
         return
+
+    if args.Server:
+        socket_server(args.N)
+        return
+
     if len(args.Bandwidth) != args.N:
         print('Number of bandwidths must be equal to N')
         return
@@ -126,21 +215,23 @@ def main():
     if args.MaxBitrate <= 0:
         print('MaxBitrate must be positive')
         return
-    if args.QoeType not in ['lin', 'log', 'sqr-concave', 'sqr-convex']:
-        print('QoeType must be one of ''lin'', ''log'', ''sqr-concave'', ''sqr-convex''')
+    if args.QoeType not in ['lin', 'log', 'sqr_concave', 'sqr_convex']:
+        print('QoeType must be one of ''lin'', ''log'', ''sqr_concave'', ''sqr_convex''')
         return
     if args.QoeType == 'lin':
         qoeFuncAlpha = 1.0 / args.MaxBitrate
     elif args.QoeType == 'log':
         qoeFuncAlpha = 1.0 / math.log(args.MaxBitrate + 1)
-    elif args.QoeType == 'sqr-concave':
+    elif args.QoeType == 'sqr_concave':
         if args.QoeFuncAlpha < 0 and args.QoeFuncAlpha >= - 1.0 / args.MaxBitrate / args.MaxBitrate:
             qoeFuncAlpha = args.QoeFuncAlpha
         else:
             qoeFuncAlpha = - 1.0 / args.MaxBitrate / args.MaxBitrate
         qoeFuncBeta = 1.0 / args.MaxBitrate - qoeFuncAlpha * args.MaxBitrate
-    elif args.QoeType == 'sqr-convex':
+    elif args.QoeType == 'sqr_convex':
         if args.QoeFuncAlpha > 0 and args.QoeFuncAlpha < 1 / args.MaxBitrate / (args.MaxBitrate - 2):
+            qoeFuncAlpha = args.QoeFuncAlpha
+        else:
             qoeFuncAlpha = 1.0 / args.MaxBitrate / args.MaxBitrate
         qoeFuncBeta = 1.0 / args.MaxBitrate - qoeFuncAlpha * args.MaxBitrate
 
