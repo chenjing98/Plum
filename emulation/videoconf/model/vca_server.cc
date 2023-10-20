@@ -323,27 +323,27 @@ namespace ns3
             // start to read header
             if (client_info->read_status == 0)
             {
-                packet = socket->Recv(12, false);
+                packet = socket->Recv(VCA_APP_PROT_HEADER_LENGTH, false);
                 if (packet == NULL)
                     return;
                 if (packet->GetSize() == 0)
                     return;
                 client_info->half_header = packet;
-                if (client_info->half_header->GetSize() < 12)
+                if (client_info->half_header->GetSize() < VCA_APP_PROT_HEADER_LENGTH)
                     client_info->read_status = 1; // continue to read header;
-                if (client_info->half_header->GetSize() == 12)
+                if (client_info->half_header->GetSize() == VCA_APP_PROT_HEADER_LENGTH)
                     client_info->read_status = 2; // start to read payload;
             }
             // continue to read header
             if (client_info->read_status == 1)
             {
-                packet = socket->Recv(12 - client_info->half_header->GetSize(), false);
+                packet = socket->Recv(VCA_APP_PROT_HEADER_LENGTH - client_info->half_header->GetSize(), false);
                 if (packet == NULL)
                     return;
                 if (packet->GetSize() == 0)
                     return;
                 client_info->half_header->AddAtEnd(packet);
-                if (client_info->half_header->GetSize() == 12)
+                if (client_info->half_header->GetSize() == VCA_APP_PROT_HEADER_LENGTH)
                     client_info->read_status = 2; // start to read payload;
             }
             // start to read payload
@@ -355,10 +355,6 @@ namespace ns3
                     client_info->app_header.Reset();
                     client_info->half_header->RemoveHeader(client_info->app_header);
                     client_info->payload_size = client_info->app_header.GetPayloadSize();
-
-                    // uint16_t frame_id = app_header[socket_id].GetFrameId();
-                    // uint16_t pkt_id = app_header[socket_id].GetPacketId();
-                    // uint32_t dl_redc_factor = app_header[socket_id].GetDlRedcFactor();
 
                     client_info->set_header = 1;
                     if (client_info->payload_size == 0)
@@ -399,12 +395,6 @@ namespace ns3
 
                 uint8_t *buffer = new uint8_t[client_info->half_payload->GetSize()];               // 创建一个buffer，用于存储packet元素
                 client_info->half_payload->CopyData(buffer, client_info->half_payload->GetSize()); // 将packet元素复制到buffer中
-                // for (int i = 0; i < m_half_payload[socket_id]->GetSize(); i++){
-                //     uint8_t element = buffer[i]; // 获取第i个元素
-                // if(element != 0)
-                //     NS_LOG_UNCOND("i = " <<i<<"  ele = "<<(uint32_t)element);
-                // }
-
                 ReceiveData(client_info->half_payload, socket_id);
                 client_info->read_status = 0;
                 client_info->set_header = 0;
@@ -516,10 +506,10 @@ namespace ns3
         Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
         uint16_t frame_id = client_info->app_header.GetFrameId();
         uint16_t pkt_id = client_info->app_header.GetPacketId();
-        uint32_t dl_redc_factor = client_info->app_header.GetDlRedcFactor();
         uint32_t payload_size = client_info->app_header.GetPayloadSize();
+        uint32_t src_id = client_info->app_header.GetSrcId();
 
-        NS_LOG_LOGIC("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000. << " NumDegradedUsers= " << m_num_degraded_users);
+        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " SrcId= " << src_id << " NumDegradedUsers= " << m_num_degraded_users);
 
         if (socket_id == DEBUG_SRC_SOCKET_ID)
         {
@@ -531,13 +521,11 @@ namespace ns3
             }
             else if (std::floor(Simulator::Now().GetSeconds()) == last_time)
             {
-                total_frame_size += payload_size + 12;
+                total_frame_size += payload_size + VCA_APP_PROT_HEADER_LENGTH;
             }
         }
 
-        m_total_packet_size += payload_size + 12;
-
-        client_info->dl_bitrate_reduce_factor = (double_t)dl_redc_factor / 10000.0;
+        m_total_packet_size += payload_size + VCA_APP_PROT_HEADER_LENGTH;
 
         // update dl rate control state
         if (client_info->dl_bitrate_reduce_factor < 1.0 && client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_NATRUAL && m_num_degraded_users < m_client_info_map.size() / 2)
@@ -548,7 +536,7 @@ namespace ns3
             client_info->capacity_frame_size = client_info->cc_target_frame_size;
             m_num_degraded_users += 1;
 
-            NS_LOG_DEBUG("[VcaServer][DlRateControlStateLimit][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000.);
+            NS_LOG_DEBUG("[VcaServer][DlRateControlStateLimit][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DlRedcFactor= " << client_info->dl_bitrate_reduce_factor);
         }
         else if (client_info->dl_bitrate_reduce_factor == 1.0 && client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
         {
@@ -563,10 +551,6 @@ namespace ns3
 
         for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
         {
-
-            // Address peerAddress;
-            // socket_dl->GetPeerName(peerAddress);
-            // uint8_t other_socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
             uint8_t other_socket_id = it->first;
             Ptr<ClientInfo> other_client_info = it->second;
             if (other_socket_id == socket_id)
@@ -577,8 +561,12 @@ namespace ns3
             if (packet_dl == nullptr)
                 continue;
 
-            //todo : update other_client_info -> lambda
-            Add_Pkt_Header_Serv(packet_dl,other_client_info->lambda);
+            // todo : update other_client_info -> lambda
+            VcaAppProtHeader app_header(frame_id, pkt_id);
+            app_header.SetSrcId(src_id);
+            app_header.SetPayloadSize(payload_size);
+            app_header.SetLambda(other_client_info->lambda);
+            packet_dl->AddHeader(app_header);
 
             other_client_info->send_buffer.push_back(packet_dl);
 
@@ -739,24 +727,10 @@ namespace ns3
     void
     VcaServer::UpdateCapacities()
     {
-        // TODO
+        // TODO: realize updating the capacities
         m_opt_params.capacities_kbps[0] = 300.0;
         m_opt_params.capacities_kbps[1] = 500.0;
         m_opt_params.capacities_kbps[2] = 700.0;
-    };
-
-    void 
-    VcaServer::Add_Pkt_Header_Serv(Ptr<Packet> packet, double lambda){
-        //reuse these uint16_t. (65536)
-        //store integer part and fractional part respectively
-        uint16_t m_frame_id = (int)lambda;
-        uint16_t pkt_id_in_frame = ((int)(lambda*10000))%10000;
-        VcaAppProtHeader app_header_info = 
-                VcaAppProtHeader(m_frame_id, pkt_id_in_frame);
-        
-        uint32_t packet_size = packet->GetSize();
-        app_header_info.SetPayloadSize(packet_size);
-        packet->AddHeader(app_header_info);
     };
 
 }; // namespace ns3

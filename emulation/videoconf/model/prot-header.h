@@ -6,6 +6,7 @@
 
 namespace ns3
 {
+    uint16_t const VCA_APP_PROT_HEADER_LENGTH = 16;
     class VcaAppProtHeader : public Header
     {
     public:
@@ -21,38 +22,22 @@ namespace ns3
 
         void SetFrameId(uint16_t frame_id);
         void SetPacketId(uint16_t packet_id);
-        void SetDlRedcFactor(uint32_t dlredcfactor);
+        void SetLambda(uint32_t lambda);
         void SetPayloadSize(uint32_t payload_size);
+        void SetSrcId(uint32_t src_id);
         uint16_t GetFrameId(void);
         uint16_t GetPacketId(void);
-        uint32_t GetDlRedcFactor(void);
+        uint32_t GetLambda(void);
         uint32_t GetPayloadSize(void);
+        uint32_t GetSrcId(void);
 
         void Reset(void);
 
     private:
         uint16_t m_frame_id;
         uint16_t m_packet_id;
-        uint32_t m_dl_bitrate_reduce_factor;
-        uint32_t m_payload_size;
-    };
-
-    class VcaAppProtHeaderInfo : public Object
-    {
-    public:
-        static TypeId GetTypeId(void);
-        VcaAppProtHeaderInfo();
-        ~VcaAppProtHeaderInfo();
-        VcaAppProtHeaderInfo(uint16_t frame_id, uint16_t packet_id);
-
-        void SetPayloadSize(uint32_t payload_size);
-        uint16_t GetFrameId(void);
-        uint16_t GetPacketId(void);
-        uint32_t GetPayloadSize(void);
-
-    private:
-        uint16_t m_frame_id;
-        uint16_t m_packet_id;
+        uint32_t m_src_id;
+        uint32_t m_lambda_t1e4;
         uint32_t m_payload_size;
     };
 

@@ -22,7 +22,7 @@ enum POLICY
 {
     VANILLA,
     YONGYULE,
-    SERVINIT
+    POLO
 };
 
 enum YONGYULE_REALIZATION
@@ -46,7 +46,6 @@ namespace ns3
         static TypeId GetTypeId(void);
         PktInfo();
         ~PktInfo();
-
 
         // Decode self-defined header in TCP payload
         uint8_t set_header;
@@ -178,7 +177,6 @@ namespace ns3
         std::vector<std::unordered_map<uint32_t, uint32_t>> m_transientRateBps; // vector index: time in second, map key: source ip, map value: bitrate in bps
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_pkt;
-        std::vector<std::deque<Ptr<VcaAppProtHeaderInfo>>> m_send_buffer_hdr;
 
         bool m_is_my_wifi_access_bottleneck;
 
@@ -224,7 +222,8 @@ namespace ns3
         uint16_t m_probe_patience_count;
         uint16_t m_probe_patience_count_max;
 
-        Ptr<PktInfo> pkt_info;
+        Ptr<PktInfo> m_pkt_info;
+        double_t m_lambda;
     }; // class VcaClient
 
 }; // namespace ns3

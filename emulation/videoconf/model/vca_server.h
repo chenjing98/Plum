@@ -141,7 +141,6 @@ namespace ns3
         Ptr<Packet> TranscodeFrame(uint8_t src_socket_id, uint8_t dst_socket_id, Ptr<Packet> packet, uint16_t frame_id);
         void SendData(Ptr<Socket> socket);
         void ReceiveData(Ptr<Packet>, uint8_t);
-        void Add_Pkt_Header_Serv(Ptr<Packet> packet, double lambda);
 
         void UpdateRate();
 
