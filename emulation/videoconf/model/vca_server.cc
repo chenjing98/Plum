@@ -181,6 +181,7 @@ namespace ns3
         {
             NS_FATAL_ERROR("Failed to create socket");
         }
+
         struct sockaddr_in sock_addr;
         sock_addr.sin_family = AF_INET;
         sock_addr.sin_port = htons(SOLVER_SOCKET_PORT);
@@ -188,7 +189,7 @@ namespace ns3
 
         while (connect(m_py_socket, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) == -1)
         {
-            NS_LOG_LOGIC("[VcaServer] Connecting to the python server to connect");
+            NS_LOG_DEBUG("[VcaServer] Connecting to the python server to connect");
         }
 
         Simulator::Schedule(Seconds(1), &VcaServer::OptimizeAllocation, this); // TODO: change triggering time
@@ -219,7 +220,13 @@ namespace ns3
             m_socket_ul->SetRecvCallback(MakeNullCallback<void, Ptr<Socket>>());
         }
 
+        // Send RST and close the socket with python server
+        m_opt_params.rst = 1;
+        send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
+        shutdown(m_py_socket, 2);
         close(m_py_socket);
+        int t = 1;
+        setsockopt(m_py_socket, SOL_SOCKET, SO_REUSEADDR, &t, sizeof(int));
     };
 
     void
@@ -718,9 +725,10 @@ namespace ns3
         m_opt_params.num_users = m_client_info_map.size();
         UpdateCapacities();
         send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
-
         recv(m_py_socket, m_opt_alloc, sizeof(double_t) * m_opt_params.num_users, 0);
+
         NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
+
         // TODO: send back to clients
     };
 

@@ -194,6 +194,7 @@ namespace ns3
             uint16_t num_users;
             uint16_t num_view = 25;
             QOE_TYPE qoe_type = QOE_TYPE_LIN;
+            uint32_t rst = 0;
             double_t rho = 0.5;
             double_t max_bitrate_kbps = 30000;
             double_t qoe_func_alpha = 0.0;

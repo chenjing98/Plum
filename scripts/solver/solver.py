@@ -113,8 +113,16 @@ def socket_server(N):
 
         print(len(recv_req))
 
-        num_users, num_view, qoe_type, rho, max_bitrate, qoe_func_alpha, qoe_func_beta, capacity_string = unpack(
-            '2Hi4d%ds' % (max_num * 8), recv_req)
+        num_users, num_view, qoe_type, rst, rho, max_bitrate, qoe_func_alpha, qoe_func_beta, capacity_string = unpack(
+            '2Hil4d%ds' % (max_num * 8), recv_req)
+
+        if rst:
+            csk.shutdown(socket.SHUT_RDWR)
+            csk.close()
+            sk.listen(0)
+            csk, c_addr = sk.accept()
+            continue
+
         # print(capacity_string)
         capacities = []
         capacities = unpack('%dd' % max_num, capacity_string)[:N]
