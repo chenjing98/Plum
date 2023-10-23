@@ -572,7 +572,7 @@ namespace ns3
             VcaAppProtHeader app_header(frame_id, pkt_id);
             app_header.SetSrcId(src_id);
             app_header.SetPayloadSize(payload_size);
-            app_header.SetLambda(other_client_info->lambda);
+            app_header.SetLambda((uint32_t)(other_client_info->lambda * 10000));
             packet_dl->AddHeader(app_header);
 
             other_client_info->send_buffer.push_back(packet_dl);
@@ -727,9 +727,19 @@ namespace ns3
         send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
         recv(m_py_socket, m_opt_alloc, sizeof(double_t) * m_opt_params.num_users, 0);
 
-        NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
+        // NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
 
-        // TODO: send back to clients
+        // send back to clients
+        uint8_t id = 0;
+        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+        {
+            Ptr<ClientInfo> client_info = it->second;
+            client_info->lambda = m_opt_alloc[id];
+            NS_LOG_DEBUG("[VcaServer] Client " << it->first << " lambda " << client_info->lambda);
+            id++;
+        }
+
+        // TODO: change dl bitrate accordingly
     };
 
     void
