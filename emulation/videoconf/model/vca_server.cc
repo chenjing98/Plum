@@ -192,7 +192,7 @@ namespace ns3
             NS_LOG_DEBUG("[VcaServer] Connecting to the python server to connect");
         }
 
-        Simulator::Schedule(Seconds(1), &VcaServer::OptimizeAllocation, this); // TODO: change triggering time
+        Simulator::Schedule(Seconds(1), &VcaServer::OptimizeAllocation, this);
     };
 
     void
@@ -717,7 +717,7 @@ namespace ns3
     void
     VcaServer::OptimizeAllocation()
     {
-        NS_LOG_LOGIC("[VcaServer] OptimizeAllocation");
+        NS_LOG_UNCOND("[VcaServer] OptimizeAllocation");
         // define the communication format
         // params for solver: n, capacities
         // params for solver: [rho, max_bitrate, qoe_type, qoe_func_alpha, qoe_func_beta, num_view, method, init_bw, plot]
@@ -735,7 +735,7 @@ namespace ns3
         {
             Ptr<ClientInfo> client_info = it->second;
             client_info->lambda = m_opt_alloc[id];
-            NS_LOG_DEBUG("[VcaServer] Client " << it->first << " lambda " << client_info->lambda);
+            NS_LOG_DEBUG("[VcaServer] Client " << (int)it->first << " lambda " << client_info->lambda);
             id++;
         }
 
@@ -745,10 +745,29 @@ namespace ns3
     void
     VcaServer::UpdateCapacities()
     {
-        // TODO: realize updating the capacities
-        m_opt_params.capacities_kbps[0] = 300.0;
-        m_opt_params.capacities_kbps[1] = 500.0;
-        m_opt_params.capacities_kbps[2] = 700.0;
+        // NS_LOG_UNCOND("Here in UpdateCapacities!");
+        double change_rate = 0;
+        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++){
+            Ptr<ClientInfo> client_info = it->second;
+            Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(client_info->socket_ul);
+            Ptr<TcpSocketBase> dl_socket = DynamicCast<TcpSocketBase, Socket>(client_info->socket_dl);
+            uint64_t ul_bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
+            uint64_t dl_bitrate = dl_socket->GetTcb()->m_pacingRate.Get().GetBitRate();//bps
+            // NS_LOG_UNCOND("Here m_opt_params.capacities_kbps["<<(int)it->first<<"]="<<ul_bitrate<<"+"<<dl_bitrate);    
+
+            double_t new_bitrate = (ul_bitrate+dl_bitrate)/1000.0; //kbps
+            double_t old_bitrate = m_opt_params.capacities_kbps[it->first];
+            m_opt_params.capacities_kbps[it->first] = new_bitrate;
+            change_rate = std::max(change_rate,abs(new_bitrate-old_bitrate)/old_bitrate);            
+        }
+        double rearrange_threshold = 0.2;//暂时采用变化率>0.2作为判断标准，写定后可以写到.h中
+        if(change_rate > rearrange_threshold)
+            Simulator::Schedule(Seconds(0), &VcaServer::OptimizeAllocation, this);
+        
+//        Simulator::Schedule(Seconds(0), &VcaServer::OptimizeAllocation, this);
+        // m_opt_params.capacities_kbps[0] = 300.0;
+        // m_opt_params.capacities_kbps[1] = 500.0;
+        // m_opt_params.capacities_kbps[2] = 700.0;
     };
 
 }; // namespace ns3

@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
   cmd.AddValue("simTime", "Total simulation time in s", simulationDuration);
   cmd.AddValue("maxBitrateKbps", "Max bitrate in kbps", maxBitrateKbps);
   cmd.AddValue("policy", "0 for vanilla, 1 for Yongyule", policy);
-//  cmd.AddValue("nClient", "Number of clients", nClient);
+  cmd.AddValue("nClient", "Number of clients", nClient);
   cmd.AddValue("printPosition", "Print position of nodes", printPosition);
   cmd.AddValue("minBitrate", "Minimum tolerable bitrate in kbps", minBitrateKbps);
   cmd.AddValue("savePcap", "Save pcap file", savePcap);
