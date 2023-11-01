@@ -26,7 +26,10 @@ namespace ns3
           payload_size(0),
           half_header(nullptr),
           half_payload(nullptr),
-          app_header(VcaAppProtHeader()){};
+          app_header(VcaAppProtHeader()),
+          ul_rate(100),
+          dl_rate(100),
+          lambda(1.0){};
 
     ClientInfo::~ClientInfo(){};
 
@@ -454,6 +457,7 @@ namespace ns3
         client_info->capacity_frame_size = 1e7;
         client_info->half_header = nullptr;
         client_info->half_payload = nullptr;
+        client_info->lambda = 1.0;
 
         m_ul_socket_id_map[ul_peer_ip.Get()] = m_socket_id;
         m_dl_socket_id_map[dl_peer_ip.Get()] = m_socket_id;
@@ -564,11 +568,11 @@ namespace ns3
             if (packet_dl == nullptr)
                 continue;
 
-            // todo : update other_client_info -> lambda
+            // update other_client_info -> lambda
             VcaAppProtHeader app_header(frame_id, pkt_id);
             app_header.SetSrcId(src_id);
             app_header.SetPayloadSize(payload_size);
-            app_header.SetLambda((uint32_t)(other_client_info->lambda * 10000));
+            app_header.SetLambda((uint32_t)(other_client_info->lambda * 10000.0));
             packet_dl->AddHeader(app_header);
 
             other_client_info->send_buffer.push_back(packet_dl);
@@ -726,16 +730,21 @@ namespace ns3
         // NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
 
         // send back to clients
-        uint8_t id = 0;
         for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
         {
             Ptr<ClientInfo> client_info = it->second;
-            client_info->lambda = m_opt_alloc[id];
-            NS_LOG_DEBUG("[VcaServer] Client " << it->first << " lambda " << client_info->lambda);
-            id++;
-        }
+            if (client_info->ul_rate > 0.1)
+            {
+                client_info->lambda = (m_opt_params.capacities_kbps[it->first] - m_opt_alloc[it->first]) / client_info->ul_rate;
+            }
 
-        // TODO: change dl bitrate accordingly
+            if (client_info->dl_rate > 0.1)
+            {
+                client_info->dl_bitrate_reduce_factor = m_opt_alloc[it->first] / client_info->dl_rate;
+            }
+
+            NS_LOG_DEBUG("[VcaServer] Client " << it->first << " lambda " << client_info->lambda);
+        }
     };
 
     void

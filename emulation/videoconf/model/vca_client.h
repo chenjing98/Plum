@@ -149,8 +149,6 @@ namespace ns3
         std::list<Ptr<Socket>> m_socket_list_dl;
         std::unordered_map<Ptr<Socket>, uint8_t> m_socket_id_map_ul;
         uint8_t m_socket_id_ul;
-        std::unordered_map<Ptr<Socket>, uint8_t> m_socket_id_map_dl;
-        uint8_t m_socket_id_dl;
         std::vector<Ipv4Address> m_peer_list;
 
         TypeId m_tid;

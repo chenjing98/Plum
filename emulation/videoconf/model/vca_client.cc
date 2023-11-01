@@ -79,7 +79,8 @@ namespace ns3
           m_probe_cooloff_count_max(8),
           m_probe_patience_count(0),
           m_probe_patience_count_max(8),
-          m_pkt_info(CreateObject<PktInfo>()){};
+          m_pkt_info(CreateObject<PktInfo>()),
+          m_lambda(1.0){};
 
     VcaClient::~VcaClient(){};
 
@@ -412,6 +413,7 @@ namespace ns3
 
         uint32_t src_id = m_pkt_info->app_header.GetSrcId();
         uint32_t payload_size = m_pkt_info->app_header.GetPayloadSize();
+        m_lambda = (double_t)m_pkt_info->app_header.GetLambda() / 10000.0;
 
         m_total_packet_bit += payload_size * 8;
 
@@ -624,7 +626,14 @@ namespace ns3
 
                 if (m_increase_ul)
                 {
-                    m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * kUlImprove;
+                    if (m_policy == YONGYULE)
+                    {
+                        m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * kUlImprove;
+                    }
+                    else if (m_policy == POLO)
+                    {
+                        m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * m_lambda;
+                    }
                 }
 
                 m_bitrateBps[ul_id] = std::min(m_bitrateBps[ul_id], kMaxEncodeBps);
