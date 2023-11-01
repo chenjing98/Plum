@@ -317,8 +317,7 @@ namespace ns3
     void
     VcaServer::HandleRead(Ptr<Socket> socket)
     {
-        NS_LOG_LOGIC("[VcaServer] HandleRead");
-        Ptr<Packet> packet;
+        Ptr<Packet> rx_data;
         Address peerAddress;
         socket->GetPeerName(peerAddress);
         uint8_t socket_id = m_ul_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
@@ -330,12 +329,12 @@ namespace ns3
             // start to read header
             if (client_info->read_status == 0)
             {
-                packet = socket->Recv(VCA_APP_PROT_HEADER_LENGTH, false);
-                if (packet == NULL)
+                rx_data = socket->Recv(VCA_APP_PROT_HEADER_LENGTH, false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_header = packet;
+                client_info->half_header = rx_data;
                 if (client_info->half_header->GetSize() < VCA_APP_PROT_HEADER_LENGTH)
                     client_info->read_status = 1; // continue to read header;
                 if (client_info->half_header->GetSize() == VCA_APP_PROT_HEADER_LENGTH)
@@ -344,22 +343,20 @@ namespace ns3
             // continue to read header
             if (client_info->read_status == 1)
             {
-                packet = socket->Recv(VCA_APP_PROT_HEADER_LENGTH - client_info->half_header->GetSize(), false);
-                if (packet == NULL)
+                rx_data = socket->Recv(VCA_APP_PROT_HEADER_LENGTH - client_info->half_header->GetSize(), false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_header->AddAtEnd(packet);
+                client_info->half_header->AddAtEnd(rx_data);
                 if (client_info->half_header->GetSize() == VCA_APP_PROT_HEADER_LENGTH)
                     client_info->read_status = 2; // start to read payload;
             }
             // start to read payload
             if (client_info->read_status == 2)
             {
-
                 if (client_info->set_header == 0)
                 {
-                    client_info->app_header.Reset();
                     client_info->half_header->RemoveHeader(client_info->app_header);
                     client_info->payload_size = client_info->app_header.GetPayloadSize();
 
@@ -372,26 +369,26 @@ namespace ns3
                         return;
                     }
                 }
-                packet = socket->Recv(client_info->payload_size, false);
-                if (packet == NULL)
+                rx_data = socket->Recv(client_info->payload_size, false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_payload = packet;
+                client_info->half_payload = rx_data;
                 if (client_info->half_payload->GetSize() < client_info->payload_size)
-                    client_info->read_status = 3; // continue to read payload;
+                    client_info->read_status = 3; // continue to read payload
                 if (client_info->half_payload->GetSize() == client_info->payload_size)
-                    client_info->read_status = 4; // READY TO SEND;
+                    client_info->read_status = 4; // READY TO SEND
             }
             // continue to read payload
             if (client_info->read_status == 3)
             {
-                packet = socket->Recv(client_info->payload_size - client_info->half_payload->GetSize(), false);
-                if (packet == NULL)
+                rx_data = socket->Recv(client_info->payload_size - client_info->half_payload->GetSize(), false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_payload->AddAtEnd(packet);
+                client_info->half_payload->AddAtEnd(rx_data);
                 if (client_info->half_payload->GetSize() == client_info->payload_size)
                     client_info->read_status = 4; // READY TO SEND;
             }
@@ -399,12 +396,11 @@ namespace ns3
             // status = 0  (1\ all empty then return    2\ all ready)
             if (client_info->read_status == 4)
             {
-
-                uint8_t *buffer = new uint8_t[client_info->half_payload->GetSize()];               // 创建一个buffer，用于存储packet元素
-                client_info->half_payload->CopyData(buffer, client_info->half_payload->GetSize()); // 将packet元素复制到buffer中
                 ReceiveData(client_info->half_payload, socket_id);
                 client_info->read_status = 0;
                 client_info->set_header = 0;
+                client_info->half_payload->RemoveAtEnd(client_info->payload_size);
+                client_info->app_header.Reset();
             }
         }
     };
