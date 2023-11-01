@@ -41,7 +41,7 @@ run_ns3() {
     output_file=${filename}.txt
     output_file_clean=${filename}.csv
     echo At policy: $policy, nclient: $nclient, seed: $seed, output_file: $filename.txt/csv...
-    ns3_output=$(NS_GLOBAL_VALUE="RngRun=$seed" ./ns3 run "scratch/test+wifi+app --mode=sfu --logLevel=0 --simTime=${simt} --policy=${policy} --nClient=${nclient} --ulImpv=${ulImpv} --dlYield=${dlYield} --lowUlThresh=${lowUlThresh} --highUlThresh=${highUlThresh}" 2>&1)
+    ns3_output=$(NS_GLOBAL_VALUE="RngRun=$seed" ./ns3 run "scratch/test_wifi_channel --mode=sfu --logLevel=0 --simTime=${simt} --policy=${policy} --nClient=${nclient} --ulImpv=${ulImpv} --dlYield=${dlYield} --lowUlThresh=${lowUlThresh} --highUlThresh=${highUlThresh}" 2>&1)
     avg_thp=$(python3 /home/chenj/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -a)
     min_thp=$(python3 /home/chenj/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -m)
     tail_thp=$(python3 /home/chenj/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -t)
