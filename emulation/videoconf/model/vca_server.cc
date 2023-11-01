@@ -26,7 +26,10 @@ namespace ns3
           payload_size(0),
           half_header(nullptr),
           half_payload(nullptr),
-          app_header(VcaAppProtHeader()){};
+          app_header(VcaAppProtHeader()),
+          ul_rate(100),
+          dl_rate(100),
+          lambda(1.0){};
 
     ClientInfo::~ClientInfo(){};
 
@@ -192,7 +195,8 @@ namespace ns3
             NS_LOG_DEBUG("[VcaServer] Connecting to the python server to connect");
         }
 
-        Simulator::Schedule(Seconds(1), &VcaServer::OptimizeAllocation, this);
+        // change triggering time
+        Simulator::Schedule(Seconds(1), &VcaServer::UpdateCapacities, this); 
     };
 
     void
@@ -317,8 +321,7 @@ namespace ns3
     void
     VcaServer::HandleRead(Ptr<Socket> socket)
     {
-        NS_LOG_LOGIC("[VcaServer] HandleRead");
-        Ptr<Packet> packet;
+        Ptr<Packet> rx_data;
         Address peerAddress;
         socket->GetPeerName(peerAddress);
         uint8_t socket_id = m_ul_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
@@ -330,12 +333,12 @@ namespace ns3
             // start to read header
             if (client_info->read_status == 0)
             {
-                packet = socket->Recv(VCA_APP_PROT_HEADER_LENGTH, false);
-                if (packet == NULL)
+                rx_data = socket->Recv(VCA_APP_PROT_HEADER_LENGTH, false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_header = packet;
+                client_info->half_header = rx_data;
                 if (client_info->half_header->GetSize() < VCA_APP_PROT_HEADER_LENGTH)
                     client_info->read_status = 1; // continue to read header;
                 if (client_info->half_header->GetSize() == VCA_APP_PROT_HEADER_LENGTH)
@@ -344,22 +347,20 @@ namespace ns3
             // continue to read header
             if (client_info->read_status == 1)
             {
-                packet = socket->Recv(VCA_APP_PROT_HEADER_LENGTH - client_info->half_header->GetSize(), false);
-                if (packet == NULL)
+                rx_data = socket->Recv(VCA_APP_PROT_HEADER_LENGTH - client_info->half_header->GetSize(), false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_header->AddAtEnd(packet);
+                client_info->half_header->AddAtEnd(rx_data);
                 if (client_info->half_header->GetSize() == VCA_APP_PROT_HEADER_LENGTH)
                     client_info->read_status = 2; // start to read payload;
             }
             // start to read payload
             if (client_info->read_status == 2)
             {
-
                 if (client_info->set_header == 0)
                 {
-                    client_info->app_header.Reset();
                     client_info->half_header->RemoveHeader(client_info->app_header);
                     client_info->payload_size = client_info->app_header.GetPayloadSize();
 
@@ -372,26 +373,26 @@ namespace ns3
                         return;
                     }
                 }
-                packet = socket->Recv(client_info->payload_size, false);
-                if (packet == NULL)
+                rx_data = socket->Recv(client_info->payload_size, false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_payload = packet;
+                client_info->half_payload = rx_data;
                 if (client_info->half_payload->GetSize() < client_info->payload_size)
-                    client_info->read_status = 3; // continue to read payload;
+                    client_info->read_status = 3; // continue to read payload
                 if (client_info->half_payload->GetSize() == client_info->payload_size)
-                    client_info->read_status = 4; // READY TO SEND;
+                    client_info->read_status = 4; // READY TO SEND
             }
             // continue to read payload
             if (client_info->read_status == 3)
             {
-                packet = socket->Recv(client_info->payload_size - client_info->half_payload->GetSize(), false);
-                if (packet == NULL)
+                rx_data = socket->Recv(client_info->payload_size - client_info->half_payload->GetSize(), false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_payload->AddAtEnd(packet);
+                client_info->half_payload->AddAtEnd(rx_data);
                 if (client_info->half_payload->GetSize() == client_info->payload_size)
                     client_info->read_status = 4; // READY TO SEND;
             }
@@ -399,12 +400,11 @@ namespace ns3
             // status = 0  (1\ all empty then return    2\ all ready)
             if (client_info->read_status == 4)
             {
-
-                uint8_t *buffer = new uint8_t[client_info->half_payload->GetSize()];               // 创建一个buffer，用于存储packet元素
-                client_info->half_payload->CopyData(buffer, client_info->half_payload->GetSize()); // 将packet元素复制到buffer中
                 ReceiveData(client_info->half_payload, socket_id);
                 client_info->read_status = 0;
                 client_info->set_header = 0;
+                client_info->half_payload->RemoveAtEnd(client_info->payload_size);
+                client_info->app_header.Reset();
             }
         }
     };
@@ -458,6 +458,7 @@ namespace ns3
         client_info->capacity_frame_size = 1e7;
         client_info->half_header = nullptr;
         client_info->half_payload = nullptr;
+        client_info->lambda = 1.0;
 
         m_ul_socket_id_map[ul_peer_ip.Get()] = m_socket_id;
         m_dl_socket_id_map[dl_peer_ip.Get()] = m_socket_id;
@@ -568,11 +569,11 @@ namespace ns3
             if (packet_dl == nullptr)
                 continue;
 
-            // todo : update other_client_info -> lambda
+            // update other_client_info -> lambda
             VcaAppProtHeader app_header(frame_id, pkt_id);
             app_header.SetSrcId(src_id);
             app_header.SetPayloadSize(payload_size);
-            app_header.SetLambda((uint32_t)(other_client_info->lambda * 10000));
+            app_header.SetLambda((uint32_t)(other_client_info->lambda * 10000.0));
             packet_dl->AddHeader(app_header);
 
             other_client_info->send_buffer.push_back(packet_dl);
@@ -730,44 +731,47 @@ namespace ns3
         // NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
 
         // send back to clients
-        uint8_t id = 0;
         for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
         {
             Ptr<ClientInfo> client_info = it->second;
-            client_info->lambda = m_opt_alloc[id];
-            NS_LOG_DEBUG("[VcaServer] Client " << (int)it->first << " lambda " << client_info->lambda);
-            id++;
-        }
+            if (client_info->ul_rate > 0.1)
+            {
+                client_info->lambda = (m_opt_params.capacities_kbps[it->first] - m_opt_alloc[it->first]) / client_info->ul_rate;
+            }
 
-        // TODO: change dl bitrate accordingly
+            if (client_info->dl_rate > 0.1)
+            {
+                client_info->dl_bitrate_reduce_factor = m_opt_alloc[it->first] / client_info->dl_rate;
+            }
+
+            NS_LOG_DEBUG("[VcaServer] Client " << it->first << " lambda " << client_info->lambda);
+        }
     };
 
     void
     VcaServer::UpdateCapacities()
     {
-        // NS_LOG_UNCOND("Here in UpdateCapacities!");
+        // realize updating the capacities
+
         double change_rate = 0;
-        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++){
+        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+        {
             Ptr<ClientInfo> client_info = it->second;
             Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(client_info->socket_ul);
             Ptr<TcpSocketBase> dl_socket = DynamicCast<TcpSocketBase, Socket>(client_info->socket_dl);
             uint64_t ul_bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
-            uint64_t dl_bitrate = dl_socket->GetTcb()->m_pacingRate.Get().GetBitRate();//bps
-            // NS_LOG_UNCOND("Here m_opt_params.capacities_kbps["<<(int)it->first<<"]="<<ul_bitrate<<"+"<<dl_bitrate);    
+            uint64_t dl_bitrate = dl_socket->GetTcb()->m_pacingRate.Get().GetBitRate(); // bps
 
-            double_t new_bitrate = (ul_bitrate+dl_bitrate)/1000.0; //kbps
+            double_t new_bitrate = (ul_bitrate + dl_bitrate) / 1000.0; // kbps
             double_t old_bitrate = m_opt_params.capacities_kbps[it->first];
             m_opt_params.capacities_kbps[it->first] = new_bitrate;
-            change_rate = std::max(change_rate,abs(new_bitrate-old_bitrate)/old_bitrate);            
+            change_rate = std::max(change_rate, abs(new_bitrate - old_bitrate) / old_bitrate);
         }
-        double rearrange_threshold = 0.2;//暂时采用变化率>0.2作为判断标准，写定后可以写到.h中
-        if(change_rate > rearrange_threshold)
-            Simulator::Schedule(Seconds(0), &VcaServer::OptimizeAllocation, this);
-        
-//        Simulator::Schedule(Seconds(0), &VcaServer::OptimizeAllocation, this);
-        // m_opt_params.capacities_kbps[0] = 300.0;
-        // m_opt_params.capacities_kbps[1] = 500.0;
-        // m_opt_params.capacities_kbps[2] = 700.0;
+        double rearrange_threshold = 0.2; // 暂时采用变化率>0.2作为判断标准，写定后可以写到.h中
+        if (change_rate > rearrange_threshold)
+            Simulator::ScheduleNow(&VcaServer::OptimizeAllocation, this);
+
+        Simulator::Schedule(MilliSeconds(500), &VcaServer::UpdateCapacities, this);
     };
 
 }; // namespace ns3

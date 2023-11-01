@@ -36,9 +36,9 @@ namespace ns3
     private:
         uint16_t m_frame_id;
         uint16_t m_packet_id;
+        uint32_t m_payload_size;
         uint32_t m_src_id;
         uint32_t m_lambda_t1e4;
-        uint32_t m_payload_size;
     };
 
 } // namespace ns3

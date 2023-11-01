@@ -423,7 +423,7 @@ int main(int argc, char *argv[])
                                   StringValue("RowFirst"));
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Bounds",
-                              RectangleValue(Rectangle(-30, 30, -30, 30)));
+                              RectangleValue(Rectangle(-10, 10, -10, 10)));
     // for (uint32_t i = 0; i < nClient; i++)
     // {
     //   mobility.Install(wifiStaNodes[i]);

@@ -74,7 +74,10 @@ namespace ns3
         Ptr<Packet> half_payload;
         VcaAppProtHeader app_header;
 
-        double lambda;
+        double_t ul_rate; // in kbps
+        double_t dl_rate; // in kbps
+
+        double_t lambda;
 
     }; // class ClientInfo
 

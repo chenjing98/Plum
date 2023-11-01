@@ -79,7 +79,8 @@ namespace ns3
           m_probe_cooloff_count_max(8),
           m_probe_patience_count(0),
           m_probe_patience_count_max(8),
-          m_pkt_info(CreateObject<PktInfo>()){};
+          m_pkt_info(CreateObject<PktInfo>()),
+          m_lambda(1.0){};
 
     VcaClient::~VcaClient(){};
 
@@ -374,37 +375,20 @@ namespace ns3
             // status = 0  (1\ all empty then return    2\ all ready)
             if (m_pkt_info->read_status == 4)
             {
-
-                uint8_t *buffer = new uint8_t[m_pkt_info->half_payload->GetSize()];              // 创建一个buffer，用于存储packet元素
-                m_pkt_info->half_payload->CopyData(buffer, m_pkt_info->half_payload->GetSize()); // 将packet元素复制到buffer中
-
                 ReadPacket(m_pkt_info->half_payload);
                 m_pkt_info->read_status = 0;
                 m_pkt_info->set_header = 0;
-                break;
+                m_pkt_info->app_header.Reset();
             }
-        }
-
-        
-        m_lambda = (double_t)m_pkt_info->app_header.GetLambda() / 10000.0;
-
-        if (m_policy == POLO)
-        {
-            // EnforceDlParam(dl_lambda);
-            // NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] GetDlParam = " << dl_lambda);
-            // TODO: enforce lambda in encoding
         }
     };
 
     void
     VcaClient::HandleAccept(Ptr<Socket> socket, const Address &from)
     {
-        NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] HandleAccept");
+        NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] HandleAccept: " << socket);
         socket->SetRecvCallback(MakeCallback(&VcaClient::HandleRead, this));
         m_socket_list_dl.push_back(socket);
-        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] HandleAccept: " << socket);
-        // m_socket_id_map_dl[socket] = m_socket_id_dl;
-        // m_socket_id_dl += 1;
     };
 
     void
@@ -429,6 +413,7 @@ namespace ns3
 
         uint32_t src_id = m_pkt_info->app_header.GetSrcId();
         uint32_t payload_size = m_pkt_info->app_header.GetPayloadSize();
+        m_lambda = (double_t)m_pkt_info->app_header.GetLambda() / 10000.0;
 
         m_total_packet_bit += payload_size * 8;
 
@@ -455,7 +440,7 @@ namespace ns3
             // }
             m_transientRateBps[now_second][src_id] += payload_size * 8;
         }
-        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << payload_size << " SrcId= " << src_id);
+        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << m_pkt_info->app_header.GetFrameId() << " PktId= " << m_pkt_info->app_header.GetPacketId() << " PayloadSize= " << payload_size << " SrcId= " << src_id << " Lambda= " << m_lambda);
         ReceiveData(packet);
     };
 
@@ -547,7 +532,7 @@ namespace ns3
 
                 m_send_buffer_pkt[i].push_back(packet);
 
-                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_pkt[i].size() << " PktSize= " << packet->GetSize() << " FrameId= " << m_frame_id << " PktId= " << pkt_id_in_frame);
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ProducePkt] Time= " << Simulator::Now().GetMilliSeconds() << " SendBufSize= " << m_send_buffer_pkt[i].size() << " PktSize= " << packet->GetSize() << " FrameId= " << m_frame_id << " PktId= " << pkt_id_in_frame << " PayloadSize= " << app_header.GetPayloadSize() << " SrcId= " << app_header.GetSrcId());
 
                 pkt_id_in_frame++;
             }
@@ -641,7 +626,14 @@ namespace ns3
 
                 if (m_increase_ul)
                 {
-                    m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * kUlImprove;
+                    if (m_policy == YONGYULE)
+                    {
+                        m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * kUlImprove;
+                    }
+                    else if (m_policy == POLO)
+                    {
+                        m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * m_lambda;
+                    }
                 }
 
                 m_bitrateBps[ul_id] = std::min(m_bitrateBps[ul_id], kMaxEncodeBps);

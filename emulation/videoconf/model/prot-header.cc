@@ -21,14 +21,16 @@ namespace ns3
     VcaAppProtHeader::VcaAppProtHeader()
         : m_frame_id(0),
           m_packet_id(0),
+          m_payload_size(1448 - VCA_APP_PROT_HEADER_LENGTH),
+          m_src_id(0),
           m_lambda_t1e4(1e4){};
 
     VcaAppProtHeader::VcaAppProtHeader(uint16_t frame_id, uint16_t packet_id)
         : m_frame_id(frame_id),
-          m_packet_id(packet_id)
-    {
-        m_lambda_t1e4 = 1e4;
-    };
+          m_packet_id(packet_id),
+          m_payload_size(1448 - VCA_APP_PROT_HEADER_LENGTH),
+          m_src_id(0),
+          m_lambda_t1e4(1e4){};
 
     VcaAppProtHeader::~VcaAppProtHeader(){};
 
@@ -37,19 +39,19 @@ namespace ns3
     {
         start.WriteHtonU16(m_frame_id);
         start.WriteHtonU16(m_packet_id);
+        start.WriteHtonU32(m_payload_size);
         start.WriteHtonU32(m_src_id);
         start.WriteHtonU32(m_lambda_t1e4);
-        start.WriteHtonU32(m_payload_size);
-    };
+        };
 
     uint32_t
     VcaAppProtHeader::Deserialize(Buffer::Iterator start)
     {
         m_frame_id = start.ReadNtohU16();
         m_packet_id = start.ReadNtohU16();
+        m_payload_size = start.ReadNtohU32();
         m_src_id = start.ReadNtohU32();
         m_lambda_t1e4 = start.ReadNtohU32();
-        m_payload_size = start.ReadNtohU32();
         return GetSerializedSize();
     };
 
@@ -62,7 +64,7 @@ namespace ns3
     void
     VcaAppProtHeader::Print(std::ostream &os) const
     {
-        os << "FrameId= " << m_frame_id << " PacketId= " << m_packet_id << " TargetFrameSize= " << m_lambda_t1e4 << " PayloadSize= " << m_payload_size;
+        os << "FrameId= " << m_frame_id << " PacketId= " << m_packet_id << " PayloadSize= " << m_payload_size << " SrcId= " << m_src_id << " TargetFrameSize= " << m_lambda_t1e4;
     };
 
     void
@@ -130,9 +132,9 @@ namespace ns3
     {
         m_frame_id = 0;
         m_packet_id = 0;
+        m_payload_size = 1448 - VCA_APP_PROT_HEADER_LENGTH;
         m_src_id = 0;
         m_lambda_t1e4 = 1e4;
-        m_payload_size = 0;
     };
 
 } // namespace ns3
