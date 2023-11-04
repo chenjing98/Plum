@@ -196,7 +196,7 @@ namespace ns3
         }
 
         // change triggering time
-        Simulator::Schedule(Seconds(1), &VcaServer::UpdateCapacities, this); 
+        Simulator::Schedule(Seconds(5), &VcaServer::UpdateCapacities, this); 
     };
 
     void
@@ -744,7 +744,7 @@ namespace ns3
                 client_info->dl_bitrate_reduce_factor = m_opt_alloc[it->first] / client_info->dl_rate;
             }
 
-            NS_LOG_DEBUG("[VcaServer] Client " << it->first << " lambda " << client_info->lambda);
+            NS_LOG_DEBUG("[VcaServer] Client " << (uint16_t)it->first << " lambda " << client_info->lambda << " capacity " << m_opt_params.capacities_kbps[it->first] << " ul_rate " << client_info->ul_rate << " dl_rate " << client_info->dl_rate << " dl_rate_opt " << m_opt_alloc[it->first] << " ul_rate_opt " << m_opt_params.capacities_kbps[it->first] - m_opt_alloc[it->first]);
         }
     };
 
