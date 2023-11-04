@@ -135,6 +135,7 @@ int main(int argc, char *argv[])
   Time::SetResolution(Time::NS);
 
   Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpBbr"));
+  Config::SetDefault("ns3::TcpSocket::SegmentSize", UintegerValue(1448));
 
   if (is_tack)
   {
