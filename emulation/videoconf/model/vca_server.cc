@@ -53,7 +53,8 @@ namespace ns3
           m_num_degraded_users(0),
           m_total_packet_size(0),
           m_separate_socket(0),
-          m_opt_params(){};
+          m_opt_params(),
+          m_policy(VANILLA){};
 
     VcaServer::~VcaServer(){};
 
@@ -122,6 +123,12 @@ namespace ns3
     VcaServer::SetMaxThroughput(double_t max_throughput_kbps)
     {
         m_opt_params.max_bitrate_kbps = max_throughput_kbps;
+    };  
+    
+    void
+    VcaServer::SetPolicy(POLICY policy)
+    {
+        m_policy = policy;
     };
 
     // Application Methods
@@ -179,24 +186,27 @@ namespace ns3
             }
         }
 
-        m_py_socket = socket(AF_INET, SOCK_STREAM, 0);
-        if (m_py_socket == -1)
+        if(m_policy == POLO)
         {
-            NS_FATAL_ERROR("Failed to create socket");
+            m_py_socket = socket(AF_INET, SOCK_STREAM, 0);
+            if (m_py_socket == -1)
+            {
+                NS_FATAL_ERROR("Failed to create socket");
+            }
+            struct sockaddr_in sock_addr;
+            sock_addr.sin_family = AF_INET;
+            sock_addr.sin_port = htons(SOLVER_SOCKET_PORT);
+            sock_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+            while (connect(m_py_socket, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) == -1)
+            {
+                NS_LOG_DEBUG("[VcaServer] Connecting to the python server to connect");
+            }
+
+            // change triggering time
+            Simulator::Schedule(Seconds(5), &VcaServer::UpdateCapacities, this); 
         }
 
-        struct sockaddr_in sock_addr;
-        sock_addr.sin_family = AF_INET;
-        sock_addr.sin_port = htons(SOLVER_SOCKET_PORT);
-        sock_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-
-        while (connect(m_py_socket, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) == -1)
-        {
-            NS_LOG_DEBUG("[VcaServer] Connecting to the python server to connect");
-        }
-
-        // change triggering time
-        Simulator::Schedule(Seconds(5), &VcaServer::UpdateCapacities, this); 
     };
 
     void

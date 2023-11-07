@@ -18,12 +18,6 @@
 
 #include "prot-header.h"
 
-enum POLICY
-{
-    VANILLA,
-    YONGYULE,
-    POLO
-};
 
 enum YONGYULE_REALIZATION
 {

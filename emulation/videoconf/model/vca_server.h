@@ -95,6 +95,7 @@ namespace ns3
         void SetPeerDlPort(uint16_t port);
 
         void SetNodeId(uint32_t node_id);
+        void SetPolicy(POLICY policy);
         void SetSeparateSocket();
 
         void SetRho(double_t rho);
@@ -204,6 +205,8 @@ namespace ns3
             double_t qoe_func_beta = 0.0;
             double_t capacities_kbps[MAX_NUM_USERS];
         } m_opt_params;
+        
+        POLICY m_policy;
 
         double_t m_opt_alloc[MAX_NUM_USERS];
 

@@ -496,6 +496,7 @@ int main(int argc, char *argv[])
     vcaServerApp->SetLocalUlPort(client_peer);
     vcaServerApp->SetPeerDlPort(client_dl);
     vcaServerApp->SetLocalDlPort(client_dl);
+    vcaServerApp->SetPolicy(static_cast<POLICY>(policy));
     vcaServerApp->SetNodeId(sfuCenter.Get(0)->GetId());
     sfuCenter.Get(0)->AddApplication(vcaServerApp);
     vcaServerApp->SetStartTime(Seconds(0.0));

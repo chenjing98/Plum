@@ -6,6 +6,12 @@
 
 namespace ns3
 {
+    enum POLICY
+    {
+        VANILLA,
+        YONGYULE,
+        POLO
+    };
     uint16_t const VCA_APP_PROT_HEADER_LENGTH = 16;
     class VcaAppProtHeader : public Header
     {
