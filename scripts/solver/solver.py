@@ -163,6 +163,9 @@ def socket_server(N):
             else:
                 qoe_func_alpha = 1.0 / max_bitrate / max_bitrate
             qoe_func_beta = 1.0 / max_bitrate - qoe_func_alpha * max_bitrate
+            
+        if num_view > num_users:
+            num_view = num_users
 
         solution = solve(N, capacities, [
                          rho, max_bitrate, qoe_type_name, qoe_func_alpha, qoe_func_beta, num_view, 'SLSQP', 30000.0, False]).tolist()

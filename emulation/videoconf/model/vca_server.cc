@@ -728,7 +728,7 @@ namespace ns3
     void
     VcaServer::OptimizeAllocation()
     {
-        NS_LOG_UNCOND("[VcaServer] OptimizeAllocation");
+        NS_LOG_LOGIC("[VcaServer] OptimizeAllocation");
         // define the communication format
         // params for solver: n, capacities
         // params for solver: [rho, max_bitrate, qoe_type, qoe_func_alpha, qoe_func_beta, num_view, method, init_bw, plot]
