@@ -44,7 +44,7 @@ def CalQoE(thplist):
         qoes.append(qoe(dl_bw))
     avg_qoe = calc_avg_qoe(qoes)
     qoe_fairness = 1 - 2 * calc_std_dev_qoe(avg_qoe, qoes)
-    return (rho - 1) * avg_qoe - rho * qoe_fairness
+    return (1 - rho) * avg_qoe + rho * qoe_fairness
 
 
 
