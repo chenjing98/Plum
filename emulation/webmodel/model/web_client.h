@@ -202,50 +202,6 @@ namespace ns3
 
         Ptr<ClientInfo> client_info;
     }; // class WebClient
-
-    // enum DL_RATE_CONTROL_STATE
-    // {
-    //     DL_RATE_CONTROL_STATE_NATRUAL,
-    //     DL_RATE_CONTROL_STATE_LIMIT
-    // };
-    // class ClientInfo : public Object
-    // {
-    // public:
-    //     static TypeId GetTypeId(void);
-    //     ClientInfo();
-    //     ~ClientInfo();
-
-    //     Ptr<Socket> socket_ul;
-    //     Ptr<Socket> socket_dl;
-    //     Ipv4Address ul_addr;
-    //     std::deque<Ptr<Packet>> send_buffer;
-    //     uint32_t cc_target_frame_size;
-    //     uint32_t capacity_frame_size;
-    //     std::unordered_map<uint8_t, uint32_t> frame_size_forwarded; // map key: dst_socket_id, value: frame_size_forwarded
-    //     std::unordered_map<uint8_t, uint16_t> prev_frame_id;        // map key: dst_socket_id, value: prev_frame_id
-
-    //     double_t dl_bitrate_reduce_factor;
-    //     DL_RATE_CONTROL_STATE dl_rate_control_state;
-
-    //     // Decode self-defined header in TCP payload
-    //     uint8_t set_header;
-    //     uint8_t read_status;
-    //     /*
-    //         m_status = 0   start to read header
-    //         m_status = 1   continue to read header
-    //         m_status = 2   start to read payload
-    //         m_status = 3   continue to read payload
-    //         m_status = 4   ready to send
-    //     */
-    //     uint32_t payload_size;
-    //     Ptr<Packet> half_header;
-    //     Ptr<Packet> half_payload;
-    //     WebAppProtHeader app_header;
-
-    //     double lambda;
-
-    // }; // class ClientInfo
-
-}; // namespace ns3
+};     // namespace ns3
 
 #endif

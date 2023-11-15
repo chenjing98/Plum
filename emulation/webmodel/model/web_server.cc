@@ -20,7 +20,7 @@ namespace ns3
         : cc_target_frame_size(1e7 / 8 / 20),
           capacity_frame_size(1e7),
           dl_bitrate_reduce_factor(1.0),
-          dl_rate_control_state(DL_RATE_CONTROL_STATE_NATRUAL),
+          dl_rate_control_state(NATRUAL),
           set_header(0),
           read_status(0),
           payload_size(0),
@@ -245,7 +245,7 @@ namespace ns3
                 UintegerValue val;
                 socket_dl->GetAttribute("SndBufSize", val);
                 uint32_t curPendingBuf = (uint32_t)val.Get() - sentsize - txbufferavailable;
-                NS_LOG_DEBUG("[WebServer] ccRate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << rtt_estimate*1000 << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf);
+                NS_LOG_DEBUG("[WebServer] ccRate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << rtt_estimate * 1000 << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf);
             }
         }
 
@@ -419,7 +419,7 @@ namespace ns3
         client_info->socket_dl = socket_dl;
         client_info->cc_target_frame_size = 1e7 / 8 / 20;
         client_info->dl_bitrate_reduce_factor = 1.0;
-        client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_NATRUAL;
+        client_info->dl_rate_control_state = NATRUAL;
         client_info->capacity_frame_size = 1e7;
         client_info->half_header = nullptr;
         client_info->half_payload = nullptr;
@@ -504,9 +504,9 @@ namespace ns3
         client_info->dl_bitrate_reduce_factor = (double_t)dl_redc_factor / 10000.0;
 
         // update dl rate control state
-        if (client_info->dl_bitrate_reduce_factor < 1.0 && client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_NATRUAL && m_num_degraded_users < m_client_info_map.size() / 2)
+        if (client_info->dl_bitrate_reduce_factor < 1.0 && client_info->dl_rate_control_state == NATRUAL && m_num_degraded_users < m_client_info_map.size() / 2)
         {
-            client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_LIMIT;
+            client_info->dl_rate_control_state = CONSTRAINED;
 
             // store the capacity (about to enter app-limit phase where cc could not fully probe the capacity)
             client_info->capacity_frame_size = client_info->cc_target_frame_size;
@@ -514,9 +514,9 @@ namespace ns3
 
             NS_LOG_DEBUG("[WebServer][DlRateControlStateLimit][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000.);
         }
-        else if (client_info->dl_bitrate_reduce_factor == 1.0 && client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
+        else if (client_info->dl_bitrate_reduce_factor == 1.0 && client_info->dl_rate_control_state == CONSTRAINED)
         {
-            client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_NATRUAL;
+            client_info->dl_rate_control_state = NATRUAL;
 
             // restore the capacity before the controlled (limited bw) phase
             client_info->cc_target_frame_size = client_info->capacity_frame_size;
@@ -549,15 +549,15 @@ namespace ns3
         //     SendData(other_client_info->socket_dl);
         // }
 
-
-        if(content_source_size >= content_response_size)
+        if (content_source_size >= content_response_size)
         {
             Ptr<Packet> packet_dl = TranscodeFrame(socket_id, socket_id, packet, frame_id);
-            if (packet_dl == nullptr) return;
+            if (packet_dl == nullptr)
+                return;
 
-            //todo1 : prepare packetdl(different from vca)
-            //todo2 : update other_client_info -> lambda
-            Add_Pkt_Header_Serv(packet_dl,client_info->lambda);
+            // todo1 : prepare packetdl(different from vca)
+            // todo2 : update other_client_info -> lambda
+            Add_Pkt_Header_Serv(packet_dl, client_info->lambda);
             client_info->send_buffer.push_back(packet_dl);
             SendData(client_info->socket_dl);
 
@@ -635,7 +635,7 @@ namespace ns3
     WebServer::GetTargetFrameSize(uint8_t socket_id)
     {
         Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
-        if (client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_NATRUAL)
+        if (client_info->dl_rate_control_state == NATRUAL)
         {
             uint32_t fair_share;
             // stick to original cc decisions
@@ -650,7 +650,7 @@ namespace ns3
             // fair_share = std::round((double_t)fair_share * 1.25);
             return std::max(fair_share, kMinFrameSizeBytes);
         }
-        else if (client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
+        else if (client_info->dl_rate_control_state == CONSTRAINED)
         {
             uint32_t fair_share, manual_dl_share;
             // limit the forwarding bitrate by capacity * reduce_factor
@@ -698,15 +698,16 @@ namespace ns3
         return dl_addr;
     };
 
-    void 
-    WebServer::Add_Pkt_Header_Serv(Ptr<Packet> packet, double lambda){
-        //reuse these uint16_t. (65536)
-        //store integer part and fractional part respectively
+    void
+    WebServer::Add_Pkt_Header_Serv(Ptr<Packet> packet, double lambda)
+    {
+        // reuse these uint16_t. (65536)
+        // store integer part and fractional part respectively
         uint16_t m_frame_id = (int)lambda;
-        uint16_t pkt_id_in_frame = ((int)(lambda*10000))%10000;
-        WebAppProtHeader app_header_info = 
-                WebAppProtHeader(m_frame_id, pkt_id_in_frame);
-        
+        uint16_t pkt_id_in_frame = ((int)(lambda * 10000)) % 10000;
+        WebAppProtHeader app_header_info =
+            WebAppProtHeader(m_frame_id, pkt_id_in_frame);
+
         uint32_t packet_size = packet->GetSize();
         app_header_info.SetPayloadSize(packet_size);
         packet->AddHeader(app_header_info);

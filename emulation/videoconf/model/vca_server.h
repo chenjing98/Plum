@@ -26,12 +26,6 @@ namespace ns3
     const uint8_t MAX_NUM_USERS = 20;
     const uint16_t SOLVER_SOCKET_PORT = 11999;
 
-    enum DL_RATE_CONTROL_STATE
-    {
-        DL_RATE_CONTROL_STATE_NATRUAL,
-        DL_RATE_CONTROL_STATE_LIMIT
-    };
-
     enum QOE_TYPE
     {
         QOE_TYPE_LIN,
@@ -56,8 +50,8 @@ namespace ns3
         std::unordered_map<uint8_t, uint32_t> frame_size_forwarded; // map key: dst_socket_id, value: frame_size_forwarded
         std::unordered_map<uint8_t, uint16_t> prev_frame_id;        // map key: dst_socket_id, value: prev_frame_id
 
-        double_t dl_bitrate_reduce_factor;
-        DL_RATE_CONTROL_STATE dl_rate_control_state;
+        double_t dl_target_rate; // in kbps
+        RATE_CONTROL_STATE dl_rate_control_state;
 
         // Decode self-defined header in TCP payload
         uint8_t set_header;
@@ -77,7 +71,7 @@ namespace ns3
         double_t ul_rate; // in kbps
         double_t dl_rate; // in kbps
 
-        double_t lambda;
+        double_t ul_target_rate; // in kbps
 
     }; // class ClientInfo
 
@@ -156,6 +150,10 @@ namespace ns3
 
         void UpdateCapacities();
 
+        uint32_t GetFrameSizeFairShare(uint32_t cc_target_framesize);
+
+        bool CheckOptResultsValidity();
+
         uint32_t m_node_id;
 
         Ptr<Socket> m_socket_ul;
@@ -205,7 +203,7 @@ namespace ns3
             double_t qoe_func_beta = 0.0;
             double_t capacities_kbps[MAX_NUM_USERS];
         } m_opt_params;
-        
+
         POLICY m_policy;
 
         double_t m_opt_alloc[MAX_NUM_USERS];

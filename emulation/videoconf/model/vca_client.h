@@ -18,7 +18,6 @@
 
 #include "prot-header.h"
 
-
 enum YONGYULE_REALIZATION
 {
     YONGYULE_RWND,
@@ -215,7 +214,9 @@ namespace ns3
         uint16_t m_probe_patience_count_max;
 
         Ptr<PktInfo> m_pkt_info;
-        double_t m_lambda;
+
+        double_t m_ul_target_bitrate_kbps;
+        RATE_CONTROL_STATE m_ul_rate_control_state;
     }; // class VcaClient
 
 }; // namespace ns3

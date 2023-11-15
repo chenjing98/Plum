@@ -9,9 +9,16 @@ namespace ns3
     enum POLICY
     {
         VANILLA,
-        YONGYULE,
+        YONGYULE, // deprecated
         POLO
     };
+
+    enum RATE_CONTROL_STATE
+    {
+        NATRUAL,
+        CONSTRAINED
+    };
+
     uint16_t const VCA_APP_PROT_HEADER_LENGTH = 16;
     class VcaAppProtHeader : public Header
     {
@@ -28,12 +35,12 @@ namespace ns3
 
         void SetFrameId(uint16_t frame_id);
         void SetPacketId(uint16_t packet_id);
-        void SetLambda(uint32_t lambda);
+        void SetUlTargetRate(uint32_t ul_target_rate);
         void SetPayloadSize(uint32_t payload_size);
         void SetSrcId(uint32_t src_id);
         uint16_t GetFrameId(void);
         uint16_t GetPacketId(void);
-        uint32_t GetLambda(void);
+        uint32_t GetUlTargetRate(void);
         uint32_t GetPayloadSize(void);
         uint32_t GetSrcId(void);
 
@@ -44,7 +51,7 @@ namespace ns3
         uint16_t m_packet_id;
         uint32_t m_payload_size;
         uint32_t m_src_id;
-        uint32_t m_lambda_t1e4;
+        uint32_t m_ul_target_rate_bps;
     };
 
 } // namespace ns3
