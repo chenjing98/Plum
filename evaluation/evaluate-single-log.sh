@@ -17,10 +17,10 @@ output_file=${filename}.txt
 output_file_clean=${filename}.csv
 ns3_output=$(<"${CURRENT_DIR}/logs-for-eva/a.log")
 
-avg_thp=$(python3 /home/xuzy/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -a)
-min_thp=$(python3 /home/xuzy/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -m)
-tail_thp=$(python3 /home/xuzy/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -t)
-qoe=$(python3 /home/xuzy/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -q)
+avg_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -a)
+min_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -m)
+tail_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -t)
+qoe=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -q)
 
 # output to file
 # dirty output
