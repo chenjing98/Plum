@@ -2,7 +2,8 @@
 
 export CORE_COUNT=50
 
-declare -a seeds=(777 42 55 6 7 20 84 234 1000 81)
+declare -a seeds=(777)
+# 42 55 6 7 20 84 234 1000 81)
 declare -a nclients=(3)
 declare -a simTime=(1000)
 declare -a policies=(0 2)
@@ -42,7 +43,7 @@ run_ns3() {
     echo At policy: $policy, nclient: $nclient, seed: $seed >> $output_file
     echo $ns3_output >> $output_file
     # clean output
-    echo $policy, $nclient, $seed, $avg_thp, $min_thp, $tail_thp, $qoe>> $output_file_clean
+    echo $policy, $nclient, $seed, $qoet, $avg_thp, $min_thp, $tail_thp, $qoe>> $output_file_clean
 }
 
 # compile first
