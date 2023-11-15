@@ -13,7 +13,7 @@ def qoe(dl_bw, qoeType):
     # sqr_concave = 3
     # sqr_convex = 2
     qoe = 0.0
-    max_bitrate = 10.0 # 待修改：Magic Number 
+    max_bitrate = 10000.0 # 待修改：Magic Number 
     alpha = 0
     beta = 0
     if qoeType == 0:
