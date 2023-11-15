@@ -594,70 +594,40 @@ namespace ns3
 
         for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
         {
-            Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
-
-            uint32_t sentsize = ul_socket->GetTxBuffer()->GetSentSize(); //
-            uint32_t txbufferavailable = ul_socket->GetTxAvailable();
-            uint32_t curPendingBuf = m_txBufSize[ul_id] - sentsize - txbufferavailable;
-            int32_t deltaPendingBuf = (int32_t)curPendingBuf - (int32_t)m_lastPendingBuf[ul_id];
-
-            int64_t time_now = Simulator::Now().GetMilliSeconds();
-            uint32_t totalWriteBytes = 0;
-            if (!m_time_history.empty())
+            if (m_policy == POLO && m_ul_rate_control_state == CONSTRAINED)
             {
-                while ((!m_time_history[ul_id].empty()) && ((time_now - m_time_history[ul_id].front()) > kTxRateUpdateWindowMs))
-                {
-                    m_time_history[ul_id].pop_front();
-                    m_write_history[ul_id].pop_front();
-                }
-            }
-            if (!m_write_history.empty())
-            {
-                totalWriteBytes = std::accumulate(m_write_history[ul_id].begin(), m_write_history[ul_id].end(), 0);
-            }
-            if (m_firstUpdate[ul_id])
-            {
-                m_bitrateBps[ul_id] = kMinEncodeBps;
-                m_firstUpdate[ul_id] = false;
-                m_lastPendingBuf[ul_id] = curPendingBuf;
+                m_bitrateBps[ul_id] = (uint32_t)(m_ul_target_bitrate_kbps * 1000.0);
             }
             else
             {
-                double dutyRatio = GetDutyRatio(ul_id);
-                uint32_t totalSendBytes = totalWriteBytes - deltaPendingBuf;
-                uint32_t lastSendingRateBps = (totalWriteBytes - deltaPendingBuf) * 1000 * 8 / kTxRateUpdateWindowMs;
-                if (curPendingBuf > 0)
-                {
-                    m_bitrateBps[ul_id] = uint32_t(kTargetDutyRatio * std::min((double)m_bitrateBps[ul_id],
-                                                                               std::max(0.1, 1 - (double)curPendingBuf / totalSendBytes) * lastSendingRateBps));
-                }
-                else
-                {
-                    m_bitrateBps[ul_id] -= kDampingCoef * (dutyRatio - kTargetDutyRatio) * m_bitrateBps[ul_id];
-                }
+                m_bitrateBps[ul_id] = GetUlBottleneckBw();
 
-                if (m_increase_ul)
-                {
-                    if (m_policy == YONGYULE)
-                    {
-                        m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * kUlImprove;
-                    }
-                    else if (m_policy == POLO)
-                    {
-                        m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * m_lambda;
-                    }
-                }
+                Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(*it);
 
-                m_bitrateBps[ul_id] = std::min(m_bitrateBps[ul_id], kMaxEncodeBps);
-                m_bitrateBps[ul_id] = std::max(m_bitrateBps[ul_id], kMinEncodeBps);
-
-                NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][UpdateBitrate] Time= " << Simulator::Now().GetMilliSeconds() << " Bitrate(bps) " << lastSendingRateBps << " Rtt(ms) " << (uint32_t)ul_socket->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << ul_socket->GetTcb()->m_cWnd.Get() << " pacingRate " << ((double_t)ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate() / 1000000.) << " nowBuf " << curPendingBuf << " TcpCongState " << ul_socket->GetTcb()->m_congState);
+                uint32_t sentsize = ul_socket->GetTxBuffer()->GetSentSize(); //
+                uint32_t txbufferavailable = ul_socket->GetTxAvailable();
+                uint32_t curPendingBuf = m_txBufSize[ul_id] - sentsize - txbufferavailable;
+                if (curPendingBuf > 18000)
+                    m_bitrateBps[ul_id] /= 2;
 
                 m_lastPendingBuf[ul_id] = curPendingBuf;
+
+                NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][UpdateBitrate] Time= " << Simulator::Now().GetMilliSeconds() << " m_bitrate " << m_bitrateBps[ul_id] << " Rtt(ms) " << (uint32_t)ul_socket->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << ul_socket->GetTcb()->m_cWnd.Get() << " pacingRate " << ((double_t)ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate() / 1000000.) << " nowBuf " << curPendingBuf << " TcpCongState " << ul_socket->GetTcb()->m_congState);
             }
 
-            ul_id++;
+            if (m_policy == YONGYULE && m_increase_ul)
+            {
+                m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * kUlImprove;
+            }
+
+            // bound the bitrate
+            m_bitrateBps[ul_id] = std::min(m_bitrateBps[ul_id], kMaxEncodeBps);
+            m_bitrateBps[ul_id] = std::max(m_bitrateBps[ul_id], kMinEncodeBps);
+
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][UpdateBitrate] Time= " << Simulator::Now().GetMilliSeconds() << " m_bitrate " << m_bitrateBps[ul_id]);
         }
+
+        ul_id++;
     };
 
     void VcaClient::StopEncodeFrame()
