@@ -2,15 +2,15 @@
 
 export CORE_COUNT=50
 
-declare -a seeds=(777)
+declare -a seeds=(777 42 55 6 7 20 84 234 1000 81)
 declare -a nclients=(3)
 declare -a simTime=(1000)
-declare -a policies=(0 1)
+declare -a policies=(0 2)
 declare -a ulprops=(0.8)
 declare -a ackmaxcounts=(16)
 
 export baseline_policy=0
-export filename_prefix="result_dec"
+export filename_prefix="result_wifi_qoe"
 
 
 export NS3_THROUGHPUT_REGEX="\[VcaClient\]\[Result\] Throughput= ([0-9\.e\-]+)"
@@ -29,11 +29,11 @@ run_ns3() {
     output_file=${filename}.txt
     output_file_clean=${filename}.csv
     echo At policy: $policy, nclient: $nclient, seed: $seed, output_file: $filename.txt/csv...
-    ns3_output=$(NS_GLOBAL_VALUE="RngRun=$seed" ./ns3 run "scratch/test_half_duplex --mode=sfu --logLevel=0 --simTime=${simt} --policy=0 --nClient=${nclient} --varyBw --traceMode=${policy} --seed=${seed}" 2>&1)
-    avg_thp=$(python3 /home/xuzy/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -a)
-    min_thp=$(python3 /home/xuzy/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -m)
-    tail_thp=$(python3 /home/xuzy/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -t)
-    qoe=$(python3 /home/xuzy/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -q)
+    ns3_output=$(NS_GLOBAL_VALUE="RngRun=$seed" ./ns3 run "scratch/test_wifi_channel --mode=sfu --logLevel=0 --simTime=${simt} --policy=${policy} --nClient=${nclient}" 2>&1)
+    avg_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -a)
+    min_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -m)
+    tail_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -t)
+    qoe=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -q)
     
     # output to file
     # dirty output
