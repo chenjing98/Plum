@@ -216,6 +216,7 @@ namespace ns3
         Ptr<PktInfo> m_pkt_info;
 
         double_t m_ul_target_bitrate_kbps;
+        RATE_CONTROL_STATE m_ul_rate_control_state;
     }; // class VcaClient
 
 }; // namespace ns3

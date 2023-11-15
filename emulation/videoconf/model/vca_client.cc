@@ -415,6 +415,16 @@ namespace ns3
         uint32_t payload_size = m_pkt_info->app_header.GetPayloadSize();
         m_ul_target_bitrate_kbps = (double_t)m_pkt_info->app_header.GetUlTargetRate() / 1000.0;
 
+        // update bitrate
+        if (m_ul_rate_control_state == RATE_CONTROL_STATE::NATRUAL && m_ul_target_bitrate_kbps > 0.1)
+        {
+            m_ul_rate_control_state = CONSTRAINED;
+            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][ReceivePkt] GoConstrained Time= " << Simulator::Now().GetMilliSeconds() << " UlTargetBitrate(kbps)= " << m_ul_target_bitrate_kbps);
+        }
+        else if (m_ul_rate_control_state == CONSTRAINED && m_ul_target_bitrate_kbps < 0.1)
+        {
+            m_ul_rate_control_state = RATE_CONTROL_STATE::NATRUAL;
+        }
 
         m_total_packet_bit += payload_size * 8;
 
