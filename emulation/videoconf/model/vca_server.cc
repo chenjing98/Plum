@@ -19,7 +19,7 @@ namespace ns3
     ClientInfo::ClientInfo()
         : cc_target_frame_size(1e7 / 8 / 20),
           capacity_frame_size(1e7),
-          dl_bitrate_reduce_factor(1.0),
+          dl_target_rate(0.0),
           dl_rate_control_state(NATRUAL),
           set_header(0),
           read_status(0),
@@ -29,7 +29,7 @@ namespace ns3
           app_header(VcaAppProtHeader()),
           ul_rate(100),
           dl_rate(100),
-          lambda(1.0){};
+          ul_target_rate(0.0){};
 
     ClientInfo::~ClientInfo(){};
 
@@ -462,12 +462,12 @@ namespace ns3
 
         client_info->socket_dl = socket_dl;
         client_info->cc_target_frame_size = 1e7 / 8 / 20;
-        client_info->dl_bitrate_reduce_factor = 1.0;
+        client_info->dl_target_rate = 1.0;
         client_info->dl_rate_control_state = NATRUAL;
         client_info->capacity_frame_size = 1e7;
         client_info->half_header = nullptr;
         client_info->half_payload = nullptr;
-        client_info->lambda = 1.0;
+        client_info->ul_target_rate = 0.0;
 
         m_ul_socket_id_map[ul_peer_ip.Get()] = m_socket_id;
         m_dl_socket_id_map[dl_peer_ip.Get()] = m_socket_id;
@@ -543,28 +543,6 @@ namespace ns3
         }
 
         m_total_packet_size += payload_size + VCA_APP_PROT_HEADER_LENGTH;
-
-        // update dl rate control state
-        if (client_info->dl_bitrate_reduce_factor < 1.0 && client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_NATRUAL && m_num_degraded_users < m_client_info_map.size() / 2)
-        {
-            client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_LIMIT;
-
-            // store the capacity (about to enter app-limit phase where cc could not fully probe the capacity)
-            client_info->capacity_frame_size = client_info->cc_target_frame_size;
-            m_num_degraded_users += 1;
-
-            NS_LOG_DEBUG("[VcaServer][DlRateControlStateLimit][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DlRedcFactor= " << client_info->dl_bitrate_reduce_factor);
-        }
-        else if (client_info->dl_bitrate_reduce_factor == 1.0 && client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
-        {
-            client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_NATRUAL;
-
-            // restore the capacity before the controlled (limited bw) phase
-            client_info->cc_target_frame_size = client_info->capacity_frame_size;
-            m_num_degraded_users -= 1;
-
-            NS_LOG_DEBUG("[VcaServer][DlRateControlStateNatural][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds());
-        }
 
         for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
         {
@@ -733,27 +711,64 @@ namespace ns3
         // params for solver: [rho, max_bitrate, qoe_type, qoe_func_alpha, qoe_func_beta, num_view, method, init_bw, plot]
 
         m_opt_params.num_users = m_client_info_map.size();
-        UpdateCapacities();
+
         send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
         recv(m_py_socket, m_opt_alloc, sizeof(double_t) * m_opt_params.num_users, 0);
 
         // NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
+        if (!CheckOptResultsValidity())
+        {
+            // back to original cc decisions
 
+            for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+            {
+                Ptr<ClientInfo> client_info = it->second;
+                client_info->ul_target_rate = 0.0;
+                client_info->dl_rate_control_state = NATRUAL;
+            }
+            return;
+        }
+
+        double_t ul_alloc, dl_alloc;
         // send back to clients
         for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
         {
             Ptr<ClientInfo> client_info = it->second;
-            if (client_info->ul_rate > 0.1)
+
+            dl_alloc = m_opt_alloc[it->first];
+            ul_alloc = m_opt_params.capacities_kbps[it->first] - dl_alloc;
+
+            client_info->ul_target_rate = ul_alloc;
+            client_info->dl_target_rate = dl_alloc;
+
+            NS_LOG_DEBUG("[VcaServer] Opti Client " << (uint16_t)it->first << " ul_target_rate " << client_info->ul_target_rate << " dl_target_rate " << client_info->dl_target_rate << " capacity " << m_opt_params.capacities_kbps[it->first] << " ul_rate " << client_info->ul_rate << " dl_rate " << client_info->dl_rate);
+
+            // update dl rate control state
+            if (client_info->dl_target_rate < client_info->dl_rate && client_info->dl_rate_control_state == NATRUAL)
             {
-                client_info->lambda = (m_opt_params.capacities_kbps[it->first] - m_opt_alloc[it->first]) / client_info->ul_rate;
+                client_info->dl_rate_control_state = CONSTRAINED;
+
+                // store the capacity (about to enter app-limit phase where cc could not fully probe the capacity)
+                NS_LOG_DEBUG("[VcaServer] Enter dl rate control state CONSTRAINED");
+                client_info->cc_target_frame_size = client_info->dl_rate * 1000 / 8 / m_fps;
+                client_info->capacity_frame_size = client_info->cc_target_frame_size;
+                m_num_degraded_users += 1;
+            }
+            else if (client_info->dl_target_rate >= client_info->dl_rate && client_info->dl_rate_control_state == CONSTRAINED)
+            {
+                NS_LOG_DEBUG("[VcaServer] Enter dl rate control state NATURAL");
+                client_info->dl_rate_control_state = NATRUAL;
+
+                // restore the capacity before the controlled (limited bw) phase
+                client_info->cc_target_frame_size = client_info->capacity_frame_size;
+                m_num_degraded_users -= 1;
             }
 
-            if (client_info->dl_rate > 0.1)
+            // update ul rate control state
+            if (client_info->ul_target_rate > client_info->ul_rate)
             {
-                client_info->dl_bitrate_reduce_factor = m_opt_alloc[it->first] / client_info->dl_rate;
+                client_info->ul_target_rate = 0.0; // let the client grow by its own CCA
             }
-
-            NS_LOG_DEBUG("[VcaServer] Client " << (uint16_t)it->first << " lambda " << client_info->lambda << " capacity " << m_opt_params.capacities_kbps[it->first] << " ul_rate " << client_info->ul_rate << " dl_rate " << client_info->dl_rate << " dl_rate_opt " << m_opt_alloc[it->first] << " ul_rate_opt " << m_opt_params.capacities_kbps[it->first] - m_opt_alloc[it->first]);
         }
     };
 
@@ -771,6 +786,9 @@ namespace ns3
             uint64_t ul_bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
             uint64_t dl_bitrate = dl_socket->GetTcb()->m_pacingRate.Get().GetBitRate(); // bps
 
+            client_info->ul_rate = ul_bitrate / 1000.0;
+            client_info->dl_rate = dl_bitrate / 1000.0;
+
             double_t new_bitrate = (ul_bitrate + dl_bitrate) / 1000.0; // kbps
             double_t old_bitrate = m_opt_params.capacities_kbps[it->first];
             m_opt_params.capacities_kbps[it->first] = new_bitrate;
@@ -781,6 +799,22 @@ namespace ns3
             Simulator::ScheduleNow(&VcaServer::OptimizeAllocation, this);
 
         Simulator::Schedule(MilliSeconds(500), &VcaServer::UpdateCapacities, this);
+    };
+
+    bool
+    VcaServer::CheckOptResultsValidity()
+    {
+        // check if the optimization results are valid
+
+        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+        {
+            if (m_opt_alloc[it->first] <= 2000 || m_opt_params.capacities_kbps[it->first] - m_opt_alloc[it->first] <= 1000)
+            {
+                return false;
+            }
+        }
+
+        return true;
     };
 
 }; // namespace ns3
