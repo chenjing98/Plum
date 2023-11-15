@@ -80,7 +80,7 @@ namespace ns3
           m_probe_patience_count(0),
           m_probe_patience_count_max(8),
           m_pkt_info(CreateObject<PktInfo>()),
-          m_lambda(1.0){};
+          m_ul_target_bitrate_kbps(0.0){};
 
     VcaClient::~VcaClient(){};
 
@@ -413,7 +413,8 @@ namespace ns3
 
         uint32_t src_id = m_pkt_info->app_header.GetSrcId();
         uint32_t payload_size = m_pkt_info->app_header.GetPayloadSize();
-        m_lambda = (double_t)m_pkt_info->app_header.GetLambda() / 10000.0;
+        m_ul_target_bitrate_kbps = (double_t)m_pkt_info->app_header.GetUlTargetRate() / 1000.0;
+
 
         m_total_packet_bit += payload_size * 8;
 
@@ -440,7 +441,8 @@ namespace ns3
             // }
             m_transientRateBps[now_second][src_id] += payload_size * 8;
         }
-        NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << m_pkt_info->app_header.GetFrameId() << " PktId= " << m_pkt_info->app_header.GetPacketId() << " PayloadSize= " << payload_size << " SrcId= " << src_id << " Lambda= " << m_lambda);
+        NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << m_pkt_info->app_header.GetFrameId() << " PktId= " << m_pkt_info->app_header.GetPacketId() << " PayloadSize= " << payload_size << " SrcId= " << src_id << " UlTargetBitrate(kbps)= " << m_ul_target_bitrate_kbps);
+
         ReceiveData(packet);
     };
 
@@ -648,8 +650,7 @@ namespace ns3
         }
     };
 
-    void
-    VcaClient::StopEncodeFrame()
+    void VcaClient::StopEncodeFrame()
     {
         if (m_enc_event.IsRunning())
         {
@@ -657,8 +658,7 @@ namespace ns3
         }
     };
 
-    void
-    VcaClient::OutputStatistics()
+    void VcaClient::OutputStatistics()
     {
         // NS_LOG_ERROR(" ============= Output Statistics =============");
 
@@ -740,8 +740,7 @@ namespace ns3
         NS_LOG_ERROR("[VcaClient][Result] TailThroughput= " << (double_t)less_then_thresh_count / (double_t)(m_transientRateBps.size() - InitPhaseFilterSec) << " AvgThroughput= " << /*(double_t)sum_transient_rate_kbps / (double_t)(pkt_history_length - InitPhaseFilterSec)*/ average_throughput << " NodeId= " << m_node_id);
     };
 
-    void
-    VcaClient::AdjustBw()
+    void VcaClient::AdjustBw()
     {
         if (m_policy == VANILLA || m_policy == POLO)
         {
@@ -855,8 +854,7 @@ namespace ns3
         }
     };
 
-    bool
-    VcaClient::IsBottleneck()
+    bool VcaClient::IsBottleneck()
     {
         // return 0: capacity in enough, no congestion
         // 1: sending rate exceeds the capacity, congested
@@ -884,8 +882,7 @@ namespace ns3
         return is_bottleneck;
     };
 
-    bool
-    VcaClient::IsLowRate()
+    bool VcaClient::IsLowRate()
     {
         bool is_low = false;
 
@@ -917,8 +914,7 @@ namespace ns3
         return is_low;
     };
 
-    bool
-    VcaClient::IsHighRate()
+    bool VcaClient::IsHighRate()
     {
         bool is_high = true;
         if (GetUlBottleneckBw() >= kHighUlThresh)
@@ -929,8 +925,7 @@ namespace ns3
         return is_high;
     };
 
-    bool
-    VcaClient::ShouldRecoverDl()
+    bool VcaClient::ShouldRecoverDl()
     {
         bool should_recover_dl = false;
 
@@ -972,8 +967,7 @@ namespace ns3
         }
     };
 
-    void
-    VcaClient::EnforceDlParam(double_t dl_lambda)
+    void VcaClient::EnforceDlParam(double_t dl_lambda)
     {
         if (m_yongyule_realization == YONGYULE_RWND)
         {
@@ -992,8 +986,7 @@ namespace ns3
         }
     };
 
-    bool
-    VcaClient::ElasticTest()
+    bool VcaClient::ElasticTest()
     {
         // if (m_bitrateBps.size() > 0)
         // {

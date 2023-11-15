@@ -560,7 +560,7 @@ namespace ns3
             VcaAppProtHeader app_header(frame_id, pkt_id);
             app_header.SetSrcId(src_id);
             app_header.SetPayloadSize(payload_size);
-            app_header.SetLambda((uint32_t)(other_client_info->lambda * 10000.0));
+            app_header.SetUlTargetRate((uint32_t)(other_client_info->ul_target_rate * 1000.0));
             packet_dl->AddHeader(app_header);
 
             other_client_info->send_buffer.push_back(packet_dl);
