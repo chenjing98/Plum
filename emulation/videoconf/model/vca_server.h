@@ -150,6 +150,8 @@ namespace ns3
 
         void UpdateCapacities();
 
+        uint32_t GetFrameSizeFairShare(uint32_t cc_target_framesize);
+
         bool CheckOptResultsValidity();
 
         uint32_t m_node_id;

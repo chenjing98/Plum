@@ -602,7 +602,7 @@ namespace ns3
             }
             else
             {
-                NS_LOG_LOGIC("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] TargetFrameSize= " << GetTargetFrameSize(dst_socket_id));
+                NS_LOG_DEBUG("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] TargetFrameSize= " << GetTargetFrameSize(dst_socket_id));
 
                 if (src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
                     dropped_frame_size += packet->GetSize();
@@ -639,42 +639,60 @@ namespace ns3
     VcaServer::GetTargetFrameSize(uint8_t socket_id)
     {
         Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
-        if (client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_NATRUAL)
+
+        uint32_t manual_dl_share;
+
+        if (m_policy == POLO)
         {
-            uint32_t fair_share;
-            // stick to original cc decisions
-            if (m_client_info_map.size() > 1)
+            if (client_info->dl_rate_control_state == NATRUAL)
             {
-                fair_share = client_info->cc_target_frame_size / (m_client_info_map.size() - 1);
+                return 1e6;
             }
-            else
+            else if (client_info->dl_rate_control_state == CONSTRAINED)
             {
-                fair_share = client_info->cc_target_frame_size;
+                manual_dl_share = (uint32_t)std::ceil(client_info->dl_target_rate * 1000 / 8 / m_fps);
+                // fair_share = std::round((double_t)fair_share * 1.25);
+                return std::max(manual_dl_share, kMinFrameSizeBytes);
             }
-            // fair_share = std::round((double_t)fair_share * 1.25);
-            return std::max(fair_share, kMinFrameSizeBytes);
         }
-        else if (client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
+        else if (m_policy == YONGYULE)
         {
-            uint32_t fair_share, manual_dl_share;
-            // limit the forwarding bitrate by capacity * reduce_factor
-            if (m_client_info_map.size() > 1)
+            if (client_info->dl_rate_control_state == NATRUAL)
             {
-                fair_share = client_info->cc_target_frame_size / (m_client_info_map.size() - 1);
-                manual_dl_share = (uint32_t)std::ceil((double_t)client_info->capacity_frame_size * client_info->dl_bitrate_reduce_factor) / (m_client_info_map.size() - 1);
+                return std::max(GetFrameSizeFairShare(client_info->cc_target_frame_size), kMinFrameSizeBytes);
             }
-            else
+            else if (client_info->dl_rate_control_state == CONSTRAINED)
             {
-                fair_share = client_info->cc_target_frame_size;
-                manual_dl_share = (uint32_t)std::ceil((double_t)client_info->capacity_frame_size * client_info->dl_bitrate_reduce_factor);
+
+                // limit the forwarding bitrate by capacity * reduce_factor
+                if (m_client_info_map.size() > 1)
+                {
+
+                    manual_dl_share = (uint32_t)std::ceil((double_t)client_info->capacity_frame_size * client_info->dl_target_rate) / (m_client_info_map.size() - 1);
+                }
+                else
+                {
+
+                    manual_dl_share = (uint32_t)std::ceil((double_t)client_info->capacity_frame_size * client_info->dl_target_rate);
+                }
+
+                return std::max(std::min(GetFrameSizeFairShare(client_info->cc_target_frame_size), manual_dl_share), kMinFrameSizeBytes);
             }
-            // limit the forwarding bitrate by capacity * reduce_factor
-            // fair_share = std::round((double_t)fair_share * 1.25);
-            return std::max(std::min(fair_share, manual_dl_share), kMinFrameSizeBytes);
+        }
+
+        return 1e6;
+        // return GetFrameSizeFairShare(client_info->cc_target_frame_size);
+    };
+
+    uint32_t VcaServer::GetFrameSizeFairShare(uint32_t cc_target_framesize)
+    {
+        if (m_client_info_map.size() > 1)
+        {
+            return cc_target_framesize / (m_client_info_map.size() - 1);
         }
         else
         {
-            return 1e6;
+            return cc_target_framesize;
         }
     };
 
