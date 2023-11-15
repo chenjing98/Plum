@@ -1,21 +1,44 @@
 import argparse
 import csv
 import numpy as np
+import math
 
 MAX_POLICIES = 2
 
 
 
-def qoe(dl_bw):
+def qoe(dl_bw, qoeType):
+    # lin = 0
+    # log = 1
+    # sqr_concave = 3
+    # sqr_convex = 2
     qoe = 0.0
-    max_bitrate = 10.0
-    qoe = dl_bw / max_bitrate
-    # if params[2] == "lin":
-    #     qoe = params[3] * dl_bw
-    # elif params[2] == "sqr_concave" or params[2] == "sqr_convex":
-    #     qoe = (params[3] * dl_bw + params[4]) * dl_bw
-    # elif params[2] == "log":
-    #     qoe = params[3] * math.log(dl_bw + 1)
+    max_bitrate = 10.0 # 待修改：Magic Number 
+    alpha = 0
+    beta = 0
+    if qoeType == 0:
+        alpha = 1.0 / max_bitrate
+    elif qoeType == 1:
+        alpha = 1.0 / math.log(max_bitrate + 1)
+    elif qoeType == 3:
+        if alpha < 0 and alpha >= - 1.0 / max_bitrate / max_bitrate:
+            alpha = alpha
+        else:
+            alpha = - 1.0 / max_bitrate / max_bitrate
+        beta = 1.0 / max_bitrate - alpha * max_bitrate
+    elif qoeType == 2:
+        if alpha > 0 and alpha < 1 / max_bitrate / (max_bitrate - 2):
+            alpha = alpha
+        else:
+            alpha = 1.0 / max_bitrate / max_bitrate
+        beta = 1.0 / max_bitrate - alpha * max_bitrate
+
+    if qoeType == 0:
+        qoe = alpha * dl_bw
+    elif qoeType == 2 or qoeType == 3:
+        qoe = (alpha * dl_bw + beta) * dl_bw
+    elif qoeType == 1:
+        qoe = alpha * math.log(dl_bw + 1)
     return qoe
 
 def calc_avg_qoe(qoes):
@@ -35,13 +58,13 @@ def calc_std_dev_qoe(avg_qoe, qoes):
     std_dev_qoe = std_dev_qoe ** 0.5
     return std_dev_qoe
 
-def CalQoE(thplist):
+def CalQoE(thplist, qoeType):
     if len(thplist) <= 0:
         return 0
     rho = 0.5
     qoes = []
     for dl_bw in thplist:
-        qoes.append(qoe(dl_bw))
+        qoes.append(qoe(dl_bw, qoeType))
     avg_qoe = calc_avg_qoe(qoes)
     qoe_fairness = 1 - 2 * calc_std_dev_qoe(avg_qoe, qoes)
     return (1 - rho) * avg_qoe + rho * qoe_fairness
@@ -119,7 +142,7 @@ def main():
     parser.add_argument('--avg', '-a', action='store_true')
     parser.add_argument('--tail', '-t', action='store_true')
     parser.add_argument("--min", "-m", action='store_true')
-    parser.add_argument("--qoe", "-q", action='store_true')
+    parser.add_argument("--qoeType", "-q", type=int, default=-1)
 
     args = parser.parse_args()
 
@@ -131,8 +154,8 @@ def main():
             print("%.2f" % CalAverageThroughput(tail_thp_list))
         elif args.min:
             print("%.2f" % min(avg_thp_list))
-        elif args.qoe:
-            print("%.2f" % CalQoE(avg_thp_list))
+        elif args.qoeType > 0:
+            print("%.2f" % CalQoE(avg_thp_list, args.qoeType))
     else:
         avg_aggr_results, tail_aggr_results = AggregateCsvLog(args.csv)
         # print(aggr_results)

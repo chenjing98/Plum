@@ -6,6 +6,7 @@ declare -a seeds=(777 42 55 6 7 20 84 234 1000 81)
 declare -a nclients=(3)
 declare -a simTime=(1000)
 declare -a policies=(0 2)
+declare -a qoeType=(0 1 2 3)
 declare -a ulprops=(0.8)
 declare -a ackmaxcounts=(16)
 
@@ -25,15 +26,16 @@ run_ns3() {
     seed=$2
     nclient=$3
     simt=$4
+    qoet=$5
     filename=${RESULT_DIR}/${filename_prefix}
     output_file=${filename}.txt
     output_file_clean=${filename}.csv
-    echo At policy: $policy, nclient: $nclient, seed: $seed, output_file: $filename.txt/csv...
-    ns3_output=$(NS_GLOBAL_VALUE="RngRun=$seed" ./ns3 run "scratch/test_wifi_channel --mode=sfu --logLevel=0 --simTime=${simt} --policy=${policy} --nClient=${nclient}" 2>&1)
+    echo At policy: $policy, nclient: $nclient, seed: $seed, qoeType: $qoet, output_file: $filename.txt/csv...
+    ns3_output=$(NS_GLOBAL_VALUE="RngRun=$seed" ./ns3 run "scratch/test_wifi_channel --mode=sfu --logLevel=0 --simTime=${simt} --policy=${policy} --nClient=${nclient} --qoeType=${qoeType}" 2>&1)
     avg_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -a)
     min_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -m)
     tail_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -t)
-    qoe=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -q)
+    qoe=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -q ${qoet})
     
     # output to file
     # dirty output
@@ -50,6 +52,6 @@ cd $NS3_DIR
 export -f run_ns3
 
 
-echo "policy, nclient, seed, avg_thp, min_thp, tail_thp, qoe" > ${RESULT_DIR}/${filename_prefix}.csv
+echo "policy, nclient, seed, qoeType, avg_thp, min_thp, tail_thp, qoe" > ${RESULT_DIR}/${filename_prefix}.csv
 
-parallel -j${CORE_COUNT} run_ns3 ::: ${policies[@]} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${simTime}
+parallel -j${CORE_COUNT} run_ns3 ::: ${policies[@]} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${simTime} ::: ${qoeType[@]}
