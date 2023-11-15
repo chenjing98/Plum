@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
     PointToPointHelper pointToPoint[nClient];
     for (uint32_t i = 0; i < nClient; i++)
     {
-      pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("100Mbps"));
+      pointToPoint[i].SetDeviceAttribute("DataRate", StringValue("50Mbps"));
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("10ms"));
     }
 
@@ -424,7 +424,7 @@ int main(int argc, char *argv[])
                                   StringValue("RowFirst"));
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Bounds",
-                              RectangleValue(Rectangle(-10, 10, -10, 10)));
+                              RectangleValue(Rectangle(-15, 15, -15, 15)));
     // for (uint32_t i = 0; i < nClient; i++)
     // {
     //   mobility.Install(wifiStaNodes[i]);
