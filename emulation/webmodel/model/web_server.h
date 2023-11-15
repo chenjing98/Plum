@@ -17,10 +17,10 @@
 namespace ns3
 {
 
-    enum DL_RATE_CONTROL_STATE
+    enum RATE_CONTROL_STATE
     {
-        DL_RATE_CONTROL_STATE_NATRUAL,
-        DL_RATE_CONTROL_STATE_LIMIT
+        NATRUAL,
+        CONSTRAINED
     };
 
     class ClientInfo : public Object
@@ -40,7 +40,7 @@ namespace ns3
         std::unordered_map<uint8_t, uint16_t> prev_frame_id;        // map key: dst_socket_id, value: prev_frame_id
 
         double_t dl_bitrate_reduce_factor;
-        DL_RATE_CONTROL_STATE dl_rate_control_state;
+        RATE_CONTROL_STATE dl_rate_control_state;
 
         // Decode self-defined header in TCP payload
         uint8_t set_header;

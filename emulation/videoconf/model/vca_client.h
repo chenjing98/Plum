@@ -18,7 +18,6 @@
 
 #include "prot-header.h"
 
-
 enum YONGYULE_REALIZATION
 {
     YONGYULE_RWND,

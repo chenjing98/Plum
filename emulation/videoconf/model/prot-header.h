@@ -12,6 +12,13 @@ namespace ns3
         YONGYULE,
         POLO
     };
+
+    enum RATE_CONTROL_STATE
+    {
+        NATRUAL,
+        CONSTRAINED
+    };
+
     uint16_t const VCA_APP_PROT_HEADER_LENGTH = 16;
     class VcaAppProtHeader : public Header
     {

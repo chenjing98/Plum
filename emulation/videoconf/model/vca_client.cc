@@ -1057,5 +1057,4 @@ namespace ns3
     {
         return 1.0;
     }
-
 }; // namespace ns3

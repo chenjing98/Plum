@@ -20,7 +20,7 @@ namespace ns3
         : cc_target_frame_size(1e7 / 8 / 20),
           capacity_frame_size(1e7),
           dl_bitrate_reduce_factor(1.0),
-          dl_rate_control_state(DL_RATE_CONTROL_STATE_NATRUAL),
+          dl_rate_control_state(NATRUAL),
           set_header(0),
           read_status(0),
           payload_size(0),
@@ -123,8 +123,8 @@ namespace ns3
     VcaServer::SetMaxThroughput(double_t max_throughput_kbps)
     {
         m_opt_params.max_bitrate_kbps = max_throughput_kbps;
-    };  
-    
+    };
+
     void
     VcaServer::SetPolicy(POLICY policy)
     {
@@ -186,7 +186,7 @@ namespace ns3
             }
         }
 
-        if(m_policy == POLO)
+        if (m_policy == POLO)
         {
             m_py_socket = socket(AF_INET, SOCK_STREAM, 0);
             if (m_py_socket == -1)
@@ -204,9 +204,8 @@ namespace ns3
             }
 
             // change triggering time
-            Simulator::Schedule(Seconds(5), &VcaServer::UpdateCapacities, this); 
+            Simulator::Schedule(Seconds(5), &VcaServer::UpdateCapacities, this);
         }
-
     };
 
     void
@@ -464,7 +463,7 @@ namespace ns3
         client_info->socket_dl = socket_dl;
         client_info->cc_target_frame_size = 1e7 / 8 / 20;
         client_info->dl_bitrate_reduce_factor = 1.0;
-        client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_NATRUAL;
+        client_info->dl_rate_control_state = NATRUAL;
         client_info->capacity_frame_size = 1e7;
         client_info->half_header = nullptr;
         client_info->half_payload = nullptr;
@@ -527,7 +526,7 @@ namespace ns3
         uint32_t payload_size = client_info->app_header.GetPayloadSize();
         uint32_t src_id = client_info->app_header.GetSrcId();
 
-        NS_LOG_DEBUG("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " SrcId= " << src_id << " NumDegradedUsers= " << m_num_degraded_users);
+        NS_LOG_LOGIC("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " SrcId= " << src_id << " NumDegradedUsers= " << m_num_degraded_users);
 
         if (socket_id == DEBUG_SRC_SOCKET_ID)
         {

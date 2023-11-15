@@ -26,12 +26,6 @@ namespace ns3
     const uint8_t MAX_NUM_USERS = 20;
     const uint16_t SOLVER_SOCKET_PORT = 11999;
 
-    enum DL_RATE_CONTROL_STATE
-    {
-        DL_RATE_CONTROL_STATE_NATRUAL,
-        DL_RATE_CONTROL_STATE_LIMIT
-    };
-
     enum QOE_TYPE
     {
         QOE_TYPE_LIN,
@@ -205,7 +199,7 @@ namespace ns3
             double_t qoe_func_beta = 0.0;
             double_t capacities_kbps[MAX_NUM_USERS];
         } m_opt_params;
-        
+
         POLICY m_policy;
 
         double_t m_opt_alloc[MAX_NUM_USERS];
