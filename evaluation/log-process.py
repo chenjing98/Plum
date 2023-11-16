@@ -13,7 +13,7 @@ def qoe(dl_bw, qoeType):
     # sqr_concave = 3
     # sqr_convex = 2
     qoe = 0.0
-    max_bitrate = 30000.0 # 待修改：Magic Number 
+    max_bitrate = 3000.0 # 待修改：Magic Number 
     alpha = 0
     beta = 0
     if qoeType == 0:
@@ -61,7 +61,7 @@ def calc_std_dev_qoe(avg_qoe, qoes):
 def CalQoE(thplist, qoeType):
     if len(thplist) <= 0:
         return 0
-    rho = 0.2
+    rho = 0.1
     qoes = []
     for dl_bw in thplist:
         qoes.append(qoe(dl_bw/1000.0, qoeType))
