@@ -40,7 +40,7 @@ run_ns3() {
     
     # output to file
     # dirty output
-    echo At policy: $policy, nclient: $nclient, seed: $seed >> $output_file
+    echo At policy: $policy, nclient: $nclient, seed: $seed, qoeType: $qoet >> $output_file
     echo $ns3_output >> $output_file
     # clean output
     echo $policy, $nclient, $seed, $qoet, $avg_thp, $min_thp, $tail_thp, $qoe>> $output_file_clean
