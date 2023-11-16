@@ -154,7 +154,7 @@ def main():
             print("%.2f" % CalAverageThroughput(tail_thp_list))
         elif args.min:
             print("%.2f" % min(avg_thp_list))
-        elif args.qoeType > 0:
+        elif args.qoeType >= 0:
             print("%.2f" % CalQoE(avg_thp_list, args.qoeType))
     else:
         avg_aggr_results, tail_aggr_results = AggregateCsvLog(args.csv)
