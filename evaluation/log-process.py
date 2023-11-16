@@ -61,7 +61,7 @@ def calc_std_dev_qoe(avg_qoe, qoes):
 def CalQoE(thplist, qoeType):
     if len(thplist) <= 0:
         return 0
-    rho = 0.5
+    rho = 0.2
     qoes = []
     for dl_bw in thplist:
         qoes.append(qoe(dl_bw/1000.0, qoeType))
