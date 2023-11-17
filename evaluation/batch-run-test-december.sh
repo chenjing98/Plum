@@ -2,17 +2,16 @@
 
 export CORE_COUNT=50
 
-declare -a seeds=(777)
-# 42 55 6 7 20 84 234 1000 81)
-declare -a nclients=(3)
-declare -a simTime=(1000)
+declare -a seeds=(777 42 55 6 7 20 84 234 1000 81)
+declare -a nclients=(3 4 5 10 20)
+declare -a simTime=(1200)
 declare -a policies=(0 2)
 declare -a qoeType=(0 1 2 3)
 declare -a ulprops=(0.8)
 declare -a ackmaxcounts=(16)
 
 export baseline_policy=0
-export filename_prefix="result_wifi_qoe"
+export filename_prefix="raw_result_1117"
 
 
 export NS3_THROUGHPUT_REGEX="\[VcaClient\]\[Result\] Throughput= ([0-9\.e\-]+)"
