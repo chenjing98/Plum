@@ -3,7 +3,7 @@
 export CORE_COUNT=50
 
 declare -a seeds=(777 42 55 6 7 20 84 234 1000 81)
-declare -a nclients=(3 4 5 10 20)
+declare -a nclients=(3)
 declare -a simTime=(1200)
 declare -a policies=(0 2)
 declare -a qoeType=(0 1 2 3)
