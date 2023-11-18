@@ -24,7 +24,7 @@ namespace ns3
 {
     // must stay aligned with the value in solver.py
     const uint8_t MAX_NUM_USERS = 20;
-    const uint16_t SOLVER_SOCKET_PORT = 11999;
+    const uint16_t SOLVER_SOCKET_PORT = 11996;
 
     enum QOE_TYPE
     {
@@ -91,6 +91,7 @@ namespace ns3
         void SetNodeId(uint32_t node_id);
         void SetPolicy(POLICY policy);
         void SetSeparateSocket();
+        void SetNumNode(uint8_t num_node);
 
         void SetRho(double_t rho);
         void SetQoEType(QOE_TYPE qoe_type);
@@ -155,6 +156,8 @@ namespace ns3
         bool CheckOptResultsValidity();
 
         uint32_t m_node_id;
+
+        uint8_t m_num_node;
 
         Ptr<Socket> m_socket_ul;
         std::list<Ipv4Address> m_local_list;

@@ -108,6 +108,12 @@ namespace ns3
     };
 
     void
+    VcaServer::SetNumNode(uint8_t num_node)
+    {
+        m_num_node = num_node;
+    };
+
+    void
     VcaServer::SetRho(double_t rho)
     {
         m_opt_params.rho = rho;
@@ -195,7 +201,7 @@ namespace ns3
             }
             struct sockaddr_in sock_addr;
             sock_addr.sin_family = AF_INET;
-            sock_addr.sin_port = htons(SOLVER_SOCKET_PORT);
+            sock_addr.sin_port = htons(SOLVER_SOCKET_PORT + (uint16_t)m_num_node);
             sock_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
             while (connect(m_py_socket, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) == -1)
@@ -728,7 +734,8 @@ namespace ns3
         // params for solver: n, capacities
         // params for solver: [rho, max_bitrate, qoe_type, qoe_func_alpha, qoe_func_beta, num_view, method, init_bw, plot]
 
-        m_opt_params.num_users = m_client_info_map.size();
+        m_opt_params.num_users = m_num_node;
+        NS_ASSERT_MSG(m_opt_params.num_users == m_client_info_map.size(), "num_users should be equal to the number of clients");
 
         send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
         recv(m_py_socket, m_opt_alloc, sizeof(double_t) * m_opt_params.num_users, 0);
