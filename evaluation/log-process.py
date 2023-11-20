@@ -143,6 +143,7 @@ def main():
     parser.add_argument('--tail', '-t', action='store_true')
     parser.add_argument("--min", "-m", action='store_true')
     parser.add_argument("--qoeType", "-q", type=int, default=-1)
+    parser.add_argument("--clientInfo", "-i", type=int, default=-1)
 
     args = parser.parse_args()
 
@@ -156,6 +157,8 @@ def main():
             print("%.2f" % min(avg_thp_list))
         elif args.qoeType >= 0:
             print("%.2f" % CalQoE(avg_thp_list, args.qoeType))
+        elif args.clientInfo >= 0:
+            print("%.2f" % avg_thp_list[args.clientInfo])
     else:
         avg_aggr_results, tail_aggr_results = AggregateCsvLog(args.csv)
         # print(aggr_results)
