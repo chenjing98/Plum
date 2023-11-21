@@ -100,7 +100,7 @@ def socket_server(N):
         print('N must be greater than 2')
         return
 
-    addr = ("127.0.0.1", 11999)
+    addr = ("127.0.0.1", 11996 + N)
     sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
     sk.bind(addr)
     sk.listen(0)
