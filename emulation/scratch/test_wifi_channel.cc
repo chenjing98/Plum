@@ -111,6 +111,7 @@ int main(int argc, char *argv[])
   bool is_tack = false;
   uint32_t tack_max_count = 32;
   int qoeType = 0;
+  double dl_percentage = 0.5;
 
   // std::string Version = "80211n_5GHZ";
 
@@ -119,7 +120,7 @@ int main(int argc, char *argv[])
   cmd.AddValue("logLevel", "Log level: 0 for error, 1 for debug, 2 for logic", logLevel);
   cmd.AddValue("simTime", "Total simulation time in s", simulationDuration);
   cmd.AddValue("maxBitrateKbps", "Max bitrate in kbps", maxBitrateKbps);
-  cmd.AddValue("policy", "0 for Vanilla, 1 for Yongyule, 2 for Polo", policy);
+  cmd.AddValue("policy", "0 for Vanilla, 1 for Yongyule, 2 for Polo, 3 for Fixed", policy);
   cmd.AddValue("nClient", "Number of clients", nClient);
   cmd.AddValue("printPosition", "Print position of nodes", printPosition);
   cmd.AddValue("minBitrate", "Minimum tolerable bitrate in kbps", minBitrateKbps);
@@ -132,6 +133,7 @@ int main(int argc, char *argv[])
   cmd.AddValue("isTack", "Is TACK enabled", is_tack);
   cmd.AddValue("tackMaxCount", "Max TACK count", tack_max_count);
   cmd.AddValue("qoeType", "0 for lin, 1 for log, 2 for sqr_concave, 3 for sqr_convex", qoeType);
+  cmd.AddValue("dlpercentage", "for policy 3(FIXED), dl_percentage", dl_percentage);
 
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
@@ -500,6 +502,7 @@ int main(int argc, char *argv[])
     vcaServerApp->SetLocalDlPort(client_dl);
     vcaServerApp->SetNumNode(nClient);
     vcaServerApp->SetPolicy(static_cast<POLICY>(policy));
+    vcaServerApp->SetDlpercentage(dl_percentage);
     vcaServerApp->SetQoEType(static_cast<QOE_TYPE>(qoeType));
     vcaServerApp->SetNodeId(sfuCenter.Get(0)->GetId());
     sfuCenter.Get(0)->AddApplication(vcaServerApp);

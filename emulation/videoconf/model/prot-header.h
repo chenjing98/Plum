@@ -10,7 +10,8 @@ namespace ns3
     {
         VANILLA,
         YONGYULE, // deprecated
-        POLO
+        POLO,
+        FIXED
     };
 
     enum RATE_CONTROL_STATE

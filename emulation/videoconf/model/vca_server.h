@@ -90,6 +90,7 @@ namespace ns3
 
         void SetNodeId(uint32_t node_id);
         void SetPolicy(POLICY policy);
+        void SetDlpercentage(double percentage);
         void SetSeparateSocket();
         void SetNumNode(uint8_t num_node);
 
@@ -208,6 +209,7 @@ namespace ns3
         } m_opt_params;
 
         POLICY m_policy;
+        double_t m_dl_percentage;
 
         double_t m_opt_alloc[MAX_NUM_USERS];
 

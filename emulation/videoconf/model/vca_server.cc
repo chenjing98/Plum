@@ -54,7 +54,8 @@ namespace ns3
           m_total_packet_size(0),
           m_separate_socket(0),
           m_opt_params(),
-          m_policy(VANILLA){};
+          m_policy(VANILLA),
+          m_dl_percentage(0){};
 
     VcaServer::~VcaServer(){};
 
@@ -137,6 +138,12 @@ namespace ns3
         m_policy = policy;
     };
 
+    void
+    VcaServer::SetDlpercentage(double percentage)
+    {
+        m_dl_percentage = percentage;
+    };
+
     // Application Methods
     void
     VcaServer::StartApplication()
@@ -192,7 +199,7 @@ namespace ns3
             }
         }
 
-        if (m_policy == POLO)
+        if (m_policy == POLO || m_policy == FIXED)
         {
             m_py_socket = socket(AF_INET, SOCK_STREAM, 0);
             if (m_py_socket == -1)
@@ -760,7 +767,11 @@ namespace ns3
         {
             Ptr<ClientInfo> client_info = it->second;
 
-            dl_alloc = m_opt_alloc[it->first];
+            if(m_policy == POLO)
+                dl_alloc = m_opt_alloc[it->first];
+            else if(m_policy == FIXED)
+                dl_alloc = m_opt_params.capacities_kbps[it->first] * m_dl_percentage;
+            else dl_alloc = 0; //will not occur. just for full compiling
             ul_alloc = m_opt_params.capacities_kbps[it->first] - dl_alloc;
 
             client_info->ul_target_rate = ul_alloc;
