@@ -25,6 +25,31 @@ enum LOG_LEVEL
   LOGIC
 };
 
+enum MOBILITY_MODEL
+{
+  RandomWalk2d,
+  RandomWalk2dOutdoor
+};
+
+enum WIFI_STANDARD_VERSION
+{
+  WIFI_80211A,
+  WIFI_80211B,
+  WIFI_80211G,
+  WIFI_80211P,
+  WIFI_80211N_2_4GHZ,
+  WIFI_80211N_5GHZ,
+  WIFI_80211AC,
+  WIFI_80211AX_2_4GHZ,
+  WIFI_80211AX_5GHZ
+};
+
+enum TOPOLOGY_TYPE
+{
+  ONE_WIFI_STA,
+  ALL_WIFI_STA
+};
+
 void showPosition(Ptr<Node> node, double deltaTime)
 {
   uint32_t nodeId = node->GetId();
@@ -39,51 +64,51 @@ void showPosition(Ptr<Node> node, double deltaTime)
 };
 
 std::pair<WifiStandard, WifiPhyBand>
-ConvertStringToStandardAndBand(std::string version)
+ConvertStringToStandardAndBand(WIFI_STANDARD_VERSION version)
 {
   WifiStandard standard = WIFI_STANDARD_80211a;
   WifiPhyBand band = WIFI_PHY_BAND_5GHZ;
-  if (version == "80211a")
+  if (version == WIFI_80211A)
   {
     standard = WIFI_STANDARD_80211a;
     band = WIFI_PHY_BAND_5GHZ;
   }
-  else if (version == "80211b")
+  else if (version == WIFI_80211B)
   {
     standard = WIFI_STANDARD_80211b;
     band = WIFI_PHY_BAND_2_4GHZ;
   }
-  else if (version == "80211g")
+  else if (version == WIFI_80211G)
   {
     standard = WIFI_STANDARD_80211g;
     band = WIFI_PHY_BAND_2_4GHZ;
   }
-  else if (version == "80211p")
+  else if (version == WIFI_80211P)
   {
     standard = WIFI_STANDARD_80211p;
     band = WIFI_PHY_BAND_5GHZ;
   }
-  else if (version == "80211n_2_4GHZ")
+  else if (version == WIFI_80211N_2_4GHZ)
   {
     standard = WIFI_STANDARD_80211n;
     band = WIFI_PHY_BAND_2_4GHZ;
   }
-  else if (version == "80211n_5GHZ")
+  else if (version == WIFI_80211N_5GHZ)
   {
     standard = WIFI_STANDARD_80211n;
     band = WIFI_PHY_BAND_5GHZ;
   }
-  else if (version == "80211ac")
+  else if (version == WIFI_80211AC)
   {
     standard = WIFI_STANDARD_80211ac;
     band = WIFI_PHY_BAND_5GHZ;
   }
-  else if (version == "80211ax_2_4GHZ")
+  else if (version == WIFI_80211AX_2_4GHZ)
   {
     standard = WIFI_STANDARD_80211ax;
     band = WIFI_PHY_BAND_2_4GHZ;
   }
-  else if (version == "80211ax_5GHZ")
+  else if (version == WIFI_80211AX_5GHZ)
   {
     standard = WIFI_STANDARD_80211ax;
     band = WIFI_PHY_BAND_5GHZ;
@@ -114,6 +139,9 @@ int main(int argc, char *argv[])
   double dl_percentage = 0.5;
 
   // std::string Version = "80211n_5GHZ";
+  int mobilityModel = 0;
+  int wifiVersion = 3;
+  int topologyType = 0;
 
   CommandLine cmd(__FILE__);
   cmd.AddValue("mode", "p2p or sfu mode", mode);
@@ -134,6 +162,9 @@ int main(int argc, char *argv[])
   cmd.AddValue("tackMaxCount", "Max TACK count", tack_max_count);
   cmd.AddValue("qoeType", "0 for lin, 1 for log, 2 for sqr_concave, 3 for sqr_convex", qoeType);
   cmd.AddValue("dlpercentage", "for policy 3(FIXED), dl_percentage", dl_percentage);
+  cmd.AddValue("vWifi", "Wifi standard version", wifiVersion);
+  cmd.AddValue("mobiModel", "Mobility model", mobilityModel);
+  cmd.AddValue("topoType", "Topology type", topologyType);
 
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
@@ -382,10 +413,9 @@ int main(int argc, char *argv[])
     NetDeviceContainer staDevices[nClient];
     NetDeviceContainer apDevices[nClient];
 
-    // const auto &[Standard, Band] = ConvertStringToStandardAndBand(Version);
-    wifi.SetStandard(WIFI_STANDARD_80211p);
-    phy.Set("ChannelSettings", StringValue("{0, 10, BAND_5GHZ, 0}"));
-
+    const auto &[Standard, Band] = ConvertStringToStandardAndBand(static_cast<WIFI_STANDARD_VERSION>(wifiVersion));
+    // wifi.SetStandard(WIFI_STANDARD_80211p);
+    // phy.Set("ChannelSettings", StringValue("{0, 10, BAND_5GHZ, 0}"));
 
     // Set different SSID (+ PHY channel) for each BSS
     for (uint32_t i = 0; i < nClient; i++)
@@ -426,9 +456,20 @@ int main(int argc, char *argv[])
                                   UintegerValue(nClient),
                                   "LayoutType",
                                   StringValue("RowFirst"));
-    mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
-                              "Bounds",
-                              RectangleValue(Rectangle(-15, 15, -15, 15)));
+
+    if (static_cast<MOBILITY_MODEL>(mobilityModel) == MOBILITY_MODEL::RandomWalk2d)
+    {
+      mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
+                                "Bounds",
+                                RectangleValue(Rectangle(-15, 15, -15, 15)));
+    }
+    else if (static_cast<MOBILITY_MODEL>(mobilityModel) == MOBILITY_MODEL::RandomWalk2dOutdoor)
+    {
+      mobility.SetMobilityModel("ns3::RandomWalk2dOutdoorMobilityModel",
+                                "Bounds",
+                                RectangleValue(Rectangle(-30, 30, -30, 30)));
+    }
+
     // for (uint32_t i = 0; i < nClient; i++)
     // {
     //   mobility.Install(wifiStaNodes[i]);
@@ -519,17 +560,25 @@ int main(int argc, char *argv[])
 
         Ipv4Address local;
         Ptr<Node> local_node;
-        if (id == 0)
+        if (static_cast<TOPOLOGY_TYPE>(topologyType) == ONE_WIFI_STA)
+        {
+          if (id == 0)
+          {
+            local = staAddr;
+            local_node = wifiStaNodes[id].Get(i);
+          }
+          else
+          {
+            local = apAddr;
+            local_node = wifiApNode[id].Get(i);
+          }
+        }
+        else if (static_cast<TOPOLOGY_TYPE>(topologyType) == ALL_WIFI_STA)
         {
           local = staAddr;
           local_node = wifiStaNodes[id].Get(i);
         }
-        else
-        {
-          local = apAddr;
-          local_node = wifiApNode[id].Get(i);
-        }
-        Ptr<Node> node = wifiStaNodes[id].Get(i);
+
         NS_LOG_DEBUG("SFU VCA NodeId " << local_node->GetId() << " " << sfuCenter.Get(0)->GetId());
         Ptr<VcaClient> vcaClientApp = CreateObject<VcaClient>();
         vcaClientApp->SetFps(20);
