@@ -741,24 +741,27 @@ namespace ns3
         // params for solver: n, capacities
         // params for solver: [rho, max_bitrate, qoe_type, qoe_func_alpha, qoe_func_beta, num_view, method, init_bw, plot]
 
-        m_opt_params.num_users = m_num_node;
-        NS_ASSERT_MSG(m_opt_params.num_users == m_client_info_map.size(), "num_users should be equal to the number of clients");
-
-        send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
-        recv(m_py_socket, m_opt_alloc, sizeof(double_t) * m_opt_params.num_users, 0);
-
-        // NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
-        if (!CheckOptResultsValidity())
+        if(m_policy == POLO)
         {
-            // back to original cc decisions
+            m_opt_params.num_users = m_num_node;
+            NS_ASSERT_MSG(m_opt_params.num_users == m_client_info_map.size(), "num_users should be equal to the number of clients");
 
-            for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+            send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
+            recv(m_py_socket, m_opt_alloc, sizeof(double_t) * m_opt_params.num_users, 0);
+
+            // NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
+            if (!CheckOptResultsValidity())
             {
-                Ptr<ClientInfo> client_info = it->second;
-                client_info->ul_target_rate = 0.0;
-                client_info->dl_rate_control_state = NATRUAL;
+                // back to original cc decisions
+
+                for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+                {
+                    Ptr<ClientInfo> client_info = it->second;
+                    client_info->ul_target_rate = 0.0;
+                    client_info->dl_rate_control_state = NATRUAL;
+                }
+                return;
             }
-            return;
         }
 
         double_t ul_alloc, dl_alloc;
