@@ -594,7 +594,7 @@ namespace ns3
 
         for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
         {
-            if (m_policy == POLO && m_ul_rate_control_state == CONSTRAINED)
+            if ( (m_policy == POLO || m_policy == FIXED) && m_ul_rate_control_state == CONSTRAINED)
             {
                 m_bitrateBps[ul_id] = (uint32_t)(m_ul_target_bitrate_kbps * 1000.0);
             }

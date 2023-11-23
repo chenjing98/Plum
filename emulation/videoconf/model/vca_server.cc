@@ -655,7 +655,7 @@ namespace ns3
 
         uint32_t manual_dl_share;
 
-        if (m_policy == POLO)
+        if (m_policy == POLO || m_policy == FIXED)
         {
             if (client_info->dl_rate_control_state == NATRUAL)
             {
