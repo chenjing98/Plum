@@ -137,6 +137,7 @@ int main(int argc, char *argv[])
   uint32_t tack_max_count = 32;
   int qoeType = 0;
   double dl_percentage = 0.5;
+  double rho = 0;
 
   // std::string Version = "80211n_5GHZ";
   int mobilityModel = 0;
@@ -162,6 +163,7 @@ int main(int argc, char *argv[])
   cmd.AddValue("tackMaxCount", "Max TACK count", tack_max_count);
   cmd.AddValue("qoeType", "0 for lin, 1 for log, 2 for sqr_concave, 3 for sqr_convex", qoeType);
   cmd.AddValue("dlpercentage", "for policy 3(FIXED), dl_percentage", dl_percentage);
+  cmd.AddValue("rho", "rho for calculating qoe", rho);
   cmd.AddValue("vWifi", "Wifi standard version", wifiVersion);
   cmd.AddValue("mobiModel", "Mobility model", mobilityModel);
   cmd.AddValue("topoType", "Topology type", topologyType);
@@ -544,6 +546,7 @@ int main(int argc, char *argv[])
     vcaServerApp->SetNumNode(nClient);
     vcaServerApp->SetPolicy(static_cast<POLICY>(policy));
     vcaServerApp->SetDlpercentage(dl_percentage);
+    vcaServerApp->SetRho(rho);
     vcaServerApp->SetQoEType(static_cast<QOE_TYPE>(qoeType));
     vcaServerApp->SetNodeId(sfuCenter.Get(0)->GetId());
     sfuCenter.Get(0)->AddApplication(vcaServerApp);
