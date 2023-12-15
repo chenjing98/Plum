@@ -90,7 +90,7 @@ namespace ns3
 
         void SetNodeId(uint32_t node_id);
         void SetPolicy(POLICY policy);
-        void SetDlpercentage(double percentage);
+        void SetDlpercentage(double_t percentage);
         void SetSeparateSocket();
         void SetNumNode(uint8_t num_node);
 

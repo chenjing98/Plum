@@ -119,7 +119,7 @@ ConvertStringToStandardAndBand(WIFI_STANDARD_VERSION version)
 int main(int argc, char *argv[])
 {
 
-  std::string mode = "p2p";
+  std::string mode = "sfu";
   uint8_t logLevel = 0;
   double_t simulationDuration = 10.0; // in s
   uint32_t maxBitrateKbps = 10000;
@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
   bool is_tack = false;
   uint32_t tack_max_count = 32;
   int qoeType = 0;
-  double dl_percentage = 0.5;
+  double_t dl_percentage = 0.5;
 
   // std::string Version = "80211n_5GHZ";
   int mobilityModel = 0;
@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
   int topologyType = 0;
 
   CommandLine cmd(__FILE__);
-  cmd.AddValue("mode", "p2p or sfu mode", mode);
+  cmd.AddValue("mode", "p2p or sfu mode, p2p is currently deprecated", mode);
   cmd.AddValue("logLevel", "Log level: 0 for error, 1 for debug, 2 for logic", logLevel);
   cmd.AddValue("simTime", "Total simulation time in s", simulationDuration);
   cmd.AddValue("maxBitrateKbps", "Max bitrate in kbps", maxBitrateKbps);
@@ -198,7 +198,7 @@ int main(int argc, char *argv[])
     LogComponentEnable("MulticastEmulation", LOG_LEVEL_LOGIC);
   }
 
-  if (mode == "p2p")
+  if (mode == "p2p") // deprecated
   {
     NS_LOG_ERROR("[Scratch] P2P mode emulation started.");
     // 创建节点

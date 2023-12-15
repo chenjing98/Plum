@@ -139,7 +139,7 @@ namespace ns3
     };
 
     void
-    VcaServer::SetDlpercentage(double percentage)
+    VcaServer::SetDlpercentage(double_t percentage)
     {
         m_dl_percentage = percentage;
     };
@@ -199,7 +199,7 @@ namespace ns3
             }
         }
 
-        if (m_policy == POLO || m_policy == FIXED)
+        if (m_policy == POLO)
         {
             m_py_socket = socket(AF_INET, SOCK_STREAM, 0);
             if (m_py_socket == -1)
@@ -216,6 +216,11 @@ namespace ns3
                 NS_LOG_DEBUG("[VcaServer] Connecting to the python server to connect");
             }
 
+            // change triggering time
+            Simulator::Schedule(Seconds(5), &VcaServer::UpdateCapacities, this);
+        }
+        else if (m_policy == FIXED)
+        {
             // change triggering time
             Simulator::Schedule(Seconds(5), &VcaServer::UpdateCapacities, this);
         }
@@ -299,7 +304,7 @@ namespace ns3
                 socket_dl->GetAttribute("SndBufSize", val);
                 uint32_t curPendingBuf = (uint32_t)val.Get() - sentsize - txbufferavailable;
 
-                NS_LOG_DEBUG("[VcaServer] Pacing rate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << (uint32_t)dl_socketbase->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf << " bbr " << bbr);
+                NS_LOG_LOGIC("[VcaServer] Pacing rate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << (uint32_t)dl_socketbase->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf << " bbr " << bbr);
             }
             else
             {
@@ -316,7 +321,7 @@ namespace ns3
                 UintegerValue val;
                 socket_dl->GetAttribute("SndBufSize", val);
                 uint32_t curPendingBuf = (uint32_t)val.Get() - sentsize - txbufferavailable;
-                NS_LOG_DEBUG("[VcaServer] ccRate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << rtt_estimate * 1000 << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf);
+                NS_LOG_LOGIC("[VcaServer] ccRate = " << bitrate / 1000000. << " framesize= " << client_info->cc_target_frame_size << " Rtt(ms) " << rtt_estimate * 1000 << " Cwnd(bytes) " << dl_socketbase->GetTcb()->m_cWnd.Get() << " nowBuf " << curPendingBuf);
             }
         }
 
@@ -741,7 +746,7 @@ namespace ns3
         // params for solver: n, capacities
         // params for solver: [rho, max_bitrate, qoe_type, qoe_func_alpha, qoe_func_beta, num_view, method, init_bw, plot]
 
-        if(m_policy == POLO)
+        if (m_policy == POLO)
         {
             m_opt_params.num_users = m_num_node;
             NS_ASSERT_MSG(m_opt_params.num_users == m_client_info_map.size(), "num_users should be equal to the number of clients");
@@ -770,11 +775,12 @@ namespace ns3
         {
             Ptr<ClientInfo> client_info = it->second;
 
-            if(m_policy == POLO)
+            if (m_policy == POLO)
                 dl_alloc = m_opt_alloc[it->first];
-            else if(m_policy == FIXED)
+            else if (m_policy == FIXED)
                 dl_alloc = m_opt_params.capacities_kbps[it->first] * m_dl_percentage;
-            else dl_alloc = 0; //will not occur. just for full compiling
+            else
+                dl_alloc = 0; // will not occur. just for full compiling
             ul_alloc = m_opt_params.capacities_kbps[it->first] - dl_alloc;
 
             client_info->ul_target_rate = ul_alloc;
