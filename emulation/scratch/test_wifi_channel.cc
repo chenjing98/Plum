@@ -47,6 +47,7 @@ enum WIFI_STANDARD_VERSION
 enum TOPOLOGY_TYPE
 {
   ONE_WIFI_STA,
+  TWO_WIFI_STA,
   ALL_WIFI_STA
 };
 
@@ -142,6 +143,7 @@ int main(int argc, char *argv[])
   int mobilityModel = 0;
   int wifiVersion = 3;
   int topologyType = 0;
+  double_t rho = 0.5;
 
   CommandLine cmd(__FILE__);
   cmd.AddValue("mode", "p2p or sfu mode, p2p is currently deprecated", mode);
@@ -165,6 +167,7 @@ int main(int argc, char *argv[])
   cmd.AddValue("vWifi", "Wifi standard version", wifiVersion);
   cmd.AddValue("mobiModel", "Mobility model", mobilityModel);
   cmd.AddValue("topoType", "Topology type", topologyType);
+  cmd.AddValue("rho", "Rho", rho);
 
   cmd.Parse(argc, argv);
   Time::SetResolution(Time::NS);
@@ -545,6 +548,7 @@ int main(int argc, char *argv[])
     vcaServerApp->SetPolicy(static_cast<POLICY>(policy));
     vcaServerApp->SetDlpercentage(dl_percentage);
     vcaServerApp->SetQoEType(static_cast<QOE_TYPE>(qoeType));
+    vcaServerApp->SetRho(rho);
     vcaServerApp->SetNodeId(sfuCenter.Get(0)->GetId());
     sfuCenter.Get(0)->AddApplication(vcaServerApp);
     vcaServerApp->SetStartTime(Seconds(0.0));
@@ -563,6 +567,19 @@ int main(int argc, char *argv[])
         if (static_cast<TOPOLOGY_TYPE>(topologyType) == ONE_WIFI_STA)
         {
           if (id == 0)
+          {
+            local = staAddr;
+            local_node = wifiStaNodes[id].Get(i);
+          }
+          else
+          {
+            local = apAddr;
+            local_node = wifiApNode[id].Get(i);
+          }
+        }
+        else if (static_cast<TOPOLOGY_TYPE>(topologyType) == TWO_WIFI_STA)
+        {
+          if (id == 0 || id == 1)
           {
             local = staAddr;
             local_node = wifiStaNodes[id].Get(i);
