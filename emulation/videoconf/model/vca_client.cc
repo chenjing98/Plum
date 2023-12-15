@@ -594,7 +594,7 @@ namespace ns3
 
         for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
         {
-            if ( (m_policy == POLO || m_policy == FIXED) && m_ul_rate_control_state == CONSTRAINED)
+            if ((m_policy == POLO || m_policy == FIXED) && m_ul_rate_control_state == CONSTRAINED)
             {
                 m_bitrateBps[ul_id] = (uint32_t)(m_ul_target_bitrate_kbps * 1000.0);
             }
@@ -624,7 +624,7 @@ namespace ns3
             m_bitrateBps[ul_id] = std::min(m_bitrateBps[ul_id], kMaxEncodeBps);
             m_bitrateBps[ul_id] = std::max(m_bitrateBps[ul_id], kMinEncodeBps);
 
-            NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][UpdateBitrate] Time= " << Simulator::Now().GetMilliSeconds() << " m_bitrate " << m_bitrateBps[ul_id]);
+            NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][UpdateBitrate] Time= " << Simulator::Now().GetMilliSeconds() << " m_bitrate " << m_bitrateBps[ul_id]);
         }
 
         ul_id++;

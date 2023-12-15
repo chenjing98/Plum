@@ -58,10 +58,9 @@ def calc_std_dev_qoe(avg_qoe, qoes):
     std_dev_qoe = std_dev_qoe ** 0.5
     return std_dev_qoe
 
-def CalQoE(thplist, qoeType):
+def CalQoE(thplist, qoeType, rho):
     if len(thplist) <= 0:
         return 0
-    rho = 0.1
     qoes = []
     for dl_bw in thplist:
         qoes.append(qoe(dl_bw/1000.0, qoeType))
@@ -143,6 +142,7 @@ def main():
     parser.add_argument('--tail', '-t', action='store_true')
     parser.add_argument("--min", "-m", action='store_true')
     parser.add_argument("--qoeType", "-q", type=int, default=-1)
+    parser.add_argument("--rho", "-r", type=float, default=0.5)
     parser.add_argument("--clientInfo", "-i", type=int, default=-1)
 
     args = parser.parse_args()
@@ -156,7 +156,7 @@ def main():
         elif args.min:
             print("%.2f" % min(avg_thp_list))
         elif args.qoeType >= 0:
-            print("%.2f" % CalQoE(avg_thp_list, args.qoeType))
+            print("%.2f" % CalQoE(avg_thp_list, args.qoeType, args.rho))
         elif args.clientInfo >= 0:
             print("%.2f" % avg_thp_list[args.clientInfo])
     else:
