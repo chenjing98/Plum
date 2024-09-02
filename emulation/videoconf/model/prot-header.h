@@ -9,8 +9,8 @@ namespace ns3
     enum POLICY
     {
         VANILLA,
-        YONGYULE, // deprecated
-        POLO,
+        PLUM_OLD_VERSION, // deprecated
+        PLUM,
         FIXED
     };
 

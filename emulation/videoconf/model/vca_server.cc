@@ -199,7 +199,7 @@ namespace ns3
             }
         }
 
-        if (m_policy == POLO || m_policy == FIXED)
+        if (m_policy == PLUM || m_policy == FIXED)
         {
             m_py_socket = socket(AF_INET, SOCK_STREAM, 0);
             if (m_py_socket == -1)
@@ -657,7 +657,7 @@ namespace ns3
 
         uint32_t manual_dl_share;
 
-        if (m_policy == POLO)
+        if (m_policy == PLUM)
         {
             if (client_info->dl_rate_control_state == NATRUAL)
             {
@@ -670,7 +670,7 @@ namespace ns3
                 return std::max(manual_dl_share, kMinFrameSizeBytes);
             }
         }
-        else if (m_policy == YONGYULE)
+        else if (m_policy == PLUM_OLD_VERSION)
         {
             if (client_info->dl_rate_control_state == NATRUAL)
             {
@@ -769,7 +769,7 @@ namespace ns3
         {
             Ptr<ClientInfo> client_info = it->second;
 
-            if(m_policy == POLO)
+            if(m_policy == PLUM)
                 dl_alloc = m_opt_alloc[it->first];
             else if(m_policy == FIXED)
                 dl_alloc = m_opt_params.capacities_kbps[it->first] * m_dl_percentage;

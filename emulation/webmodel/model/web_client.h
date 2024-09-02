@@ -26,10 +26,10 @@ enum POLICY
     SERVINIT
 };
 
-enum YONGYULE_REALIZATION
+enum PLUM_OLD_REALIZATION
 {
-    YONGYULE_RWND,
-    YONGYULE_APPRATE
+    PLUM_OLD_RWND,
+    PLUM_OLD_APPRATE
 };
 
 enum PROBE_STATE
@@ -160,7 +160,7 @@ namespace ns3
 
         POLICY m_policy;
 
-        YONGYULE_REALIZATION m_yongyule_realization;
+        PLUM_OLD_REALIZATION m_yongyule_realization;
 
         uint32_t m_target_dl_bitrate_redc_factor;
 

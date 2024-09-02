@@ -39,7 +39,7 @@ namespace ns3
           m_send_buffer_hdr(),
           m_is_my_wifi_access_bottleneck(false),
           m_policy(VANILLA),
-          m_yongyule_realization(YONGYULE_REALIZATION::YONGYULE_APPRATE),
+          m_yongyule_realization(PLUM_OLD_REALIZATION::PLUM_OLD_APPRATE),
           m_target_dl_bitrate_redc_factor(1e4),
           kTxRateUpdateWindowMs(20),
           kMinEncodeBps((uint32_t)1E6),
@@ -1004,7 +1004,7 @@ namespace ns3
     void
     WebClient::EnforceDlParam(double_t dl_lambda)
     {
-        if (m_yongyule_realization == YONGYULE_RWND)
+        if (m_yongyule_realization == PLUM_OLD_RWND)
         {
             for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
             {
@@ -1015,7 +1015,7 @@ namespace ns3
             }
         }
 
-        else if (m_yongyule_realization == YONGYULE_APPRATE)
+        else if (m_yongyule_realization == PLUM_OLD_APPRATE)
         {
             m_target_dl_bitrate_redc_factor = (uint32_t)(dl_lambda * 10000.0); // divided by 10000. to be the reduced factor
         }

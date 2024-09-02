@@ -24,9 +24,9 @@ namespace ns3
           payload_size(0),
           half_header(nullptr),
           half_payload(nullptr),
-          app_header(VcaAppProtHeader()){};
+          app_header(VcaAppProtHeader()) {};
 
-    PktInfo::~PktInfo(){};
+    PktInfo::~PktInfo() {};
 
     TypeId VcaClient::GetTypeId()
     {
@@ -57,7 +57,7 @@ namespace ns3
           m_send_buffer_pkt(),
           m_is_my_wifi_access_bottleneck(false),
           m_policy(VANILLA),
-          m_yongyule_realization(YONGYULE_REALIZATION::YONGYULE_APPRATE),
+          m_plum_old_realization(PLUM_OLD_REALIZATION::PLUM_OLD_APPRATE),
           m_target_dl_bitrate_redc_factor(1e4),
           kTxRateUpdateWindowMs(20),
           kMinEncodeBps((uint32_t)1E6),
@@ -80,9 +80,9 @@ namespace ns3
           m_probe_patience_count(0),
           m_probe_patience_count_max(8),
           m_pkt_info(CreateObject<PktInfo>()),
-          m_ul_target_bitrate_kbps(0.0){};
+          m_ul_target_bitrate_kbps(0.0) {};
 
-    VcaClient::~VcaClient(){};
+    VcaClient::~VcaClient() {};
 
     void VcaClient::DoDispose()
     {
@@ -191,9 +191,11 @@ namespace ns3
         {
             Address peer_addr = InetSocketAddress{peer_ip, m_peer_ul_port};
 
-            NS_LOG_LOGIC("[VcaClient][" << m_node_id << "]"
-                                        << " peer addr " << peer_ip
-                                        << " peer port " << m_peer_ul_port);
+            NS_LOG_INFO("[VcaClient][" << m_node_id << "]"
+                                         << " peer addr " << peer_ip
+                                         << " peer port " << m_peer_ul_port
+                                         << " local addr " << m_local_ul
+                                         << " local port " << m_local_ul_port);
 
             Ptr<Socket> socket_ul = Socket::CreateSocket(GetNode(), m_tid);
 
@@ -611,7 +613,7 @@ namespace ns3
 
         for (auto it = m_socket_list_ul.begin(); it != m_socket_list_ul.end(); it++)
         {
-            if (m_policy == POLO && m_ul_rate_control_state == CONSTRAINED)
+            if (m_policy == PLUM && m_ul_rate_control_state == CONSTRAINED)
             {
                 m_bitrateBps[ul_id] = (uint32_t)(m_ul_target_bitrate_kbps * 1000.0);
             }
@@ -632,7 +634,7 @@ namespace ns3
                 NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][UpdateBitrate] Time= " << Simulator::Now().GetMilliSeconds() << " m_bitrate " << m_bitrateBps[ul_id] << " Rtt(ms) " << (uint32_t)ul_socket->GetRtt()->GetEstimate().GetMilliSeconds() << " Cwnd(bytes) " << ul_socket->GetTcb()->m_cWnd.Get() << " pacingRate " << ((double_t)ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate() / 1000000.) << " nowBuf " << curPendingBuf << " TcpCongState " << ul_socket->GetTcb()->m_congState);
             }
 
-            if (m_policy == YONGYULE && m_increase_ul)
+            if (m_policy == PLUM_OLD_VERSION && m_increase_ul)
             {
                 m_bitrateBps[ul_id] = m_bitrateBps[ul_id] * kUlImprove;
             }
@@ -663,6 +665,12 @@ namespace ns3
         double average_throughput;
         average_throughput = 1.0 * m_total_packet_bit / Simulator::Now().GetSeconds();
         // NS_LOG_ERROR("[VcaClient][Result] Throughput= " << average_throughput << " NodeId= " << m_node_id);
+
+        double_t average_rtt = 1000;
+        if (m_total_pkt_cnt > 0)
+        {
+            average_rtt = (double_t)m_total_rtt_ms / (double_t)m_total_pkt_cnt;
+        }
 
         uint8_t InitPhaseFilterSec = 5;
 
@@ -746,11 +754,11 @@ namespace ns3
 
     void VcaClient::AdjustBw()
     {
-        if (m_policy == VANILLA || m_policy == POLO)
+        if (m_policy == VANILLA || m_policy == PLUM)
         {
             return;
         }
-        else if (m_policy == YONGYULE)
+        else if (m_policy == PLUM_OLD_VERSION)
         {
             bool changed = 0;
 
@@ -973,7 +981,7 @@ namespace ns3
 
     void VcaClient::EnforceDlParam(double_t dl_lambda)
     {
-        if (m_yongyule_realization == YONGYULE_RWND)
+        if (m_plum_old_realization == PLUM_OLD_RWND)
         {
             for (auto it = m_socket_list_dl.begin(); it != m_socket_list_dl.end(); it++)
             {
@@ -984,7 +992,7 @@ namespace ns3
             }
         }
 
-        else if (m_yongyule_realization == YONGYULE_APPRATE)
+        else if (m_plum_old_realization == PLUM_OLD_APPRATE)
         {
             m_target_dl_bitrate_redc_factor = (uint32_t)(dl_lambda * 10000.0); // divided by 10000. to be the reduced factor
         }
