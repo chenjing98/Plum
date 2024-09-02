@@ -11,7 +11,7 @@ declare -a ulprops=(0.8)
 declare -a ackmaxcounts=(16)
 
 export baseline_policy=0
-export filename_prefix="raw_result_1117"
+export filename_prefix="raw_result_"
 
 
 export NS3_THROUGHPUT_REGEX="\[VcaClient\]\[Result\] Throughput= ([0-9\.e\-]+)"
@@ -36,13 +36,18 @@ run_ns3() {
     min_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -m)
     tail_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -t)
     qoe=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -q ${qoet})
+    avg_rtt=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -r)
+    rtt90=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -r90)
+    rtt95=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -r95)
+    rtt99=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -r99)
+    rtt999=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -r999)
     
     # output to file
     # dirty output
     echo At policy: $policy, nclient: $nclient, seed: $seed, qoeType: $qoet >> $output_file
     echo $ns3_output >> $output_file
     # clean output
-    echo $policy, $nclient, $seed, $qoet, $avg_thp, $min_thp, $tail_thp, $qoe>> $output_file_clean
+    echo $policy, $nclient, $seed, $qoet, $avg_thp, $min_thp, $tail_thp, $qoe, $avg_rtt, $rtt90, $rtt95, $rtt99, $rtt999>> $output_file_clean
 }
 
 # compile first
@@ -52,6 +57,6 @@ cd $NS3_DIR
 export -f run_ns3
 
 
-echo "policy, nclient, seed, qoeType, avg_thp, min_thp, tail_thp, qoe" > ${RESULT_DIR}/${filename_prefix}.csv
+echo "policy, nclient, seed, qoeType, avg_thp, min_thp, tail_thp, qoe, avg_rtt, rtt90, rtt95, rtt99, rtt999" > ${RESULT_DIR}/${filename_prefix}.csv
 
 parallel -j${CORE_COUNT} run_ns3 ::: ${policies[@]} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${simTime} ::: ${qoeType[@]}

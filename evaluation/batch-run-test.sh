@@ -3,14 +3,16 @@
 export CORE_COUNT=50
 
 declare -a seeds=(1 2 3 4 5 12946 129 777)
-declare -a nclients=(3 4 5 8 10 20)
+declare -a nclients=(12 14 16 18)
+declare -a serverBtlneck=(100 500 1000 10000)
 declare simTime=(120)
 declare -a policies=(0 1)
 declare -a ulprops=(0.8)
 declare -a ackmaxcounts=(16)
+declare -a datasets=(0 1)
 
 export baseline_policy=0
-export filename_prefix="result_p2p_large_clients"
+export filename_prefix="result_fig11_server_btlneck_complement"
 
 # export FPS=60
 # export BITRATE=10  # Mbps
@@ -28,12 +30,14 @@ run_ns3() {
     policy=$1
     seed=$2
     nclient=$3
-    simt=$4
+    dataset=$4
+    serverbw=$5
+    simt=$6
     filename=${RESULT_DIR}/${filename_prefix}
     output_file=${filename}.txt
     output_file_clean=${filename}.csv
     echo At policy: $policy, nclient: $nclient, seed: $seed, output_file: $filename.txt/csv...
-    ns3_output=$(NS_GLOBAL_VALUE="RngRun=$seed" ./ns3 run "scratch/test_half_duplex --mode=sfu --logLevel=0 --simTime=${simt} --policy=0 --nClient=${nclient} --varyBw --traceMode=${policy} --seed=${seed}" 2>&1)
+    ns3_output=$(NS_GLOBAL_VALUE="RngRun=$seed" ./ns3 run "scratch/test_half_duplex --mode=sfu --logLevel=0 --simTime=${simt} --policy=0 --nClient=${nclient} --varyBw --traceMode=${policy} --seed=${seed} --dataset=${dataset} --serverBtl=${serverbw}" 2>&1)
     avg_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -a)
     min_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -m)
     tail_thp=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -t)
@@ -45,20 +49,22 @@ run_ns3() {
     echo At policy: $policy, nclient: $nclient, seed: $seed >> $output_file
     echo $ns3_output >> $output_file
     # clean output
-    echo $policy, $nclient, $seed, $avg_thp, $min_thp, $tail_thp >> $output_file_clean
+    echo $policy, $nclient, $seed, $dataset, $serverbw, $avg_thp, $min_thp, $tail_thp >> $output_file_clean
 }
 
 run_ns3_tack() {
     policy=$1
     seed=$2
     nclient=$3
-    simt=$4
-    ackmaxcount=$5
+    dataset=$4
+    serverbw=$5
+    simt=$6
+    ackmaxcount=$7
     filename=${RESULT_DIR}/${filename_prefix}_tack
     output_file=${filename}.txt
     output_file_clean=${filename}.csv
     echo At policy: $policy, nclient: $nclient, seed: $seed, output_file: $filename.txt/csv...
-    ns3_output=$(NS_GLOBAL_VALUE="RngRun=$seed" ./ns3 run "scratch/test_half_duplex --mode=sfu --logLevel=0 --simTime=${simt} --policy=0 --nClient=${nclient} --varyBw --traceMode=${policy} --seed=${seed} --isTack=1 --tackMaxCount=${ackmaxcount}" 2>&1)
+    ns3_output=$(NS_GLOBAL_VALUE="RngRun=$seed" ./ns3 run "scratch/test_half_duplex --mode=sfu --logLevel=0 --simTime=${simt} --policy=0 --nClient=${nclient} --varyBw --traceMode=${policy} --seed=${seed} --isTack=1 --tackMaxCount=${ackmaxcount}  --dataset=${dataset} --serverBtl=${serverbw}" 2>&1)
     avg_thp=$(python3 /home/chenj/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -a)
     min_thp=$(python3 /home/chenj/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -m)
     tail_thp=$(python3 /home/chenj/UplinkCoordination/evaluation/log-process.py -l "${ns3_output}" -t)
@@ -70,7 +76,7 @@ run_ns3_tack() {
     echo At policy: $policy, nclient: $nclient, seed: $seed >> $output_file
     echo $ns3_output >> $output_file
     # clean output
-    echo $policy, $nclient, $seed, $avg_thp, $min_thp, $tail_thp >> $output_file_clean
+    echo $policy, $nclient, $seed, $dataset, $serverbw, $avg_thp, $min_thp, $tail_thp >> $output_file_clean
 }
 
 
@@ -82,10 +88,10 @@ export -f run_ns3
 export -f run_ns3_tack
 
 
-echo "policy, nclient, seed, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/${filename_prefix}.csv
+echo "policy, nclient, seed, dataset, serverBtlneck, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/${filename_prefix}.csv
 
-parallel -j${CORE_COUNT} run_ns3 ::: ${policies[@]} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${simTime}
+parallel -j${CORE_COUNT} run_ns3 ::: ${policies[@]} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${datasets[@]} ::: ${serverBtlneck[@]} ::: ${simTime}
 
-echo "policy, nclient, seed, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/${filename_prefix}_tack.csv
+echo "policy, nclient, seed, dataset, serverBtlneck, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/${filename_prefix}_tack.csv
 
-parallel -j${CORE_COUNT} run_ns3_tack ::: ${baseline_policy} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${simTime} ::: ${ackmaxcounts[@]}
+parallel -j${CORE_COUNT} run_ns3_tack ::: ${baseline_policy} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${datasets[@]} ::: ${serverBtlneck[@]} ::: ${simTime} ::: ${ackmaxcounts[@]}
