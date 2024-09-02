@@ -414,6 +414,10 @@ namespace ns3
         uint32_t src_id = m_pkt_info->app_header.GetSrcId();
         uint32_t payload_size = m_pkt_info->app_header.GetPayloadSize();
         m_ul_target_bitrate_kbps = (double_t)m_pkt_info->app_header.GetUlTargetRate() / 1000.0;
+        uint32_t rtt_ms = Simulator::Now().GetMilliSeconds() - m_pkt_info->app_header.GetSendTime();
+
+        m_total_pkt_cnt++;
+        m_total_rtt_ms += rtt_ms;
 
         // update bitrate
         if (m_ul_rate_control_state == RATE_CONTROL_STATE::NATRUAL && m_ul_target_bitrate_kbps > 0.1)
@@ -451,6 +455,18 @@ namespace ns3
             // }
             m_transientRateBps[now_second][src_id] += payload_size * 8;
         }
+
+        // update rtt distribution
+
+        if (m_rtt.find(rtt_ms) == m_rtt.end())
+        {
+            m_rtt[rtt_ms] = 1;
+        }
+        else
+        {
+            m_rtt[rtt_ms] += 1;
+        }
+
         NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][ReceivedPkt] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << m_pkt_info->app_header.GetFrameId() << " PktId= " << m_pkt_info->app_header.GetPacketId() << " PayloadSize= " << payload_size << " SrcId= " << src_id << " UlTargetBitrate(kbps)= " << m_ul_target_bitrate_kbps);
 
         ReceiveData(packet);
@@ -536,6 +552,7 @@ namespace ns3
                 VcaAppProtHeader app_header = VcaAppProtHeader(m_frame_id, pkt_id_in_frame);
                 app_header.SetPayloadSize(payloadSize);
                 app_header.SetSrcId(m_node_id);
+                app_header.SetSendTime(Simulator::Now().GetMilliSeconds());
 
                 // uint32_t packet_size = std::min(payloadSize, frame_size - data_ptr);
 
@@ -717,7 +734,14 @@ namespace ns3
             NS_LOG_DEBUG("TransientRate= " << transient_rate_kbps.first << " Count= " << transient_rate_kbps.second);
         }
 
-        NS_LOG_ERROR("[VcaClient][Result] TailThroughput= " << (double_t)less_then_thresh_count / (double_t)(m_transientRateBps.size() - InitPhaseFilterSec) << " AvgThroughput= " << /*(double_t)sum_transient_rate_kbps / (double_t)(pkt_history_length - InitPhaseFilterSec)*/ average_throughput << " NodeId= " << m_node_id);
+        NS_LOG_ERROR("[VcaClient][Result] TailThroughput= " << (double_t)less_then_thresh_count / (double_t)(m_transientRateBps.size() - InitPhaseFilterSec)
+                                                            << " AvgThroughput= " << /*(double_t)sum_transient_rate_kbps / (double_t)(pkt_history_length - InitPhaseFilterSec)*/ average_throughput
+                                                            << " AvgRtt= " << average_rtt
+                                                            << " TailRtt90= " << GetTailRtt(0.9)
+                                                            << " TailRtt95= " << GetTailRtt(0.95)
+                                                            << " TailRtt99= " << GetTailRtt(0.99)
+                                                            << " TailRtt999= " << GetTailRtt(0.999)
+                                                            << " NodeId= " << m_node_id);
     };
 
     void VcaClient::AdjustBw()
@@ -1026,8 +1050,24 @@ namespace ns3
         return bitrate;
     };
 
+    uint32_t
+    VcaClient::GetTailRtt(double_t tail_pct)
+    {
+        uint64_t tail_count = (1 - tail_pct) * m_total_pkt_cnt;
+        uint64_t count = 0;
+        for (auto it = m_rtt.rbegin(); it != m_rtt.rend(); it++)
+        {
+            count += it->second;
+            if (count >= tail_count)
+            {
+                return it->first;
+            }
+        }
+        return 0;
+    };
+
     double_t GetDlParamFromServ()
     {
         return 1.0;
-    }
+    };
 }; // namespace ns3

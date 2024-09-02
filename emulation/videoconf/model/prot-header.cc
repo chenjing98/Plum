@@ -23,16 +23,18 @@ namespace ns3
           m_packet_id(0),
           m_payload_size(1448 - VCA_APP_PROT_HEADER_LENGTH),
           m_src_id(0),
-          m_ul_target_rate_bps(1e4){};
+          m_ul_target_rate_bps(1e4),
+          m_send_time(0) {};
 
     VcaAppProtHeader::VcaAppProtHeader(uint16_t frame_id, uint16_t packet_id)
         : m_frame_id(frame_id),
           m_packet_id(packet_id),
           m_payload_size(1448 - VCA_APP_PROT_HEADER_LENGTH),
           m_src_id(0),
-          m_ul_target_rate_bps(1e4){};
+          m_ul_target_rate_bps(1e4),
+          m_send_time(0) {};
 
-    VcaAppProtHeader::~VcaAppProtHeader(){};
+    VcaAppProtHeader::~VcaAppProtHeader() {};
 
     void
     VcaAppProtHeader::Serialize(Buffer::Iterator start) const
@@ -42,6 +44,7 @@ namespace ns3
         start.WriteHtonU32(m_payload_size);
         start.WriteHtonU32(m_src_id);
         start.WriteHtonU32(m_ul_target_rate_bps);
+        start.WriteHtonU32(m_send_time);
     };
 
     uint32_t
@@ -52,19 +55,20 @@ namespace ns3
         m_payload_size = start.ReadNtohU32();
         m_src_id = start.ReadNtohU32();
         m_ul_target_rate_bps = start.ReadNtohU32();
+        m_send_time = start.ReadNtohU32();
         return GetSerializedSize();
     };
 
     uint32_t
     VcaAppProtHeader::GetSerializedSize(void) const
     {
-        return sizeof(m_frame_id) + sizeof(m_packet_id) + sizeof(m_src_id) + sizeof(m_ul_target_rate_bps) + sizeof(m_payload_size);
+        return sizeof(m_frame_id) + sizeof(m_packet_id) + sizeof(m_src_id) + sizeof(m_ul_target_rate_bps) + sizeof(m_payload_size) + sizeof(m_send_time);
     };
 
     void
     VcaAppProtHeader::Print(std::ostream &os) const
     {
-        os << "FrameId= " << m_frame_id << " PacketId= " << m_packet_id << " PayloadSize= " << m_payload_size << " SrcId= " << m_src_id << " TargetFrameSize= " << m_ul_target_rate_bps;
+        os << "FrameId= " << m_frame_id << " PacketId= " << m_packet_id << " PayloadSize= " << m_payload_size << " SrcId= " << m_src_id << " TargetFrameSize= " << m_ul_target_rate_bps << " SendTime= " << m_send_time;
     };
 
     void
@@ -97,6 +101,12 @@ namespace ns3
         m_src_id = src_id;
     };
 
+    void
+    VcaAppProtHeader::SetSendTime(uint32_t send_time)
+    {
+        m_send_time = send_time;
+    };
+
     uint16_t
     VcaAppProtHeader::GetFrameId(void)
     {
@@ -127,6 +137,12 @@ namespace ns3
         return m_src_id;
     };
 
+    uint32_t
+    VcaAppProtHeader::GetSendTime(void)
+    {
+        return m_send_time;
+    };
+
     void
     VcaAppProtHeader::Reset()
     {
@@ -135,6 +151,7 @@ namespace ns3
         m_payload_size = 1448 - VCA_APP_PROT_HEADER_LENGTH;
         m_src_id = 0;
         m_ul_target_rate_bps = 1e4;
+        m_send_time = 0;
     };
 
 } // namespace ns3

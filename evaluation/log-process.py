@@ -71,25 +71,41 @@ def CalQoE(thplist, qoeType):
 
 
 
-def CalAverageThroughput(thplist):
-    if len(thplist) <= 0:
+def CalAverage(list):
+    if len(list) <= 0:
         return 0
     sum = 0
-    for i in range(len(thplist)):
-        sum += thplist[i]
-    return sum / len(thplist)
+    for i in range(len(list)):
+        sum += list[i]
+    return sum / len(list)
 
 
 def ReadThroughputLogs(logs):
     loglist = logs.split(' ')
     avg_thp_list = []
     tail_thp_list = []
+    avg_rtt_list = []
+    tail_rtt_90_list = []
+    tail_rtt_95_list = []
+    tail_rtt_99_list = []
+    tail_rtt_999_list = []
     for i in range(len(loglist)):
         if loglist[i] == 'AvgThroughput=':
             avg_thp_list.append(float(loglist[i+1]))
         if loglist[i] == 'TailThroughput=':
             tail_thp_list.append(float(loglist[i+1]))
-    return avg_thp_list, tail_thp_list
+        if loglist[i] == 'AvgRtt=':
+            avg_rtt_list.append(float(loglist[i+1]))
+        if loglist[i] == 'TailRtt90=':
+            tail_rtt_90_list.append(float(loglist[i+1]))
+        if loglist[i] == 'TailRtt95=':
+            tail_rtt_95_list.append(float(loglist[i+1]))
+        if loglist[i] == 'TailRtt99=':
+            tail_rtt_99_list.append(float(loglist[i+1]))
+        if loglist[i] == 'TailRtt999=':
+            tail_rtt_999_list.append(float(loglist[i+1]))
+            
+    return avg_thp_list, tail_thp_list, avg_rtt_list, tail_rtt_90_list, tail_rtt_95_list, tail_rtt_99_list, tail_rtt_999_list
 
 def AggregateCsvLog(csv_file):
     avg_thp_results = {}
@@ -144,19 +160,34 @@ def main():
     parser.add_argument("--min", "-m", action='store_true')
     parser.add_argument("--qoeType", "-q", type=int, default=-1)
     parser.add_argument("--clientInfo", "-i", type=int, default=-1)
+    parser.add_argument("--rtt", "-r", action='store_true')
+    parser.add_argument("--rtt90", "-r90", action='store_true')
+    parser.add_argument("--rtt95", "-r95", action='store_true')
+    parser.add_argument("--rtt99", "-r99", action='store_true')
+    parser.add_argument("--rtt999", "-r999", action='store_true')
 
     args = parser.parse_args()
 
     if not args.process:
-        avg_thp_list, tail_thp_list = ReadThroughputLogs(args.log)
+        avg_thp_list, tail_thp_list, avg_rtt_list, tail_rtt_90_list, tail_rtt_95_list, tail_rtt_99_list, tail_rtt_999_list = ReadThroughputLogs(args.log)
         if args.avg:
-            print("%.2f" % CalAverageThroughput(avg_thp_list))
+            print("%.2f" % CalAverage(avg_thp_list))
         elif args.tail:
-            print("%.2f" % CalAverageThroughput(tail_thp_list))
+            print("%.2f" % CalAverage(tail_thp_list))
         elif args.min:
             print("%.2f" % min(avg_thp_list))
         elif args.qoeType >= 0:
             print("%.2f" % CalQoE(avg_thp_list, args.qoeType))
+        elif args.rtt:
+            print("%.2f" % CalAverage(avg_rtt_list))
+        elif args.rtt90:
+            print("%.2f" % CalAverage(tail_rtt_90_list))
+        elif args.rtt95:
+            print("%.2f" % CalAverage(tail_rtt_95_list))
+        elif args.rtt99:
+            print("%.2f" % CalAverage(tail_rtt_99_list))
+        elif args.rtt999:
+            print("%.2f" % CalAverage(tail_rtt_999_list))
         elif args.clientInfo >= 0:
             print("%.2f" % avg_thp_list[args.clientInfo])
     else:

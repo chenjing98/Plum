@@ -538,6 +538,7 @@ namespace ns3
         uint16_t pkt_id = client_info->app_header.GetPacketId();
         uint32_t payload_size = client_info->app_header.GetPayloadSize();
         uint32_t src_id = client_info->app_header.GetSrcId();
+        uint32_t send_time = client_info->app_header.GetSendTime();
 
         NS_LOG_LOGIC("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " SrcId= " << src_id << " NumDegradedUsers= " << m_num_degraded_users);
 
@@ -574,6 +575,7 @@ namespace ns3
             app_header.SetSrcId(src_id);
             app_header.SetPayloadSize(payload_size);
             app_header.SetUlTargetRate((uint32_t)(other_client_info->ul_target_rate * 1000.0));
+            app_header.SetSendTime(send_time); 
             packet_dl->AddHeader(app_header);
 
             other_client_info->send_buffer.push_back(packet_dl);

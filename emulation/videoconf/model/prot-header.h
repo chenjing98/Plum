@@ -20,7 +20,7 @@ namespace ns3
         CONSTRAINED
     };
 
-    uint16_t const VCA_APP_PROT_HEADER_LENGTH = 16;
+    uint16_t const VCA_APP_PROT_HEADER_LENGTH = 16 + 4;
     class VcaAppProtHeader : public Header
     {
     public:
@@ -39,11 +39,13 @@ namespace ns3
         void SetUlTargetRate(uint32_t ul_target_rate);
         void SetPayloadSize(uint32_t payload_size);
         void SetSrcId(uint32_t src_id);
+        void SetSendTime(uint32_t send_time);
         uint16_t GetFrameId(void);
         uint16_t GetPacketId(void);
         uint32_t GetUlTargetRate(void);
         uint32_t GetPayloadSize(void);
         uint32_t GetSrcId(void);
+        uint32_t GetSendTime(void);
 
         void Reset(void);
 
@@ -53,6 +55,7 @@ namespace ns3
         uint32_t m_payload_size;
         uint32_t m_src_id;
         uint32_t m_ul_target_rate_bps;
+        uint32_t m_send_time;
     };
 
 } // namespace ns3

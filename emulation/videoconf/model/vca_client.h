@@ -133,6 +133,8 @@ namespace ns3
 
         double_t GetDutyRatio(uint8_t);
 
+        uint32_t GetTailRtt(double_t);
+
         uint32_t m_node_id;
         uint8_t m_num_node;
 
@@ -166,6 +168,9 @@ namespace ns3
 
         uint64_t m_total_packet_bit;
         std::vector<std::unordered_map<uint32_t, uint32_t>> m_transientRateBps; // vector index: time in second, map key: source ip, map value: bitrate in bps
+        uint64_t m_total_pkt_cnt;
+        uint64_t m_total_rtt_ms;
+        std::map<uint32_t, uint32_t> m_rtt; // map key: rtt in ms, map value: count
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_pkt;
 
@@ -217,6 +222,10 @@ namespace ns3
 
         double_t m_ul_target_bitrate_kbps;
         RATE_CONTROL_STATE m_ul_rate_control_state;
+
+        // latency statistics related
+        bool m_turn_on_latency_stats;
+        
     }; // class VcaClient
 
 }; // namespace ns3
