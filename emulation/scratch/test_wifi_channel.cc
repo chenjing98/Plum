@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
   cmd.AddValue("logLevel", "Log level: 0 for error, 1 for debug, 2 for logic", logLevel);
   cmd.AddValue("simTime", "Total simulation time in s", simulationDuration);
   cmd.AddValue("maxBitrateKbps", "Max bitrate in kbps", maxBitrateKbps);
-  cmd.AddValue("policy", "0 for Vanilla, 1 for Yongyule, 2 for Polo, 3 for Fixed", policy);
+  cmd.AddValue("policy", "0 for Vanilla, 1 for Plum old version, 2 for Plum, 3 for Fixed", policy);
   cmd.AddValue("nClient", "Number of clients", nClient);
   cmd.AddValue("printPosition", "Print position of nodes", printPosition);
   cmd.AddValue("minBitrate", "Minimum tolerable bitrate in kbps", minBitrateKbps);
