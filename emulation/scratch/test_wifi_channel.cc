@@ -344,6 +344,8 @@ int main(int argc, char *argv[])
     uint8_t nWifi[nClient]; // number of stations in each BSS
     for (uint32_t i = 0; i < nClient; i++)
       nWifi[i] = 1;
+    //sharedAP
+    nWifi[0] = 2;
     p2pNodes.Create(nClient + 1);
     for (uint8_t i = 0; i < nClient; i++)
     {
@@ -353,6 +355,9 @@ int main(int argc, char *argv[])
       {
         Simulator::Schedule(Seconds(0.0), &showPosition, wifiStaNodes[i].Get(0), showPositionDeltaTime);
         Simulator::Schedule(Seconds(0.0), &showPosition, wifiApNode[i].Get(0), showPositionDeltaTime);
+        //sharedAP
+        if(i==0) 
+          Simulator::Schedule(Seconds(0.0), &showPosition, wifiStaNodes[i].Get(1), showPositionDeltaTime);
       }
     }
     sfuCenter = p2pNodes.Get(nClient);
@@ -434,7 +439,9 @@ int main(int argc, char *argv[])
     //   mobility.Install(wifiStaNodes[i]);
     // }
 
-    mobility.Install(wifiStaNodes[0]);
+    //sharedAP
+    // mobility.Install(wifiStaNodes[0]);
+    mobility.Install(wifiStaNodes[0].Get(0));
 
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
 
@@ -447,6 +454,11 @@ int main(int argc, char *argv[])
     {
       mobility.Install(wifiApNode[i]);
     }
+    //sharedAP
+    mobility.Install(wifiStaNodes[0].Get(1));
+    Ptr<MobilityModel> mobilityModel = wifiStaNodes[0].Get(1)->GetObject<MobilityModel>();
+    Vector Position(0.1, 0.0, 0.0);
+    mobilityModel->SetPosition(Position);
 
     InternetStackHelper stack;
     for (uint32_t i = 0; i < nClient; i++)
@@ -475,6 +487,10 @@ int main(int argc, char *argv[])
       Stainterfaces[i] = Wifiaddress[i].Assign(staDevices[i]);
       APinterfaces[i] = Wifiaddress[i].Assign(apDevices[i]);
       NS_LOG_DEBUG("APinterfaces[" << i << "].getAddress(0) = " << APinterfaces[i].GetAddress(0));
+      NS_LOG_DEBUG("Stainterfaces[" << i << "].getAddress(0) = " << Stainterfaces[i].GetAddress(0));
+      if(i==0) {
+        NS_LOG_DEBUG("Stainterfaces[" << i << "].getAddress(1) = " << Stainterfaces[i].GetAddress(1));
+      }
     }
 
     // 把每个node的每个接口的ip地址打印出来
