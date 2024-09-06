@@ -129,6 +129,9 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
     {
         ul_bw = total_bw / 2;
         dl_bw = total_bw / 2;
+
+        dl_bw = std::min(dl_bw, elem.serverBwMbps);
+
         NS_LOG_DEBUG("BwAlloc Node: " << (uint16_t)elem.node_id << " ul_bw: " << ul_bw << " dl_bw: " << dl_bw);
     }
     else
