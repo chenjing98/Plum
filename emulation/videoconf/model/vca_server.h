@@ -89,6 +89,7 @@ namespace ns3
         void SetPeerDlPort(uint16_t port);
 
         void SetNodeId(uint32_t node_id);
+        void SetLastNid(uint32_t node_id);
         void SetPolicy(POLICY policy);
         void SetDlpercentage(double percentage);
         void SetSeparateSocket();
@@ -97,6 +98,7 @@ namespace ns3
         void SetRho(double_t rho);
         void SetQoEType(QOE_TYPE qoe_type);
         void SetMaxThroughput(double_t max_throughput_kbps);
+        void SetnClient(uint32_t nc);
 
     protected:
         void DoDispose(void);
@@ -215,6 +217,10 @@ namespace ns3
 
         int m_py_socket;
 
+        std::deque<uint32_t> lastN;
+        std::map<uint32_t,uint32_t> in_queue;
+        uint32_t lastN_id;
+        uint32_t nClient;
     }; // class VcaServer
 
 }; // namespace ns3

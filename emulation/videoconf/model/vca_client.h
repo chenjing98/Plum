@@ -91,6 +91,8 @@ namespace ns3
 
         void SetUlThresh(uint32_t, uint32_t);
 
+        void SetLastNid(uint32_t m_lastN_id);
+
         static const uint32_t payloadSize = 1448 - VCA_APP_PROT_HEADER_LENGTH; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 16B(VCA header)
 
     protected:
@@ -225,7 +227,8 @@ namespace ns3
 
         // latency statistics related
         bool m_turn_on_latency_stats;
-        
+
+        uint32_t lastN_id;
     }; // class VcaClient
 
 }; // namespace ns3

@@ -1,5 +1,8 @@
 #include "vca_server.h"
-
+// #include "../../callback.h"
+std::set<uint32_t> m_paused[72];
+std::map<uint8_t,ns3::Ipv4Address> socket_to_ip[72];
+extern std::map<ns3::Ipv4Address,uint32_t> ip_to_node[72];
 namespace ns3
 {
     uint8_t DEBUG_SRC_SOCKET_ID = 0;
@@ -100,6 +103,18 @@ namespace ns3
     VcaServer::SetNodeId(uint32_t node_id)
     {
         m_node_id = node_id;
+    };
+
+    void 
+    VcaServer::SetLastNid(uint32_t m_lastN_id)
+    {
+        lastN_id = m_lastN_id;
+    };
+
+    void
+    VcaServer::SetnClient(uint32_t nc)
+    {
+        nClient = nc;
     };
 
     void
@@ -349,6 +364,8 @@ namespace ns3
         uint8_t socket_id = m_ul_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
 
         Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
+        // NS_LOG_UNCOND("socket_to_ip["<<(uint32_t)socket_id<<"] = "<<client_info->ul_addr);
+        socket_to_ip[lastN_id][socket_id] = client_info->ul_addr;
 
         while (true)
         {
@@ -539,6 +556,42 @@ namespace ns3
         uint32_t payload_size = client_info->app_header.GetPayloadSize();
         uint32_t src_id = client_info->app_header.GetSrcId();
         uint32_t send_time = client_info->app_header.GetSendTime();
+
+        /*
+            Having decoded customized header and payload,
+            we're going to maintain a lastNqueue based on m_node_id
+        */
+        uint8_t lastN_mode = 1;
+        uint32_t lastN_number = nClient-1;
+        if(lastN_mode){
+            uint32_t client_node_id = ip_to_node[lastN_id][socket_to_ip[lastN_id][socket_id]];
+            // NS_LOG_UNCOND("client_node_id ::: socket_id="<<(uint32_t)socket_id<<"  ip="<<socket_to_ip[lastN_id][socket_id]<<" node_id="<<client_node_id);
+            // NS_LOG_UNCOND("lastN[Server] insert "<<client_node_id);
+            //Push: add lastest client_node_id
+            lastN.push_back(client_node_id);
+            if(in_queue[client_node_id]==0){//paused -> not paused
+                if(m_paused[lastN_id].find(client_node_id) != m_paused[lastN_id].end()){
+                    m_paused[lastN_id].erase(m_paused[lastN_id].find(client_node_id));
+                    // NS_LOG_UNCOND("m_paused.erase("<<client_node_id<<")");
+                }
+            }
+            in_queue[client_node_id] += 1;
+
+            //Pop: maintain queue
+            while(in_queue.size() > lastN_number){
+                uint32_t old_node_id = lastN.front();
+                // NS_LOG_UNCOND("lastN[Server] erase "<<old_node_id);
+                lastN.pop_front();
+                in_queue[old_node_id] -= 1;
+                if(in_queue[old_node_id] == 0){//not paused -> paused
+                    if(m_paused[lastN_id].find(old_node_id) == m_paused[lastN_id].end()){
+                        m_paused[lastN_id].insert(old_node_id);
+                        // NS_LOG_UNCOND("m_paused.insert("<<old_node_id<<")");
+                    }
+                    in_queue.erase(old_node_id);
+                }
+            } 
+        }
 
         NS_LOG_LOGIC("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " SrcId= " << src_id << " NumDegradedUsers= " << m_num_degraded_users);
 

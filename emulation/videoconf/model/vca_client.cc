@@ -1,5 +1,6 @@
 #include "vca_client.h"
-
+// #include "../../callback.h"
+extern std::set<uint32_t> m_paused[72];
 namespace ns3
 {
     NS_LOG_COMPONENT_DEFINE("VcaClient");
@@ -178,6 +179,10 @@ namespace ns3
     {
         kLowUlThresh = low_ul_thresh;
         kHighUlThresh = high_ul_thresh;
+    };
+    void VcaClient::SetLastNid(uint32_t m_lastN_id)
+    {
+        lastN_id = m_lastN_id;
     };
 
     // Application Methods
@@ -487,7 +492,15 @@ namespace ns3
         {
             Ptr<Packet> packet = m_send_buffer_pkt[socket_id_up].front();
 
-            int actual = socket->Send(packet);
+            // int actual = socket->Send(packet);
+            int actual = 0;
+            bool is_paused = m_paused[lastN_id].find(m_node_id)==m_paused[lastN_id].end()?0:1;
+            // NS_LOG_UNCOND("lastN[Client] check "<<(uint32_t)m_node_id<<" is_paused="<<is_paused);
+            // is_paused = 0;
+            if(is_paused==0 ||  //not paused
+                (is_paused && (((int)(random()))%3 == 1))) //paused and random
+                    actual = socket->Send(packet);
+
             if (actual > 0)
             {
                 NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "][Send][Sock" << (uint16_t)socket_id_up << "] Time= " << Simulator::Now().GetMilliSeconds() << " PktSize(B)= " << packet->GetSize() << " SendBufSize= " << m_send_buffer_pkt[socket_id_up].size() - 1 << " DstIp= " << m_peer_list[socket_id_up]);
@@ -500,7 +513,7 @@ namespace ns3
             else
             {
                 if (m_node_id == 0 && Simulator::Now().GetSeconds() > 148)
-                    NS_LOG_DEBUG("[VcaClient][Send][Node" << m_node_id << "][Sock" << (uint16_t)socket_id_up << "] SendData failed");
+                    NS_LOG_DEBUG("[VcaClient][Send][Node" << m_node_id << "][Sock" << (uint16_t)socket_id_up << "] SendData failed (maybe paused)");
                 break;
             }
         }
