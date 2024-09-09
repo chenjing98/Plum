@@ -2,17 +2,28 @@
 
 export CORE_COUNT=50
 
-declare -a seeds=(1 2 3 4 5 12946 129 777)
-declare -a nclients=(12 14 16 18)
-declare -a serverBtlneck=(100 500 1000 10000)
+# declare -a seeds=(1 2 3 4 5 129 777 12946)
+# # declare -a nclients=(3 4 5 8 10 12 14 16 18 20)
+# declare -a nclients=(18 20)
+# declare -a serverBtlneck=(100)
+# declare simTime=(120)
+# declare -a policies=(0)
+# declare -a ulprops=(0.8)
+# declare -a ackmaxcounts=(16)
+# declare -a datasets=(0)
+
+declare -a seeds=(14 20 25 27 30)
+# declare -a nclients=(3 4 5 8 10 12 14 16 18 20)
+declare -a nclients=(16)
+declare -a serverBtlneck=(1000)
 declare simTime=(120)
-declare -a policies=(0 1)
+declare -a policies=(0)
 declare -a ulprops=(0.8)
 declare -a ackmaxcounts=(16)
-declare -a datasets=(0 1)
+declare -a datasets=(1)
 
 export baseline_policy=0
-export filename_prefix="result_fig11_server_btlneck_complement"
+export filename_prefix="result_fig11_server_btlneck_complement_n16"
 
 # export FPS=60
 # export BITRATE=10  # Mbps
@@ -85,13 +96,13 @@ cd $NS3_DIR
 ./ns3
 
 export -f run_ns3
-export -f run_ns3_tack
+# export -f run_ns3_tack
 
 
 echo "policy, nclient, seed, dataset, serverBtlneck, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/${filename_prefix}.csv
 
 parallel -j${CORE_COUNT} run_ns3 ::: ${policies[@]} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${datasets[@]} ::: ${serverBtlneck[@]} ::: ${simTime}
 
-echo "policy, nclient, seed, dataset, serverBtlneck, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/${filename_prefix}_tack.csv
+# echo "policy, nclient, seed, dataset, serverBtlneck, avg_thp, min_thp, tail_thp" > ${RESULT_DIR}/${filename_prefix}_tack.csv
 
-parallel -j${CORE_COUNT} run_ns3_tack ::: ${baseline_policy} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${datasets[@]} ::: ${serverBtlneck[@]} ::: ${simTime} ::: ${ackmaxcounts[@]}
+# parallel -j${CORE_COUNT} run_ns3_tack ::: ${baseline_policy} ::: ${seeds[@]} ::: ${nclients[@]} ::: ${datasets[@]} ::: ${serverBtlneck[@]} ::: ${simTime} ::: ${ackmaxcounts[@]}

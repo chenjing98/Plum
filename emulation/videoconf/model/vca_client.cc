@@ -1,6 +1,6 @@
 #include "vca_client.h"
 // #include "../../callback.h"
-extern std::set<uint32_t> m_paused[72];
+extern std::set<uint32_t> m_paused[80];
 namespace ns3
 {
     NS_LOG_COMPONENT_DEFINE("VcaClient");

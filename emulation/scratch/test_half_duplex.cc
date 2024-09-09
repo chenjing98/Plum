@@ -19,8 +19,8 @@
 #include <cstdlib>
 
 // #include "../../../callback.h"
-extern std::set<uint32_t> m_paused[72];
-std::map<ns3::Ipv4Address,uint32_t> ip_to_node[72];
+extern std::set<uint32_t> m_paused[80];
+std::map<ns3::Ipv4Address,uint32_t> ip_to_node[80];
 uint32_t m_lastN_id;
 
 using namespace ns3;
@@ -323,30 +323,32 @@ int main(int argc, char *argv[])
 
 
     uint32_t id_seed = seed;
-    if(seed == 1) id_seed = 1;
-    if(seed == 2) id_seed = 2;
-    if(seed == 3) id_seed = 3;
-    if(seed == 4) id_seed = 4;
-    if(seed == 5) id_seed = 5;
-    if(seed == 12946) id_seed = 6;
-    if(seed == 129) id_seed = 7;
-    if(seed == 777) id_seed = 8;    
-    if(seed == 14) id_seed = 9; 
-    if(seed == 20) id_seed = 10; 
-    if(seed == 25) id_seed = 11; 
-    if(seed == 27) id_seed = 12; 
-    if(seed == 30) id_seed = 13; 
+    // if(seed == 1) id_seed = 1;
+    // if(seed == 2) id_seed = 2;
+    // if(seed == 3) id_seed = 3;
+    // if(seed == 4) id_seed = 4;
+    // if(seed == 5) id_seed = 5;
+    // if(seed == 12946) id_seed = 6;
+    // if(seed == 129) id_seed = 7;
+    // if(seed == 777) id_seed = 8;    
+    if(seed == 14) id_seed = 1; 
+    if(seed == 20) id_seed = 2; 
+    if(seed == 25) id_seed = 3; 
+    if(seed == 27) id_seed = 4; 
+    if(seed == 30) id_seed = 5; 
     uint32_t id_ncli = nClient;
     if(nClient == 3) id_ncli = 0;
-    if(nClient == 5) id_ncli = 1;
-    if(nClient == 8) id_ncli = 2;
-    if(nClient == 10) id_ncli = 3;
-    if(nClient == 12) id_ncli = 4;
-    if(nClient == 14) id_ncli = 5;
-    if(nClient == 16) id_ncli = 6;
-    if(nClient == 18) id_ncli = 7;
-    if(nClient == 20) id_ncli = 8;
-    m_lastN_id = id_seed-1 + id_ncli - id_ncli;
+    if(nClient == 4) id_ncli = 1;
+    if(nClient == 5) id_ncli = 2;
+    if(nClient == 8) id_ncli = 3;
+    if(nClient == 10) id_ncli = 4;
+    if(nClient == 12) id_ncli = 5;
+    if(nClient == 14) id_ncli = 6;
+    if(nClient == 16) id_ncli = 7;
+    if(nClient == 18) id_ncli = 8;
+    if(nClient == 20) id_ncli = 9;
+    // m_lastN_id = (id_seed-1)*10 + id_ncli;
+    m_lastN_id = id_seed;
     // NS_LOG_UNCOND("seed = "<<seed<<"   nClient = "<<nClient<<" m_lastN_id ="<<m_lastN_id);
     /*
         (seed,nClient) 
@@ -506,7 +508,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetLastNid(m_lastN_id);
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetMinBitrate(minBitrateKbps);
-        // vcaClientApp->SetLogFile("../../../evaluation/results/trlogs/transient_rate_n" + std::to_string(nClient) + "_p" + std::to_string(policy) + "_i" + std::to_string(clientNodes.Get(id)->GetId()) + ".txt");
+        vcaClientApp->SetLogFile("../../../evaluation/results/trlogs/transient_rate_n" + std::to_string(nClient) + "_p" + std::to_string(policy) + "_i" + std::to_string(clientNodes.Get(id)->GetId()) + ".txt");
         clientNodes.Get(id)->AddApplication(vcaClientApp);
 
         Simulator::Schedule(Seconds(simulationDuration), &VcaClient::StopEncodeFrame, vcaClientApp);

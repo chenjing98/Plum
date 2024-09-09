@@ -1,8 +1,8 @@
 #include "vca_server.h"
 // #include "../../callback.h"
-std::set<uint32_t> m_paused[72];
-std::map<uint8_t,ns3::Ipv4Address> socket_to_ip[72];
-extern std::map<ns3::Ipv4Address,uint32_t> ip_to_node[72];
+std::set<uint32_t> m_paused[80];
+std::map<uint8_t,ns3::Ipv4Address> socket_to_ip[80];
+extern std::map<ns3::Ipv4Address,uint32_t> ip_to_node[80];
 namespace ns3
 {
     uint8_t DEBUG_SRC_SOCKET_ID = 0;
@@ -686,14 +686,14 @@ namespace ns3
             src_client_info->prev_frame_id[dst_socket_id] = frame_id;
             src_client_info->frame_size_forwarded[dst_socket_id] = packet->GetSize();
 
-            // if(src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
-            // {
-            //     std::ofstream ofs("./debug-server.log", std::ios_base::app);
-            //     ofs << "FrameId= " << frame_id - 1 << " Forwarded " << forwarded_frame_size << " Dropped " << dropped_frame_size << std::endl;
-            //     forwarded_frame_size = packet->GetSize();
-            //     dropped_frame_size = 0;
-            //     ofs.close();
-            // }
+            if(src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
+            {
+                std::ofstream ofs("./debug-server.log", std::ios_base::app);
+                ofs << "FrameId= " << frame_id - 1 << " Forwarded " << forwarded_frame_size << " Dropped " << dropped_frame_size << std::endl;
+                forwarded_frame_size = packet->GetSize();
+                dropped_frame_size = 0;
+                ofs.close();
+            }
 
             Ptr<Packet> packet_to_forward = Copy(packet);
             return packet_to_forward;
