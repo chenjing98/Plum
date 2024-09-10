@@ -158,9 +158,97 @@ def PrintAggregatedResults(aggr_results):
         print("%d %d %.2f %.2f" % (key[0], key[1], val[0], val[1]))
 
 
+
+
+
+def process_txt_to_csv(logfile_prefix):
+    input_files = logfile_prefix + '.txt'
+    output_files = logfile_prefix + '-new.csv'
+    csv_data = [["policy", " nclient", " seed", " dataset", " serverBtlneck", " avg_thp_client0and1", " avg_thp_otherclients", " min_thp", " tail_thp"]]
+
+    with open(input_files, 'r') as file:
+        file_content = file.read()
+    modified_content = file_content.replace('\n', ' ')
+    modified_content = modified_content.replace(',', ' ')
+    loglist = modified_content.split(' ')
+
+    avg_thp_client0and1 = []
+    avg_thp_others = []
+    avg_thp_list = []
+    tail_thp_list = []
+    policy = 0
+    nclient = 0
+    seed = 0
+    dataset = 0
+    serverbltneck = 0
+
+    for i in range(len(loglist)):
+        print('loop:', loglist[i])
+        if loglist[i] == 'At' or i == len(loglist)-1:
+            if i != 0:
+                csv_data.append([
+                    f"{policy}", 
+                    f" {nclient}", 
+                    f" {seed}", 
+                    f" {dataset}", 
+                    f" {serverbltneck}", 
+                    f" {round(CalAverage(avg_thp_client0and1), 2)}", 
+                    f" {round(CalAverage(avg_thp_others), 2)}", 
+                    f" {round(min(avg_thp_list), 2)}", 
+                    f" {round(CalAverage(tail_thp_list), 2)}"
+                ])
+            avg_thp_client0and1 = []
+            avg_thp_others = []
+            avg_thp_list = []
+            tail_thp_list = []
+            policy = 0
+            nclient = 0
+            seed = 0
+            dataset = 0
+            serverbltneck = 0
+            
+        if loglist[i] == 'policy:':
+            policy = int(loglist[i+1])
+        if loglist[i] == 'nclient:':
+            nclient = int(loglist[i+1])
+        if loglist[i] == 'seed:':
+            seed = int(loglist[i+1])
+        if loglist[i] == 'TailThroughput=':
+            tail_thp_list.append(float(loglist[i+1]))
+        if loglist[i] == 'AvgThroughput=':
+            avg_thp_list.append(float(loglist[i+1]))
+        if loglist[i] == 'NodeId=':
+            if (int(loglist[i+1]) == 0) or (int(loglist[i+1]) == 1):
+                avg_thp_client0and1.append(avg_thp_list[-1])
+            else:
+                avg_thp_others.append(avg_thp_list[-1])
+    
+
+
+    input_csv = logfile_prefix+'.csv'
+    with open(input_csv, mode='r') as file:
+        csv_content = list(csv.reader(file)) 
+        for i in range(len(csv_content)):
+            row = csv_content[i]
+            if csv_data[i][0] != row[0] or csv_data[i][1] != row[1] or csv_data[i][2] != row[2]:
+                print("Error: csv file does not match txt file")
+            if csv_data[i][0] != row[0]:
+                print(csv_data[i][0], row[0], 'HERE\n')
+            csv_data[i][3] = row[3] # dataset
+            csv_data[i][4] = row[4] # serverBtlneck
+    
+    with open(output_files, mode='w') as file:
+        writer = csv.writer(file)
+        writer.writerows(csv_data)
+    exit(0)
+
+
+
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--logfile', '-lf', type=str, default='')
+    parser.add_argument('--logfile_prefix', '-lf', type=str, default='')
     parser.add_argument('--log', '-l', type=str, default='')
     parser.add_argument('--process', '-p', action='store_true')
     parser.add_argument('--csv', '-c', type=str, default='')
@@ -180,9 +268,11 @@ def main():
     args = parser.parse_args()
 
     if not args.process:
-        if args.logfile != '':
-            with open(args.logfile) as file:
-                args.log = file.read()
+        # txt->csv mode
+        if args.logfile_prefix != '':
+            process_txt_to_csv(args.logfile_prefix)
+
+
         avg_thp_list, tail_thp_list, avg_rtt_list, tail_rtt_90_list, tail_rtt_95_list, tail_rtt_99_list, tail_rtt_999_list, avg_thp_client0and1, avg_thp_others = ReadThroughputLogs(args.log)
         if args.avg:
             print("%.2f" % CalAverage(avg_thp_list))

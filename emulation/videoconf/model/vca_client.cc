@@ -762,7 +762,7 @@ namespace ns3
                                                             << " TailRtt95= " << GetTailRtt(0.95)
                                                             << " TailRtt99= " << GetTailRtt(0.99)
                                                             << " TailRtt999= " << GetTailRtt(0.999)
-                                                            << " NodeId= " << m_node_id);
+                                                            << " NodeId= " << m_node_id << " ");
     };
 
     void VcaClient::AdjustBw()
