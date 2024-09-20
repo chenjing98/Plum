@@ -1,17 +1,18 @@
 #!/bin/bash
 
-export CORE_COUNT=50
+export CORE_COUNT=20
 
 declare -a seeds=(777 42 55 6 7 20 84 234 1000 81)
 declare -a nclients=(3)
 declare -a simTime=(1200)
 declare -a policies=(0 2)
-declare -a qoeType=(0 1 2 3)
+declare -a qoeType=(2)
 declare -a ulprops=(0.8)
 declare -a ackmaxcounts=(16)
 
 export baseline_policy=0
-export filename_prefix="raw_result_"
+export baseline_qoe_type=0
+export filename_prefix="result_channel_model"
 
 
 export NS3_THROUGHPUT_REGEX="\[VcaClient\]\[Result\] Throughput= ([0-9\.e\-]+)"
@@ -42,13 +43,14 @@ run_ns3() {
     rtt99=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -r99)
     rtt999=$(python3 ${CURRENT_DIR}/log-process.py -l "${ns3_output}" -r999)
     
-    # output to file
+    # ====== output to file =======
     # dirty output
     echo At policy: $policy, nclient: $nclient, seed: $seed, qoeType: $qoet >> $output_file
     echo $ns3_output >> $output_file
     # clean output
     echo $policy, $nclient, $seed, $qoet, $avg_thp, $min_thp, $tail_thp, $qoe, $avg_rtt, $rtt90, $rtt95, $rtt99, $rtt999>> $output_file_clean
 }
+
 
 # compile first
 cd $NS3_DIR
