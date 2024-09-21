@@ -4,6 +4,14 @@ This repository contains the artifacts for our ICNP'24 paper titled "Bidirection
 
 **Table of Contents:**
 
+*  [Prerequisites and Installation Instructions](#prerequisites-and-installation-instructions)
+*  [Artifacts Overview](#artifacts-overview)
+    * [Theoretical Analysis](#theoretical-analysis)
+    * [NS-3 Experiments](#ns-3-experiments)
+    * [Android Program](#android-program)
+*  [Contact](#contact) 
+
+
 ## Prerequisites and Installation Instructions
 The artifacts software is developed using C++ and Python3. 
 **This software requires Ubuntu 20.04.4 LTS, as it has been tested on this platform.**
@@ -64,11 +72,14 @@ To reproduce our results, please go the `evaluation/` folder and run our bash sc
 
 ```bash
 cd evaluation
+mkdir results # the session-level statistics would be saved here
+mkdir results/trlogs # the real-time bitrate (collected every second) would be saved here
+
 bash batch-run-test-trace-driven.sh # this include the experiments in Figure 11-13 (for Plum, Vanilla and TACK)
 bash batch-run-test-channel-model.sh # this include the experiments in Figure 14
 ```
 
-Before running the experiment for Figure 14, please run our solver first. The solver uses SLSQP algorithm to solve the target bidirectional bandwidth allocations. The VcaServer in our videoconf module would later uses Linux IPC sockets to get these solutions.
+Before running the experiment for Figure 14, please keep our solver running in the first place. The solver uses SLSQP algorithm to solve the target bidirectional bandwidth allocations (see more details in Section III-C in our paper). The VcaServer in our videoconf module would later uses Linux IPC sockets to get these solutions.
 
 ```bash
 cd scripts/solver
