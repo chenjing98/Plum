@@ -93,8 +93,9 @@ To reproduce the results for policy LastN, please checkout to another branch `la
 
 ### Android Program
 
-For the Android program that we use to get Figure 6, please refer to the `AppTrafficRealtimeTracker/` directory. The program requires several user permissions to invoke the `NetworkStatsManager` API (please see them in `AppTrafficRealtimeTracker/app/src/main/AndroidManifest.xml`). We debugged the program with a Google Pixel 3 smartphone with root privilege, but running the program do not require root privilege.
+For the Android program that we use to get Figure 6, please refer to the `AppTrafficRealtimeTracker/` directory. The program requires several user permissions to invoke the `NetworkStatsManager` API (please see them in `AppTrafficRealtimeTracker/app/src/main/AndroidManifest.xml`). You might also use our Python script `scripts/traffic-tracker-processor.py` to process the collected data.
 
+*Note: We debugged the program with a Google Pixel 3 smartphone with root privilege, but running the program do not require root privilege.*
 
 ## Contact
 For any questions or issues, please contact Jing Chen at (`j-c23 (at) mails.tsinghua.edu.cn`).
