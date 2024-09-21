@@ -18,16 +18,10 @@
 
 #include "prot-header.h"
 
-enum POLICY
+enum PLUM_OLD_REALIZATION
 {
-    VANILLA,
-    YONGYULE
-};
-
-enum YONGYULE_REALIZATION
-{
-    YONGYULE_RWND,
-    YONGYULE_APPRATE
+    PLUM_OLD_RWND,
+    PLUM_OLD_APPRATE
 };
 
 enum PROBE_STATE
@@ -39,6 +33,29 @@ enum PROBE_STATE
 
 namespace ns3
 {
+    class PktInfo : public Object
+    {
+    public:
+        static TypeId GetTypeId(void);
+        PktInfo();
+        ~PktInfo();
+
+        // Decode self-defined header in TCP payload
+        uint8_t set_header;
+        uint8_t read_status;
+        /*
+            m_status = 0   start to read header
+            m_status = 1   continue to read header
+            m_status = 2   start to read payload
+            m_status = 3   continue to read payload
+            m_status = 4   ready to send
+        */
+        uint32_t payload_size;
+        Ptr<Packet> half_header;
+        Ptr<Packet> half_payload;
+        VcaAppProtHeader app_header;
+
+    }; // class ClientInfo
 
     class VcaClient : public Application
     {
@@ -74,7 +91,7 @@ namespace ns3
 
         void SetUlThresh(uint32_t, uint32_t);
 
-        static const uint32_t payloadSize = 1436; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 12B(VCA header)
+        static const uint32_t payloadSize = 1448 - VCA_APP_PROT_HEADER_LENGTH; // internet TCP MTU = 576B, - 20B(IP header) - 20B(TCP header) - 16B(VCA header)
 
     protected:
         void DoDispose(void);
@@ -91,6 +108,8 @@ namespace ns3
         void HandleAccept(Ptr<Socket> socket, const Address &from);
         void HandlePeerClose(Ptr<Socket> socket);
         void HandlePeerError(Ptr<Socket> socket);
+
+        void ReadPacket(Ptr<Packet> packet);
 
         void SendData(Ptr<Socket> socket);
         void SendData();
@@ -114,6 +133,8 @@ namespace ns3
 
         double_t GetDutyRatio(uint8_t);
 
+        uint32_t GetTailRtt(double_t);
+
         uint32_t m_node_id;
         uint8_t m_num_node;
 
@@ -123,8 +144,6 @@ namespace ns3
         std::list<Ptr<Socket>> m_socket_list_dl;
         std::unordered_map<Ptr<Socket>, uint8_t> m_socket_id_map_ul;
         uint8_t m_socket_id_ul;
-        std::unordered_map<Ptr<Socket>, uint8_t> m_socket_id_map_dl;
-        uint8_t m_socket_id_dl;
         std::vector<Ipv4Address> m_peer_list;
 
         TypeId m_tid;
@@ -149,15 +168,17 @@ namespace ns3
 
         uint64_t m_total_packet_bit;
         std::vector<std::unordered_map<uint32_t, uint32_t>> m_transientRateBps; // vector index: time in second, map key: source ip, map value: bitrate in bps
+        uint64_t m_total_pkt_cnt;
+        uint64_t m_total_rtt_ms;
+        std::map<uint32_t, uint32_t> m_rtt; // map key: rtt in ms, map value: count
 
         std::vector<std::deque<Ptr<Packet>>> m_send_buffer_pkt;
-        std::vector<std::deque<Ptr<VcaAppProtHeaderInfo>>> m_send_buffer_hdr;
 
         bool m_is_my_wifi_access_bottleneck;
 
         POLICY m_policy;
 
-        YONGYULE_REALIZATION m_yongyule_realization;
+        PLUM_OLD_REALIZATION m_plum_old_realization;
 
         uint32_t m_target_dl_bitrate_redc_factor;
 
@@ -196,7 +217,15 @@ namespace ns3
         uint16_t m_probe_cooloff_count_max;
         uint16_t m_probe_patience_count;
         uint16_t m_probe_patience_count_max;
-        
+
+        Ptr<PktInfo> m_pkt_info;
+
+        double_t m_ul_target_bitrate_kbps;
+        RATE_CONTROL_STATE m_ul_rate_control_state;
+
+        // latency statistics related
+        bool m_turn_on_latency_stats;
+
     }; // class VcaClient
 
 }; // namespace ns3

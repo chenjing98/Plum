@@ -19,16 +19,19 @@ namespace ns3
     ClientInfo::ClientInfo()
         : cc_target_frame_size(1e7 / 8 / 20),
           capacity_frame_size(1e7),
-          dl_bitrate_reduce_factor(1.0),
-          dl_rate_control_state(DL_RATE_CONTROL_STATE_NATRUAL),
+          dl_target_rate(0.0),
+          dl_rate_control_state(NATRUAL),
           set_header(0),
           read_status(0),
           payload_size(0),
           half_header(nullptr),
           half_payload(nullptr),
-          app_header(VcaAppProtHeader()){};
+          app_header(VcaAppProtHeader()),
+          ul_rate(100),
+          dl_rate(100),
+          ul_target_rate(0.0) {};
 
-    ClientInfo::~ClientInfo(){};
+    ClientInfo::~ClientInfo() {};
 
     TypeId VcaServer::GetTypeId()
     {
@@ -50,9 +53,11 @@ namespace ns3
           m_num_degraded_users(0),
           m_total_packet_size(0),
           m_separate_socket(0),
-          m_opt_params(){};
+          m_opt_params(),
+          m_policy(VANILLA),
+          m_dl_percentage(0) {};
 
-    VcaServer::~VcaServer(){};
+    VcaServer::~VcaServer() {};
 
     void
     VcaServer::DoDispose()
@@ -104,6 +109,12 @@ namespace ns3
     };
 
     void
+    VcaServer::SetNumNode(uint8_t num_node)
+    {
+        m_num_node = num_node;
+    };
+
+    void
     VcaServer::SetRho(double_t rho)
     {
         m_opt_params.rho = rho;
@@ -119,6 +130,18 @@ namespace ns3
     VcaServer::SetMaxThroughput(double_t max_throughput_kbps)
     {
         m_opt_params.max_bitrate_kbps = max_throughput_kbps;
+    };
+
+    void
+    VcaServer::SetPolicy(POLICY policy)
+    {
+        m_policy = policy;
+    };
+
+    void
+    VcaServer::SetDlpercentage(double percentage)
+    {
+        m_dl_percentage = percentage;
     };
 
     // Application Methods
@@ -176,28 +199,31 @@ namespace ns3
             }
         }
 
-        m_py_socket = socket(AF_INET, SOCK_STREAM, 0);
-        if (m_py_socket == -1)
+        if (m_policy == PLUM || m_policy == FIXED)
         {
-            NS_FATAL_ERROR("Failed to create socket");
-        }
-        struct sockaddr_in sock_addr;
-        sock_addr.sin_family = AF_INET;
-        sock_addr.sin_port = htons(SOLVER_SOCKET_PORT);
-        sock_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+            m_py_socket = socket(AF_INET, SOCK_STREAM, 0);
+            if (m_py_socket == -1)
+            {
+                NS_FATAL_ERROR("Failed to create socket");
+            }
+            struct sockaddr_in sock_addr;
+            sock_addr.sin_family = AF_INET;
+            sock_addr.sin_port = htons(SOLVER_SOCKET_PORT + (uint16_t)m_num_node);
+            sock_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-        while (connect(m_py_socket, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) == -1)
-        {
-            NS_LOG_LOGIC("[VcaServer] Connecting to the python server to connect");
-        }
+            while (connect(m_py_socket, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) == -1)
+            {
+                NS_LOG_DEBUG("[VcaServer] Connecting to the python server to connect");
+            }
 
-        Simulator::Schedule(Seconds(1), &VcaServer::OptimizeAllocation, this); // TODO: change triggering time
+            // change triggering time
+            Simulator::Schedule(Seconds(5), &VcaServer::UpdateCapacities, this);
+        }
     };
 
     void
     VcaServer::StopApplication()
     {
-        // NS_LOG_UNCOND("Average thoughput (all clients) = "<<1.0*m_total_packet_size/Simulator::Now().GetSeconds());
         if (m_update_rate_event.IsRunning())
         {
             Simulator::Cancel(m_update_rate_event);
@@ -219,7 +245,13 @@ namespace ns3
             m_socket_ul->SetRecvCallback(MakeNullCallback<void, Ptr<Socket>>());
         }
 
+        // Send RST and close the socket with python server
+        m_opt_params.rst = 1;
+        send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
+        shutdown(m_py_socket, 2);
         close(m_py_socket);
+        int t = 1;
+        setsockopt(m_py_socket, SOL_SOCKET, SO_REUSEADDR, &t, sizeof(int));
     };
 
     void
@@ -310,8 +342,7 @@ namespace ns3
     void
     VcaServer::HandleRead(Ptr<Socket> socket)
     {
-        NS_LOG_LOGIC("[VcaServer] HandleRead");
-        Ptr<Packet> packet;
+        Ptr<Packet> rx_data;
         Address peerAddress;
         socket->GetPeerName(peerAddress);
         uint8_t socket_id = m_ul_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
@@ -323,42 +354,36 @@ namespace ns3
             // start to read header
             if (client_info->read_status == 0)
             {
-                packet = socket->Recv(12, false);
-                if (packet == NULL)
+                rx_data = socket->Recv(VCA_APP_PROT_HEADER_LENGTH, false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_header = packet;
-                if (client_info->half_header->GetSize() < 12)
+                client_info->half_header = rx_data;
+                if (client_info->half_header->GetSize() < VCA_APP_PROT_HEADER_LENGTH)
                     client_info->read_status = 1; // continue to read header;
-                if (client_info->half_header->GetSize() == 12)
+                if (client_info->half_header->GetSize() == VCA_APP_PROT_HEADER_LENGTH)
                     client_info->read_status = 2; // start to read payload;
             }
             // continue to read header
             if (client_info->read_status == 1)
             {
-                packet = socket->Recv(12 - client_info->half_header->GetSize(), false);
-                if (packet == NULL)
+                rx_data = socket->Recv(VCA_APP_PROT_HEADER_LENGTH - client_info->half_header->GetSize(), false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_header->AddAtEnd(packet);
-                if (client_info->half_header->GetSize() == 12)
+                client_info->half_header->AddAtEnd(rx_data);
+                if (client_info->half_header->GetSize() == VCA_APP_PROT_HEADER_LENGTH)
                     client_info->read_status = 2; // start to read payload;
             }
             // start to read payload
             if (client_info->read_status == 2)
             {
-
                 if (client_info->set_header == 0)
                 {
-                    client_info->app_header.Reset();
                     client_info->half_header->RemoveHeader(client_info->app_header);
                     client_info->payload_size = client_info->app_header.GetPayloadSize();
-
-                    // uint16_t frame_id = app_header[socket_id].GetFrameId();
-                    // uint16_t pkt_id = app_header[socket_id].GetPacketId();
-                    // uint32_t dl_redc_factor = app_header[socket_id].GetDlRedcFactor();
 
                     client_info->set_header = 1;
                     if (client_info->payload_size == 0)
@@ -369,26 +394,26 @@ namespace ns3
                         return;
                     }
                 }
-                packet = socket->Recv(client_info->payload_size, false);
-                if (packet == NULL)
+                rx_data = socket->Recv(client_info->payload_size, false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_payload = packet;
+                client_info->half_payload = rx_data;
                 if (client_info->half_payload->GetSize() < client_info->payload_size)
-                    client_info->read_status = 3; // continue to read payload;
+                    client_info->read_status = 3; // continue to read payload
                 if (client_info->half_payload->GetSize() == client_info->payload_size)
-                    client_info->read_status = 4; // READY TO SEND;
+                    client_info->read_status = 4; // READY TO SEND
             }
             // continue to read payload
             if (client_info->read_status == 3)
             {
-                packet = socket->Recv(client_info->payload_size - client_info->half_payload->GetSize(), false);
-                if (packet == NULL)
+                rx_data = socket->Recv(client_info->payload_size - client_info->half_payload->GetSize(), false);
+                if (rx_data == NULL)
                     return;
-                if (packet->GetSize() == 0)
+                if (rx_data->GetSize() == 0)
                     return;
-                client_info->half_payload->AddAtEnd(packet);
+                client_info->half_payload->AddAtEnd(rx_data);
                 if (client_info->half_payload->GetSize() == client_info->payload_size)
                     client_info->read_status = 4; // READY TO SEND;
             }
@@ -396,18 +421,11 @@ namespace ns3
             // status = 0  (1\ all empty then return    2\ all ready)
             if (client_info->read_status == 4)
             {
-
-                uint8_t *buffer = new uint8_t[client_info->half_payload->GetSize()];               // 创建一个buffer，用于存储packet元素
-                client_info->half_payload->CopyData(buffer, client_info->half_payload->GetSize()); // 将packet元素复制到buffer中
-                // for (int i = 0; i < m_half_payload[socket_id]->GetSize(); i++){
-                //     uint8_t element = buffer[i]; // 获取第i个元素
-                // if(element != 0)
-                //     NS_LOG_UNCOND("i = " <<i<<"  ele = "<<(uint32_t)element);
-                // }
-
                 ReceiveData(client_info->half_payload, socket_id);
                 client_info->read_status = 0;
                 client_info->set_header = 0;
+                client_info->half_payload->RemoveAtEnd(client_info->payload_size);
+                client_info->app_header.Reset();
             }
         }
     };
@@ -456,11 +474,12 @@ namespace ns3
 
         client_info->socket_dl = socket_dl;
         client_info->cc_target_frame_size = 1e7 / 8 / 20;
-        client_info->dl_bitrate_reduce_factor = 1.0;
-        client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_NATRUAL;
+        client_info->dl_target_rate = 1.0;
+        client_info->dl_rate_control_state = NATRUAL;
         client_info->capacity_frame_size = 1e7;
         client_info->half_header = nullptr;
         client_info->half_payload = nullptr;
+        client_info->ul_target_rate = 0.0;
 
         m_ul_socket_id_map[ul_peer_ip.Get()] = m_socket_id;
         m_dl_socket_id_map[dl_peer_ip.Get()] = m_socket_id;
@@ -516,10 +535,11 @@ namespace ns3
         Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
         uint16_t frame_id = client_info->app_header.GetFrameId();
         uint16_t pkt_id = client_info->app_header.GetPacketId();
-        uint32_t dl_redc_factor = client_info->app_header.GetDlRedcFactor();
         uint32_t payload_size = client_info->app_header.GetPayloadSize();
+        uint32_t src_id = client_info->app_header.GetSrcId();
+        uint32_t send_time = client_info->app_header.GetSendTime();
 
-        NS_LOG_LOGIC("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000. << " NumDegradedUsers= " << m_num_degraded_users);
+        NS_LOG_LOGIC("[VcaServer][TranscodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << frame_id << " PktId= " << pkt_id << " PktSize= " << packet->GetSize() << " SocketId= " << (uint16_t)socket_id << " SrcId= " << src_id << " NumDegradedUsers= " << m_num_degraded_users);
 
         if (socket_id == DEBUG_SRC_SOCKET_ID)
         {
@@ -531,42 +551,14 @@ namespace ns3
             }
             else if (std::floor(Simulator::Now().GetSeconds()) == last_time)
             {
-                total_frame_size += payload_size + 12;
+                total_frame_size += payload_size + VCA_APP_PROT_HEADER_LENGTH;
             }
         }
 
-        m_total_packet_size += payload_size + 12;
-
-        client_info->dl_bitrate_reduce_factor = (double_t)dl_redc_factor / 10000.0;
-
-        // update dl rate control state
-        if (client_info->dl_bitrate_reduce_factor < 1.0 && client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_NATRUAL && m_num_degraded_users < m_client_info_map.size() / 2)
-        {
-            client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_LIMIT;
-
-            // store the capacity (about to enter app-limit phase where cc could not fully probe the capacity)
-            client_info->capacity_frame_size = client_info->cc_target_frame_size;
-            m_num_degraded_users += 1;
-
-            NS_LOG_DEBUG("[VcaServer][DlRateControlStateLimit][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " DlRedcFactor= " << (double_t)dl_redc_factor / 10000.);
-        }
-        else if (client_info->dl_bitrate_reduce_factor == 1.0 && client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
-        {
-            client_info->dl_rate_control_state = DL_RATE_CONTROL_STATE_NATRUAL;
-
-            // restore the capacity before the controlled (limited bw) phase
-            client_info->cc_target_frame_size = client_info->capacity_frame_size;
-            m_num_degraded_users -= 1;
-
-            NS_LOG_DEBUG("[VcaServer][DlRateControlStateNatural][Sock" << (uint16_t)socket_id << "] Time= " << Simulator::Now().GetMilliSeconds());
-        }
+        m_total_packet_size += payload_size + VCA_APP_PROT_HEADER_LENGTH;
 
         for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
         {
-
-            // Address peerAddress;
-            // socket_dl->GetPeerName(peerAddress);
-            // uint8_t other_socket_id = m_socket_id_map[InetSocketAddress::ConvertFrom(peerAddress).GetIpv4().Get()];
             uint8_t other_socket_id = it->first;
             Ptr<ClientInfo> other_client_info = it->second;
             if (other_socket_id == socket_id)
@@ -577,6 +569,14 @@ namespace ns3
             if (packet_dl == nullptr)
                 continue;
 
+            // update other_client_info -> lambda
+            VcaAppProtHeader app_header(frame_id, pkt_id);
+            app_header.SetSrcId(src_id);
+            app_header.SetPayloadSize(payload_size);
+            app_header.SetUlTargetRate((uint32_t)(other_client_info->ul_target_rate * 1000.0));
+            app_header.SetSendTime(send_time);
+            packet_dl->AddHeader(app_header);
+
             other_client_info->send_buffer.push_back(packet_dl);
 
             SendData(other_client_info->socket_dl);
@@ -586,8 +586,6 @@ namespace ns3
     Ptr<Packet>
     VcaServer::TranscodeFrame(uint8_t src_socket_id, uint8_t dst_socket_id, Ptr<Packet> packet, uint16_t frame_id)
     {
-
-        // std::pair<uint8_t, uint8_t> socket_id_pair = std::pair<uint8_t, uint8_t>(src_socket_id, dst_socket_id);
         Ptr<ClientInfo> src_client_info = m_client_info_map[src_socket_id];
 
         auto it = src_client_info->prev_frame_id.find(dst_socket_id);
@@ -616,7 +614,7 @@ namespace ns3
             }
             else
             {
-                NS_LOG_LOGIC("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] TargetFrameSize= " << GetTargetFrameSize(dst_socket_id));
+                NS_LOG_DEBUG("[VcaServer][SrcSock" << (uint16_t)src_socket_id << "][DstSock" << (uint16_t)dst_socket_id << "][FrameForward] TargetFrameSize= " << GetTargetFrameSize(dst_socket_id));
 
                 if (src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
                     dropped_frame_size += packet->GetSize();
@@ -632,11 +630,13 @@ namespace ns3
             src_client_info->prev_frame_id[dst_socket_id] = frame_id;
             src_client_info->frame_size_forwarded[dst_socket_id] = packet->GetSize();
 
-            // if(src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
+            // if (src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
             // {
             //     std::ofstream ofs("./debug-server.log", std::ios_base::app);
             //     ofs << "FrameId= " << frame_id - 1 << " Forwarded " << forwarded_frame_size << " Dropped " << dropped_frame_size << std::endl;
             //     forwarded_frame_size = packet->GetSize();
+            //     if (dropped_frame_size > 0)
+            //         NS_LOG_DEBUG("[VcaServer] Dropped " << dropped_frame_size);
             //     dropped_frame_size = 0;
             //     ofs.close();
             // }
@@ -653,42 +653,60 @@ namespace ns3
     VcaServer::GetTargetFrameSize(uint8_t socket_id)
     {
         Ptr<ClientInfo> client_info = m_client_info_map[socket_id];
-        if (client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_NATRUAL)
+
+        uint32_t manual_dl_share;
+
+        if (m_policy == PLUM)
         {
-            uint32_t fair_share;
-            // stick to original cc decisions
-            if (m_client_info_map.size() > 1)
+            if (client_info->dl_rate_control_state == NATRUAL)
             {
-                fair_share = client_info->cc_target_frame_size / (m_client_info_map.size() - 1);
+                return 1e6;
             }
-            else
+            else if (client_info->dl_rate_control_state == CONSTRAINED)
             {
-                fair_share = client_info->cc_target_frame_size;
+                manual_dl_share = (uint32_t)std::ceil(client_info->dl_target_rate * 1000 / 8 / m_fps);
+                // fair_share = std::round((double_t)fair_share * 1.25);
+                return std::max(manual_dl_share, kMinFrameSizeBytes);
             }
-            // fair_share = std::round((double_t)fair_share * 1.25);
-            return std::max(fair_share, kMinFrameSizeBytes);
         }
-        else if (client_info->dl_rate_control_state == DL_RATE_CONTROL_STATE_LIMIT)
+        else if (m_policy == PLUM_OLD_VERSION)
         {
-            uint32_t fair_share, manual_dl_share;
-            // limit the forwarding bitrate by capacity * reduce_factor
-            if (m_client_info_map.size() > 1)
+            if (client_info->dl_rate_control_state == NATRUAL)
             {
-                fair_share = client_info->cc_target_frame_size / (m_client_info_map.size() - 1);
-                manual_dl_share = (uint32_t)std::ceil((double_t)client_info->capacity_frame_size * client_info->dl_bitrate_reduce_factor) / (m_client_info_map.size() - 1);
+                return std::max(GetFrameSizeFairShare(client_info->cc_target_frame_size), kMinFrameSizeBytes);
             }
-            else
+            else if (client_info->dl_rate_control_state == CONSTRAINED)
             {
-                fair_share = client_info->cc_target_frame_size;
-                manual_dl_share = (uint32_t)std::ceil((double_t)client_info->capacity_frame_size * client_info->dl_bitrate_reduce_factor);
+
+                // limit the forwarding bitrate by capacity * reduce_factor
+                if (m_client_info_map.size() > 1)
+                {
+
+                    manual_dl_share = (uint32_t)std::ceil((double_t)client_info->capacity_frame_size * client_info->dl_target_rate) / (m_client_info_map.size() - 1);
+                }
+                else
+                {
+
+                    manual_dl_share = (uint32_t)std::ceil((double_t)client_info->capacity_frame_size * client_info->dl_target_rate);
+                }
+
+                return std::max(std::min(GetFrameSizeFairShare(client_info->cc_target_frame_size), manual_dl_share), kMinFrameSizeBytes);
             }
-            // limit the forwarding bitrate by capacity * reduce_factor
-            // fair_share = std::round((double_t)fair_share * 1.25);
-            return std::max(std::min(fair_share, manual_dl_share), kMinFrameSizeBytes);
+        }
+
+        return 1e6;
+        // return GetFrameSizeFairShare(client_info->cc_target_frame_size);
+    };
+
+    uint32_t VcaServer::GetFrameSizeFairShare(uint32_t cc_target_framesize)
+    {
+        if (m_client_info_map.size() > 1)
+        {
+            return cc_target_framesize / (m_client_info_map.size() - 1);
         }
         else
         {
-            return 1e6;
+            return cc_target_framesize;
         }
     };
 
@@ -712,7 +730,7 @@ namespace ns3
             dl_addr = (first8b << 24) | ((second8b + 1) << 16) | (third8b << 8) | (fourth8b + 1);
         }
 
-        // NS_LOG_UNCOND("Input addr " << ul_addr << " Output addr " << dl_addr << " first8b " << first8b << " second8b " << second8b << " third8b " << third8b << " fourth8b " << fourth8b);
+        // NS_LOG_DEBUG("Input addr " << ul_addr << " Output addr " << dl_addr << " first8b " << first8b << " second8b " << second8b << " third8b " << third8b << " fourth8b " << fourth8b);
         return dl_addr;
     };
 
@@ -724,22 +742,117 @@ namespace ns3
         // params for solver: n, capacities
         // params for solver: [rho, max_bitrate, qoe_type, qoe_func_alpha, qoe_func_beta, num_view, method, init_bw, plot]
 
-        m_opt_params.num_users = m_client_info_map.size();
-        UpdateCapacities();
-        send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
+        m_opt_params.num_users = m_num_node;
+        NS_ASSERT_MSG(m_opt_params.num_users == m_client_info_map.size(), "num_users should be equal to the number of clients. m_client_info_map.size() = " << m_client_info_map.size());
 
+        send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
         recv(m_py_socket, m_opt_alloc, sizeof(double_t) * m_opt_params.num_users, 0);
-        NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
-        // TODO: send back to clients
+
+        // NS_LOG_DEBUG(m_opt_alloc[0] << " " << m_opt_alloc[1] << " " << m_opt_alloc[2]);
+        if (!CheckOptResultsValidity())
+        {
+            // back to original cc decisions
+
+            for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+            {
+                Ptr<ClientInfo> client_info = it->second;
+                client_info->ul_target_rate = 0.0;
+                client_info->dl_rate_control_state = NATRUAL;
+            }
+            return;
+        }
+
+        double_t ul_alloc, dl_alloc;
+        // send back to clients
+        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+        {
+            Ptr<ClientInfo> client_info = it->second;
+
+            if (m_policy == PLUM)
+                dl_alloc = m_opt_alloc[it->first];
+            else if (m_policy == FIXED)
+                dl_alloc = m_opt_params.capacities_kbps[it->first] * m_dl_percentage;
+            else
+                dl_alloc = 0; // will not occur. just for full compiling
+            ul_alloc = m_opt_params.capacities_kbps[it->first] - dl_alloc;
+
+            client_info->ul_target_rate = ul_alloc;
+            client_info->dl_target_rate = dl_alloc;
+
+            NS_LOG_DEBUG("[VcaServer] Opti Client " << (uint16_t)it->first << " ul_target_rate " << client_info->ul_target_rate << " dl_target_rate " << client_info->dl_target_rate << " capacity " << m_opt_params.capacities_kbps[it->first] << " ul_rate " << client_info->ul_rate << " dl_rate " << client_info->dl_rate);
+
+            // update dl rate control state
+            if (client_info->dl_target_rate < client_info->dl_rate && client_info->dl_rate_control_state == NATRUAL)
+            {
+                client_info->dl_rate_control_state = CONSTRAINED;
+
+                // store the capacity (about to enter app-limit phase where cc could not fully probe the capacity)
+                NS_LOG_DEBUG("[VcaServer] Enter dl rate control state CONSTRAINED");
+                client_info->cc_target_frame_size = client_info->dl_rate * 1000 / 8 / m_fps;
+                client_info->capacity_frame_size = client_info->cc_target_frame_size;
+                m_num_degraded_users += 1;
+            }
+            else if (client_info->dl_target_rate >= client_info->dl_rate && client_info->dl_rate_control_state == CONSTRAINED)
+            {
+                NS_LOG_DEBUG("[VcaServer] Enter dl rate control state NATURAL");
+                client_info->dl_rate_control_state = NATRUAL;
+
+                // restore the capacity before the controlled (limited bw) phase
+                client_info->cc_target_frame_size = client_info->capacity_frame_size;
+                m_num_degraded_users -= 1;
+            }
+
+            // update ul rate control state
+            if (client_info->ul_target_rate > client_info->ul_rate)
+            {
+                client_info->ul_target_rate = 0.0; // let the client grow by its own CCA
+            }
+        }
     };
 
     void
     VcaServer::UpdateCapacities()
     {
-        // TODO
-        m_opt_params.capacities_kbps[0] = 300.0;
-        m_opt_params.capacities_kbps[1] = 500.0;
-        m_opt_params.capacities_kbps[2] = 700.0;
-    }
+        // updating the network capacities
+
+        double change_rate = 0;
+        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+        {
+            Ptr<ClientInfo> client_info = it->second;
+            Ptr<TcpSocketBase> ul_socket = DynamicCast<TcpSocketBase, Socket>(client_info->socket_ul);
+            Ptr<TcpSocketBase> dl_socket = DynamicCast<TcpSocketBase, Socket>(client_info->socket_dl);
+            uint64_t ul_bitrate = ul_socket->GetTcb()->m_pacingRate.Get().GetBitRate();
+            uint64_t dl_bitrate = dl_socket->GetTcb()->m_pacingRate.Get().GetBitRate(); // bps
+
+            client_info->ul_rate = ul_bitrate / 1000.0;
+            client_info->dl_rate = dl_bitrate / 1000.0;
+
+            double_t new_bitrate = (ul_bitrate + dl_bitrate) / 1000.0; // kbps
+            double_t old_bitrate = m_opt_params.capacities_kbps[it->first];
+            m_opt_params.capacities_kbps[it->first] = new_bitrate;
+            change_rate = std::max(change_rate, abs(new_bitrate - old_bitrate) / old_bitrate);
+        }
+        double rearrange_threshold = 0.2; // a threshold to decide the network condtion changes
+        if (change_rate > rearrange_threshold)
+            Simulator::ScheduleNow(&VcaServer::OptimizeAllocation, this);
+
+        Simulator::Schedule(MilliSeconds(500), &VcaServer::UpdateCapacities, this);
+    };
+
+    bool
+    VcaServer::CheckOptResultsValidity()
+    {
+        // check if the optimization results are valid
+
+        for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
+        {
+            if (m_opt_alloc[it->first] <= 2000 || m_opt_params.capacities_kbps[it->first] - m_opt_alloc[it->first] <= 1000)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    };
 
 }; // namespace ns3

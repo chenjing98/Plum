@@ -100,7 +100,7 @@ def socket_server(N):
         print('N must be greater than 2')
         return
 
-    addr = ("127.0.0.1", 11999)
+    addr = ("127.0.0.1", 11996 + N)
     sk = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
     sk.bind(addr)
     sk.listen(0)
@@ -113,8 +113,16 @@ def socket_server(N):
 
         print(len(recv_req))
 
-        num_users, num_view, qoe_type, rho, max_bitrate, qoe_func_alpha, qoe_func_beta, capacity_string = unpack(
-            '2Hi4d%ds' % (max_num * 8), recv_req)
+        num_users, num_view, qoe_type, rst, rho, max_bitrate, qoe_func_alpha, qoe_func_beta, capacity_string = unpack(
+            '2Hil4d%ds' % (max_num * 8), recv_req)
+
+        if rst:
+            csk.shutdown(socket.SHUT_RDWR)
+            csk.close()
+            sk.listen(0)
+            csk, c_addr = sk.accept()
+            continue
+
         # print(capacity_string)
         capacities = []
         capacities = unpack('%dd' % max_num, capacity_string)[:N]
@@ -155,6 +163,9 @@ def socket_server(N):
             else:
                 qoe_func_alpha = 1.0 / max_bitrate / max_bitrate
             qoe_func_beta = 1.0 / max_bitrate - qoe_func_alpha * max_bitrate
+            
+        if num_view > num_users:
+            num_view = num_users
 
         solution = solve(N, capacities, [
                          rho, max_bitrate, qoe_type_name, qoe_func_alpha, qoe_func_beta, num_view, 'SLSQP', 30000.0, False]).tolist()

@@ -24,13 +24,7 @@ namespace ns3
 {
     // must stay aligned with the value in solver.py
     const uint8_t MAX_NUM_USERS = 20;
-    const uint16_t SOLVER_SOCKET_PORT = 11999;
-
-    enum DL_RATE_CONTROL_STATE
-    {
-        DL_RATE_CONTROL_STATE_NATRUAL,
-        DL_RATE_CONTROL_STATE_LIMIT
-    };
+    const uint16_t SOLVER_SOCKET_PORT = 11996;
 
     enum QOE_TYPE
     {
@@ -56,8 +50,8 @@ namespace ns3
         std::unordered_map<uint8_t, uint32_t> frame_size_forwarded; // map key: dst_socket_id, value: frame_size_forwarded
         std::unordered_map<uint8_t, uint16_t> prev_frame_id;        // map key: dst_socket_id, value: prev_frame_id
 
-        double_t dl_bitrate_reduce_factor;
-        DL_RATE_CONTROL_STATE dl_rate_control_state;
+        double_t dl_target_rate; // in kbps
+        RATE_CONTROL_STATE dl_rate_control_state;
 
         // Decode self-defined header in TCP payload
         uint8_t set_header;
@@ -73,6 +67,11 @@ namespace ns3
         Ptr<Packet> half_header;
         Ptr<Packet> half_payload;
         VcaAppProtHeader app_header;
+
+        double_t ul_rate; // in kbps
+        double_t dl_rate; // in kbps
+
+        double_t ul_target_rate; // in kbps
 
     }; // class ClientInfo
 
@@ -90,7 +89,10 @@ namespace ns3
         void SetPeerDlPort(uint16_t port);
 
         void SetNodeId(uint32_t node_id);
+        void SetPolicy(POLICY policy);
+        void SetDlpercentage(double percentage);
         void SetSeparateSocket();
+        void SetNumNode(uint8_t num_node);
 
         void SetRho(double_t rho);
         void SetQoEType(QOE_TYPE qoe_type);
@@ -150,7 +152,13 @@ namespace ns3
 
         void UpdateCapacities();
 
+        uint32_t GetFrameSizeFairShare(uint32_t cc_target_framesize);
+
+        bool CheckOptResultsValidity();
+
         uint32_t m_node_id;
+
+        uint8_t m_num_node;
 
         Ptr<Socket> m_socket_ul;
         std::list<Ipv4Address> m_local_list;
@@ -192,12 +200,16 @@ namespace ns3
             uint16_t num_users;
             uint16_t num_view = 25;
             QOE_TYPE qoe_type = QOE_TYPE_LIN;
+            uint32_t rst = 0;
             double_t rho = 0.5;
             double_t max_bitrate_kbps = 30000;
             double_t qoe_func_alpha = 0.0;
             double_t qoe_func_beta = 0.0;
             double_t capacities_kbps[MAX_NUM_USERS];
         } m_opt_params;
+
+        POLICY m_policy;
+        double_t m_dl_percentage;
 
         double_t m_opt_alloc[MAX_NUM_USERS];
 

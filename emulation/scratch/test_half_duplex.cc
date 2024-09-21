@@ -35,6 +35,12 @@ enum TRACE_MODE
     UNEVEN_SPLIT
 };
 
+enum DATASET
+{
+    TR_GAME,
+    TR_RESTAURANT
+};
+
 struct GlobalKnowledge
 {
     double_t prevMaxAbw = 50;
@@ -50,12 +56,14 @@ struct TraceElem
 {
     std::string trace;
     TRACE_MODE mode;
+    DATASET dataset;
     Ptr<NetDevice> ul_snd_dev;
     Ptr<NetDevice> dl_snd_dev;
     uint16_t interval;    // in ms
     double_t simStopTime; // in s
     double_t maxAppBitrateMbps;
     double_t minAppBitrateMbps;
+    double_t serverBwMbps;
     uint32_t node_id;
     double_t ul_prop = 0.5;
     double_t prev_ul_bw = 0.0;
@@ -90,13 +98,13 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
 
     traceFile.open(elem.trace);
     traceFile.seekg(elem.curr_pos);
-    if (elem.curr_pos == std::ios::beg && !traceFile.eof())
+    if (elem.curr_pos == std::ios::beg && !traceFile.eof() && elem.dataset == TR_GAME)
     {
         std::getline(traceFile, traceLine); // skip the first line
     }
     std::getline(traceFile, traceLine);
     elem.curr_pos = traceFile.tellg();
-    if (traceLine.find(',') == std::string::npos)
+    if (traceLine.find('.') == std::string::npos)
     {
         traceFile.close();
         return;
@@ -104,15 +112,26 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
 
     // bwValue.clear();
     traceData.clear();
-    SplitString(traceLine, traceData, ",");
-    // SplitString(traceData[0], bwValue, "Mbps");
+    double_t total_bw = 600, ul_bw = 300, dl_bw = 300;
+    if (elem.dataset == TR_GAME)
+    {
+        SplitString(traceLine, traceData, ",");
+        total_bw = std::stod(traceData[2]) * 1.5;
+    }
+    else if (elem.dataset == TR_RESTAURANT)
+    {
+        SplitString(traceLine, traceData, " ");
+        SplitString(traceData[0], bwValue, "Mbps");
+        total_bw = std::stod(bwValue[0]);
+    }
 
-    double_t total_bw = std::stod(traceData[2]) * 1.5;
-    double_t ul_bw = 300, dl_bw = 300;
     if (elem.mode == EVEN_SPLIT)
     {
         ul_bw = total_bw / 2;
         dl_bw = total_bw / 2;
+
+        dl_bw = std::min(dl_bw, elem.serverBwMbps);
+
         NS_LOG_DEBUG("BwAlloc Node: " << (uint16_t)elem.node_id << " ul_bw: " << ul_bw << " dl_bw: " << dl_bw);
     }
     else
@@ -151,8 +170,6 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
                     dl_bw = total_bw - ul_bw;
                     NS_LOG_LOGIC("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw << "Mbps line141");
                 }
-                // dl_bw = min_recv_rate;
-                // ul_bw = total_bw - dl_bw;
             }
             else
             {
@@ -171,8 +188,8 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
             }
         }
 
-        // ul_bw = total_bw * elem.ul_prop;
-        // dl_bw = total_bw * (1 - elem.ul_prop);
+        dl_bw = std::min(dl_bw, elem.serverBwMbps);
+
         NS_LOG_DEBUG("BwAlloc Node: " << (uint16_t)elem.node_id << " ul_bw: " << ul_bw << " dl_bw: " << dl_bw);
 
         elem.prev_ul_bw = ul_bw;
@@ -211,9 +228,15 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
     }
 };
 
-std::string GetRandomTraceFile(uint32_t max_trace_count)
+std::string GetRandomTraceFile(uint32_t max_trace_count, uint8_t dataset)
 {
     uint32_t trace_count = rand() % max_trace_count;
+
+    if (static_cast<DATASET>(dataset) == TR_RESTAURANT)
+    {
+        return "real-rest-wifi_" + std::to_string(trace_count) + ".trace";
+    }
+
     uint32_t n_line = 0;
     std::string trace_file;
     std::fstream index_file;
@@ -243,11 +266,14 @@ int main(int argc, char *argv[])
     bool savePcap = false;
     bool vary_bw = false;
     uint8_t trace_mode = 0;
+    uint8_t dataset = 0;
     double_t ul_prop = 0.5;
     double_t minBitrateKbps = 1000.0;
     uint16_t seed = 1;
     bool is_tack = false;
     uint32_t tack_max_count = 32;
+    uint16_t trace_interval = 16;
+    double_t server_bottleneck_mbps = 1000;
 
     uint32_t MAX_TRACE_COUNT = 1115;
 
@@ -258,7 +284,7 @@ int main(int argc, char *argv[])
     cmd.AddValue("logLevel", "Log level: 0 for error, 1 for debug, 2 for logic", logLevel);
     cmd.AddValue("simTime", "Total simulation time in s", simulationDuration);
     cmd.AddValue("maxBitrateKbps", "Max bitrate in kbps", maxBitrateKbps);
-    cmd.AddValue("policy", "0 for vanilla, 1 for Yongyule", policy);
+    cmd.AddValue("policy", "0 for vanilla, 1 for Plum", policy);
     cmd.AddValue("nClient", "Number of clients", nClient);
     cmd.AddValue("printPosition", "Print position of nodes", printPosition);
     cmd.AddValue("minBitrate", "Minimum tolerable bitrate in kbps", minBitrateKbps);
@@ -269,6 +295,8 @@ int main(int argc, char *argv[])
     cmd.AddValue("seed", "Random seed for trace selection", seed);
     cmd.AddValue("isTack", "Is TACK enabled", is_tack);
     cmd.AddValue("tackMaxCount", "Max TACK count", tack_max_count);
+    cmd.AddValue("dataset", "Dataset to use", dataset);
+    cmd.AddValue("serverBtl", "Server bottleneck in Mbps", server_bottleneck_mbps);
 
     cmd.Parse(argc, argv);
     Time::SetResolution(Time::NS);
@@ -330,6 +358,20 @@ int main(int argc, char *argv[])
 
     // Install NetDevices on backhaul links
     NetDeviceContainer ulDevices[nClient], dlDevices[nClient];
+    if (vary_bw)
+    {
+        if (static_cast<DATASET>(dataset) == TR_GAME)
+        {
+            MAX_TRACE_COUNT = 1115;
+            trace_interval = 16;
+        }
+        else if (static_cast<DATASET>(dataset) == TR_RESTAURANT)
+        {
+            MAX_TRACE_COUNT = 16;
+            trace_interval = 100;
+        }
+    }
+
     for (uint32_t i = 0; i < nClient; i++)
     {
         ulDevices[i] = ulP2p[i].Install(clientNodes.Get(i), sfuCenter.Get(0));
@@ -337,12 +379,21 @@ int main(int argc, char *argv[])
 
         if (vary_bw)
         {
-            std::string trace_dir = "../../../scripts/traces/";
-            std::string trace_name = GetRandomTraceFile(MAX_TRACE_COUNT);
+            std::string trace_dir;
+            if (static_cast<DATASET>(dataset) == TR_GAME)
+            {
+                trace_dir = "../../../scripts/traces/gaming/";
+            }
+            else if (static_cast<DATASET>(dataset) == TR_RESTAURANT)
+            {
+                trace_dir = "../../../scripts/traces/restaurant/";
+            }
+
+            std::string trace_name = GetRandomTraceFile(MAX_TRACE_COUNT, dataset);
             // std::string trace_dir = "../../../scripts/";
             // std::string trace_name = "trace-debug.csv";
             std::string tracefile = trace_dir + trace_name;
-            TraceElem elem = {tracefile, static_cast<TRACE_MODE>(trace_mode), ulDevices[i].Get(0), dlDevices[i].Get(1), 16, simulationDuration, (double_t)maxBitrateKbps / 1000., minBitrateKbps / 1000., i, ul_prop};
+            TraceElem elem = {tracefile, static_cast<TRACE_MODE>(trace_mode), static_cast<DATASET>(dataset), ulDevices[i].Get(0), dlDevices[i].Get(1), trace_interval, simulationDuration, (double_t)maxBitrateKbps / 1000., minBitrateKbps / 1000., server_bottleneck_mbps / (double_t)nClient, i, ul_prop};
             BandwidthTrace(elem, nClient);
         }
     }
@@ -352,7 +403,7 @@ int main(int argc, char *argv[])
     stack.Install(clientNodes);
     stack.Install(sfuCenter);
 
-    // 给NetDevices分配IPv4地址
+    // Assign IPv4 addresses for NetDevices
     Ipv4AddressHelper ipAddr;
     std::string ip;
     Ipv4InterfaceContainer ulIpIfaces[nClient], dlIpIfaces[nClient];
@@ -367,7 +418,7 @@ int main(int argc, char *argv[])
         dlIpIfaces[i] = ipAddr.Assign(dlDevices[i]);
     }
 
-    // 给每个user(WifiSta)装上VcaClient，给Center装上VcaServer
+    // Install VcaClient Application for each user
     uint16_t client_ul = 80;
     uint16_t client_dl = 8080; // dl_port may increase in VcaServer, make sure it doesn't overlap with ul_port
     uint16_t client_peer = 80;
@@ -397,7 +448,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetMinBitrate(minBitrateKbps);
-        // vcaClientApp->SetLogFile("../../../evaluation/results/trlogs/transient_rate_n" + std::to_string(nClient) + "_p" + std::to_string(policy) + "_i" + std::to_string(clientNodes.Get(id)->GetId()) + ".txt");
+        // vcaClientApp->SetLogFile("../../../evaluation/results/trlogs/transient_rate_n" + std::to_string(nClient) + "_p" + std::to_string(trace_mode) + "_d" + std::to_string(dataset) + "_i" + std::to_string(clientNodes.Get(id)->GetId()) + ".txt");
         clientNodes.Get(id)->AddApplication(vcaClientApp);
 
         Simulator::Schedule(Seconds(simulationDuration), &VcaClient::StopEncodeFrame, vcaClientApp);
@@ -405,6 +456,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetStopTime(Seconds(simulationDuration + 4));
     }
 
+    // Install VcaServer Application for the server
     Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
     // vcaServerApp->SetLocalAddress(serverUlAddr);
     vcaServerApp->SetLocalAddress(serverUlAddrList);
@@ -413,6 +465,7 @@ int main(int argc, char *argv[])
     vcaServerApp->SetLocalDlPort(client_dl);
     vcaServerApp->SetNodeId(sfuCenter.Get(0)->GetId());
     vcaServerApp->SetSeparateSocket();
+    vcaServerApp->SetNumNode(nClient);
     sfuCenter.Get(0)->AddApplication(vcaServerApp);
     vcaServerApp->SetStartTime(Seconds(0.0));
     vcaServerApp->SetStopTime(Seconds(simulationDuration + 2));
@@ -425,8 +478,6 @@ int main(int argc, char *argv[])
         ulP2p[0].EnableAsciiAll(ascii.CreateFileStream("sfu-ul.tr"));
         // dlP2p[0].EnableAsciiAll(ascii.CreateFileStream("sfu-dl.tr"));
     }
-
-    
 
     FlowMonitorHelper flowmonHelper;
     flowmonHelper.InstallAll();

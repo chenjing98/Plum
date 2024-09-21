@@ -6,6 +6,21 @@
 
 namespace ns3
 {
+    enum POLICY
+    {
+        VANILLA,
+        PLUM_OLD_VERSION, // deprecated
+        PLUM,
+        FIXED
+    };
+
+    enum RATE_CONTROL_STATE
+    {
+        NATRUAL,
+        CONSTRAINED
+    };
+
+    uint16_t const VCA_APP_PROT_HEADER_LENGTH = 16 + 4;
     class VcaAppProtHeader : public Header
     {
     public:
@@ -21,39 +36,26 @@ namespace ns3
 
         void SetFrameId(uint16_t frame_id);
         void SetPacketId(uint16_t packet_id);
-        void SetDlRedcFactor(uint32_t dlredcfactor);
+        void SetUlTargetRate(uint32_t ul_target_rate);
         void SetPayloadSize(uint32_t payload_size);
+        void SetSrcId(uint32_t src_id);
+        void SetSendTime(uint32_t send_time);
         uint16_t GetFrameId(void);
         uint16_t GetPacketId(void);
-        uint32_t GetDlRedcFactor(void);
+        uint32_t GetUlTargetRate(void);
         uint32_t GetPayloadSize(void);
+        uint32_t GetSrcId(void);
+        uint32_t GetSendTime(void);
 
         void Reset(void);
 
     private:
         uint16_t m_frame_id;
         uint16_t m_packet_id;
-        uint32_t m_dl_bitrate_reduce_factor;
         uint32_t m_payload_size;
-    };
-
-    class VcaAppProtHeaderInfo : public Object
-    {
-    public:
-        static TypeId GetTypeId(void);
-        VcaAppProtHeaderInfo();
-        ~VcaAppProtHeaderInfo();
-        VcaAppProtHeaderInfo(uint16_t frame_id, uint16_t packet_id);
-
-        void SetPayloadSize(uint32_t payload_size);
-        uint16_t GetFrameId(void);
-        uint16_t GetPacketId(void);
-        uint32_t GetPayloadSize(void);
-
-    private:
-        uint16_t m_frame_id;
-        uint16_t m_packet_id;
-        uint32_t m_payload_size;
+        uint32_t m_src_id;
+        uint32_t m_ul_target_rate_bps;
+        uint32_t m_send_time;
     };
 
 } // namespace ns3

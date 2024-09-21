@@ -1,30 +1,111 @@
 import argparse
 import csv
 import numpy as np
+import math
 
 MAX_POLICIES = 2
 
 
-def CalAverageThroughput(thplist):
+
+def qoe(dl_bw, qoeType):
+    # lin = 0
+    # log = 1
+    # sqr_concave = 3
+    # sqr_convex = 2
+    qoe = 0.0
+    max_bitrate = 3000.0 # 待修改：Magic Number 
+    alpha = 0
+    beta = 0
+    if qoeType == 0:
+        alpha = 1.0 / max_bitrate
+    elif qoeType == 1:
+        alpha = 1.0 / math.log(max_bitrate + 1)
+    elif qoeType == 3:
+        if alpha < 0 and alpha >= - 1.0 / max_bitrate / max_bitrate:
+            alpha = alpha
+        else:
+            alpha = - 1.0 / max_bitrate / max_bitrate
+        beta = 1.0 / max_bitrate - alpha * max_bitrate
+    elif qoeType == 2:
+        if alpha > 0 and alpha < 1 / max_bitrate / (max_bitrate - 2):
+            alpha = alpha
+        else:
+            alpha = 1.0 / max_bitrate / max_bitrate
+        beta = 1.0 / max_bitrate - alpha * max_bitrate
+
+    if qoeType == 0:
+        qoe = alpha * dl_bw
+    elif qoeType == 2 or qoeType == 3:
+        qoe = (alpha * dl_bw + beta) * dl_bw
+    elif qoeType == 1:
+        qoe = alpha * math.log(dl_bw + 1)
+    return qoe
+
+def calc_avg_qoe(qoes):
+    avg_qoe = 0.0
+    if len(qoes) == 0:
+        return avg_qoe
+    avg_qoe = np.sum(qoes) / len(qoes)
+    return avg_qoe
+
+def calc_std_dev_qoe(avg_qoe, qoes):
+    std_dev_qoe = 0.0
+    if len(qoes) == 0:
+        return std_dev_qoe
+    for i in range(len(qoes)):
+        std_dev_qoe += (qoes[i] - avg_qoe) ** 2
+    std_dev_qoe /= len(qoes)
+    std_dev_qoe = std_dev_qoe ** 0.5
+    return std_dev_qoe
+
+def CalQoE(thplist, qoeType):
     if len(thplist) <= 0:
         return 0
+    rho = 0.1
+    qoes = []
+    for dl_bw in thplist:
+        qoes.append(qoe(dl_bw/1000.0, qoeType))
+    avg_qoe = calc_avg_qoe(qoes)
+    qoe_fairness = 1 - 2 * calc_std_dev_qoe(avg_qoe, qoes)
+    return (1 - rho) * avg_qoe + rho * qoe_fairness
+
+
+
+def CalAverage(list):
+    if len(list) <= 0:
+        return 0
     sum = 0
-    for i in range(len(thplist)):
-        sum += thplist[i]
-    return sum / len(thplist)
+    for i in range(len(list)):
+        sum += list[i]
+    return sum / len(list)
 
 
 def ReadThroughputLogs(logs):
     loglist = logs.split(' ')
     avg_thp_list = []
     tail_thp_list = []
+    avg_rtt_list = []
+    tail_rtt_90_list = []
+    tail_rtt_95_list = []
+    tail_rtt_99_list = []
+    tail_rtt_999_list = []
     for i in range(len(loglist)):
         if loglist[i] == 'AvgThroughput=':
             avg_thp_list.append(float(loglist[i+1]))
         if loglist[i] == 'TailThroughput=':
             tail_thp_list.append(float(loglist[i+1]))
-    return avg_thp_list, tail_thp_list
-
+        if loglist[i] == 'AvgRtt=':
+            avg_rtt_list.append(float(loglist[i+1]))
+        if loglist[i] == 'TailRtt90=':
+            tail_rtt_90_list.append(float(loglist[i+1]))
+        if loglist[i] == 'TailRtt95=':
+            tail_rtt_95_list.append(float(loglist[i+1]))
+        if loglist[i] == 'TailRtt99=':
+            tail_rtt_99_list.append(float(loglist[i+1]))
+        if loglist[i] == 'TailRtt999=':
+            tail_rtt_999_list.append(float(loglist[i+1]))
+            
+    return avg_thp_list, tail_thp_list, avg_rtt_list, tail_rtt_90_list, tail_rtt_95_list, tail_rtt_99_list, tail_rtt_999_list
 
 def AggregateCsvLog(csv_file):
     avg_thp_results = {}
@@ -77,17 +158,38 @@ def main():
     parser.add_argument('--avg', '-a', action='store_true')
     parser.add_argument('--tail', '-t', action='store_true')
     parser.add_argument("--min", "-m", action='store_true')
+    parser.add_argument("--qoeType", "-q", type=int, default=-1)
+    parser.add_argument("--clientInfo", "-i", type=int, default=-1)
+    parser.add_argument("--rtt", "-r", action='store_true')
+    parser.add_argument("--rtt90", "-r90", action='store_true')
+    parser.add_argument("--rtt95", "-r95", action='store_true')
+    parser.add_argument("--rtt99", "-r99", action='store_true')
+    parser.add_argument("--rtt999", "-r999", action='store_true')
 
     args = parser.parse_args()
 
     if not args.process:
-        avg_thp_list, tail_thp_list = ReadThroughputLogs(args.log)
+        avg_thp_list, tail_thp_list, avg_rtt_list, tail_rtt_90_list, tail_rtt_95_list, tail_rtt_99_list, tail_rtt_999_list = ReadThroughputLogs(args.log)
         if args.avg:
-            print("%.2f" % CalAverageThroughput(avg_thp_list))
+            print("%.2f" % CalAverage(avg_thp_list))
         elif args.tail:
-            print("%.2f" % CalAverageThroughput(tail_thp_list))
+            print("%.2f" % CalAverage(tail_thp_list))
         elif args.min:
             print("%.2f" % min(avg_thp_list))
+        elif args.qoeType >= 0:
+            print("%.2f" % CalQoE(avg_thp_list, args.qoeType))
+        elif args.rtt:
+            print("%.2f" % CalAverage(avg_rtt_list))
+        elif args.rtt90:
+            print("%.2f" % CalAverage(tail_rtt_90_list))
+        elif args.rtt95:
+            print("%.2f" % CalAverage(tail_rtt_95_list))
+        elif args.rtt99:
+            print("%.2f" % CalAverage(tail_rtt_99_list))
+        elif args.rtt999:
+            print("%.2f" % CalAverage(tail_rtt_999_list))
+        elif args.clientInfo >= 0:
+            print("%.2f" % avg_thp_list[args.clientInfo])
     else:
         avg_aggr_results, tail_aggr_results = AggregateCsvLog(args.csv)
         # print(aggr_results)
