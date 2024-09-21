@@ -192,10 +192,10 @@ namespace ns3
             Address peer_addr = InetSocketAddress{peer_ip, m_peer_ul_port};
 
             NS_LOG_INFO("[VcaClient][" << m_node_id << "]"
-                                         << " peer addr " << peer_ip
-                                         << " peer port " << m_peer_ul_port
-                                         << " local addr " << m_local_ul
-                                         << " local port " << m_local_ul_port);
+                                       << " peer addr " << peer_ip
+                                       << " peer port " << m_peer_ul_port
+                                       << " local addr " << m_local_ul
+                                       << " local port " << m_local_ul_port);
 
             Ptr<Socket> socket_ul = Socket::CreateSocket(GetNode(), m_tid);
 
@@ -453,7 +453,7 @@ namespace ns3
         {
             auto latest_rate = m_transientRateBps.back();
             // if(latest_rate.size() > 0) {
-            //     NS_LOG_UNCOND("[VcaClient][Node" << m_node_id << "] LatestRate Time= " << m_transientRateBps.size() << " Rate= " << latest_rate[src_ip]);
+            //     NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] LatestRate Time= " << m_transientRateBps.size() << " Rate= " << latest_rate[src_ip]);
             // }
             m_transientRateBps[now_second][src_id] += payload_size * 8;
         }
@@ -536,16 +536,9 @@ namespace ns3
             m_total_bitrate += m_bitrateBps[i];
             m_encode_times++;
 
-            // Calculate packets in the frame
-            // uint16_t num_pkt_in_frame = frame_size / payloadSize + (frame_size % payloadSize != 0);
-
             // Calculate frame size in bytes
             uint32_t frame_size = m_bitrateBps[i] / 8 / m_fps;
-            // if (m_node_id == (uint32_t)m_num_node + 1)
             NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "][EncodeFrame] Time= " << Simulator::Now().GetMilliSeconds() << " FrameId= " << m_frame_id << " BitrateMbps[" << (uint16_t)i << "]= " << m_bitrateBps[i] / 1e6 << " RedcFactor= " << m_target_dl_bitrate_redc_factor << " SendBufSize= " << m_send_buffer_pkt[i].size() << " total_goodput " << m_total_packet_bit / 1000000.);
-
-            // if (frame_size == 0)
-            //     frame_size = m_bitrateBps * 1000 / 8 / m_fps;
 
             pkt_id_in_frame = 0;
 
@@ -555,8 +548,6 @@ namespace ns3
                 app_header.SetPayloadSize(payloadSize);
                 app_header.SetSrcId(m_node_id);
                 app_header.SetSendTime(Simulator::Now().GetMilliSeconds());
-
-                // uint32_t packet_size = std::min(payloadSize, frame_size - data_ptr);
 
                 Ptr<Packet> packet = Create<Packet>(payloadSize);
                 packet->AddHeader(app_header);
@@ -659,12 +650,11 @@ namespace ns3
 
     void VcaClient::OutputStatistics()
     {
-        // NS_LOG_ERROR(" ============= Output Statistics =============");
+        // NS_LOG_ERROR("Output Statistics");
 
         // Calculate average_throughput
         double average_throughput;
         average_throughput = 1.0 * m_total_packet_bit / Simulator::Now().GetSeconds();
-        // NS_LOG_ERROR("[VcaClient][Result] Throughput= " << average_throughput << " NodeId= " << m_node_id);
 
         double_t average_rtt = 1000;
         if (m_total_pkt_cnt > 0)
@@ -962,11 +952,6 @@ namespace ns3
         {
             NS_LOG_LOGIC("[VcaClient][Node" << m_node_id << "] Time= " << Simulator::Now().GetMilliSeconds() << " Detected BE half-duplex bottleneck");
 
-            // for (uint8_t i = 0; i < m_bitrateBps.size(); i++)
-            // {
-            //     m_bitrateBps[i] = (uint32_t)((double_t)m_bitrateBps[i] * 2);
-            // }
-
             m_increase_ul = true;
 
             return kDlYield;
@@ -1000,15 +985,6 @@ namespace ns3
 
     bool VcaClient::ElasticTest()
     {
-        // if (m_bitrateBps.size() > 0)
-        // {
-        //     if (m_bitrateBps[0] > m_prev_ul_bitrate * 1.2)
-        //     {
-        //         NS_LOG_DEBUG("[VcaClient][Node" << m_node_id << "] ElasticTest currRate " << (double_t)m_bitrateBps[0] / 1000000. << " prevRate " << (double_t)m_prev_ul_bitrate / 1000000.);
-        //         return true;
-        //     }
-        // }
-
         uint64_t curr_bw = GetUlBottleneckBw();
         if (curr_bw > m_prev_ul_bottleneck_bw * 1.2)
         {

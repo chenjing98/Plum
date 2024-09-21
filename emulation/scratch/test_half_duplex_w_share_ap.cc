@@ -173,8 +173,6 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
                     dl_bw = total_bw - ul_bw;
                     NS_LOG_LOGIC("ul_bw: " << ul_bw << "Mbps, dl_bw: " << dl_bw << "Mbps line141");
                 }
-                // dl_bw = min_recv_rate;
-                // ul_bw = total_bw - dl_bw;
             }
             else
             {
@@ -192,9 +190,6 @@ void BandwidthTrace(TraceElem elem, uint32_t n_client)
                 global_know.prevMaxAbw = std::max(0.0, global_know.prevMaxAbw - ul_bw);
             }
         }
-
-        // ul_bw = total_bw * elem.ul_prop;
-        // dl_bw = total_bw * (1 - elem.ul_prop);
 
         dl_bw = std::min(dl_bw, elem.serverBwMbps);
 
@@ -400,9 +395,6 @@ int main(int argc, char *argv[])
             }
 
             std::string trace_name = GetRandomTraceFile(MAX_TRACE_COUNT, dataset);
-
-            // std::string trace_dir = "../../../scripts/";
-            // std::string trace_name = "trace-debug.csv";
             std::string tracefile = trace_dir + trace_name;
             TraceElem elem;
 
@@ -459,7 +451,7 @@ int main(int argc, char *argv[])
     stack.Install(clientNodes);
     stack.Install(sfuCenter);
 
-    // 给NetDevices分配IPv4地址
+    // Assign IPv4 addresses for NetDevices
     Ipv4AddressHelper ipAddr;
     std::string ip;
     Ipv4InterfaceContainer ulIpIfaces[nClient], dlIpIfaces[nClient];
@@ -474,7 +466,7 @@ int main(int argc, char *argv[])
         dlIpIfaces[i] = ipAddr.Assign(dlDevices[i]);
     }
 
-    // 给每个user(WifiSta)装上VcaClient，给Center装上VcaServer
+    // Install VcaClient Application for each user
     uint16_t client_ul = 80;
     uint16_t client_dl = 8080; // dl_port may increase in VcaServer, make sure it doesn't overlap with ul_port
     uint16_t client_peer = 80;
@@ -504,7 +496,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
         vcaClientApp->SetMaxBitrate(maxBitrateKbps);
         vcaClientApp->SetMinBitrate(minBitrateKbps);
-        // vcaClientApp->SetLogFile("../../../evaluation/results/trlogs/transient_rate_n" + std::to_string(nClient) + "_p" + std::to_string(trace_mode) + "_tack" + "_d" + std::to_string(dataset) + "_i" + std::to_string(clientNodes.Get(id)->GetId()) + ".txt");
+        // vcaClientApp->SetLogFile("../../../evaluation/results/trlogs/transient_rate_n" + std::to_string(nClient) + "_p" + std::to_string(trace_mode) + "_d" + std::to_string(dataset) + "_i" + std::to_string(clientNodes.Get(id)->GetId()) + ".txt");
         clientNodes.Get(id)->AddApplication(vcaClientApp);
 
         Simulator::Schedule(Seconds(simulationDuration), &VcaClient::StopEncodeFrame, vcaClientApp);
@@ -512,6 +504,7 @@ int main(int argc, char *argv[])
         vcaClientApp->SetStopTime(Seconds(simulationDuration + 4));
     }
 
+    // Install VcaServer Application for the server
     Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
     // vcaServerApp->SetLocalAddress(serverUlAddr);
     vcaServerApp->SetLocalAddress(serverUlAddrList);

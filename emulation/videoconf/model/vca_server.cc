@@ -29,9 +29,9 @@ namespace ns3
           app_header(VcaAppProtHeader()),
           ul_rate(100),
           dl_rate(100),
-          ul_target_rate(0.0){};
+          ul_target_rate(0.0) {};
 
-    ClientInfo::~ClientInfo(){};
+    ClientInfo::~ClientInfo() {};
 
     TypeId VcaServer::GetTypeId()
     {
@@ -55,9 +55,9 @@ namespace ns3
           m_separate_socket(0),
           m_opt_params(),
           m_policy(VANILLA),
-          m_dl_percentage(0){};
+          m_dl_percentage(0) {};
 
-    VcaServer::~VcaServer(){};
+    VcaServer::~VcaServer() {};
 
     void
     VcaServer::DoDispose()
@@ -224,7 +224,6 @@ namespace ns3
     void
     VcaServer::StopApplication()
     {
-        // NS_LOG_UNCOND("Average thoughput (all clients) = "<<1.0*m_total_packet_size/Simulator::Now().GetSeconds());
         if (m_update_rate_event.IsRunning())
         {
             Simulator::Cancel(m_update_rate_event);
@@ -575,7 +574,7 @@ namespace ns3
             app_header.SetSrcId(src_id);
             app_header.SetPayloadSize(payload_size);
             app_header.SetUlTargetRate((uint32_t)(other_client_info->ul_target_rate * 1000.0));
-            app_header.SetSendTime(send_time); 
+            app_header.SetSendTime(send_time);
             packet_dl->AddHeader(app_header);
 
             other_client_info->send_buffer.push_back(packet_dl);
@@ -587,8 +586,6 @@ namespace ns3
     Ptr<Packet>
     VcaServer::TranscodeFrame(uint8_t src_socket_id, uint8_t dst_socket_id, Ptr<Packet> packet, uint16_t frame_id)
     {
-
-        // std::pair<uint8_t, uint8_t> socket_id_pair = std::pair<uint8_t, uint8_t>(src_socket_id, dst_socket_id);
         Ptr<ClientInfo> src_client_info = m_client_info_map[src_socket_id];
 
         auto it = src_client_info->prev_frame_id.find(dst_socket_id);
@@ -633,11 +630,13 @@ namespace ns3
             src_client_info->prev_frame_id[dst_socket_id] = frame_id;
             src_client_info->frame_size_forwarded[dst_socket_id] = packet->GetSize();
 
-            // if(src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
+            // if (src_socket_id == DEBUG_SRC_SOCKET_ID && dst_socket_id == DEBUG_DST_SOCKET_ID)
             // {
             //     std::ofstream ofs("./debug-server.log", std::ios_base::app);
             //     ofs << "FrameId= " << frame_id - 1 << " Forwarded " << forwarded_frame_size << " Dropped " << dropped_frame_size << std::endl;
             //     forwarded_frame_size = packet->GetSize();
+            //     if (dropped_frame_size > 0)
+            //         NS_LOG_DEBUG("[VcaServer] Dropped " << dropped_frame_size);
             //     dropped_frame_size = 0;
             //     ofs.close();
             // }
@@ -731,7 +730,7 @@ namespace ns3
             dl_addr = (first8b << 24) | ((second8b + 1) << 16) | (third8b << 8) | (fourth8b + 1);
         }
 
-        // NS_LOG_UNCOND("Input addr " << ul_addr << " Output addr " << dl_addr << " first8b " << first8b << " second8b " << second8b << " third8b " << third8b << " fourth8b " << fourth8b);
+        // NS_LOG_DEBUG("Input addr " << ul_addr << " Output addr " << dl_addr << " first8b " << first8b << " second8b " << second8b << " third8b " << third8b << " fourth8b " << fourth8b);
         return dl_addr;
     };
 
@@ -744,7 +743,7 @@ namespace ns3
         // params for solver: [rho, max_bitrate, qoe_type, qoe_func_alpha, qoe_func_beta, num_view, method, init_bw, plot]
 
         m_opt_params.num_users = m_num_node;
-        NS_ASSERT_MSG(m_opt_params.num_users == m_client_info_map.size(), "num_users should be equal to the number of clients");
+        NS_ASSERT_MSG(m_opt_params.num_users == m_client_info_map.size(), "num_users should be equal to the number of clients. m_client_info_map.size() = " << m_client_info_map.size());
 
         send(m_py_socket, &m_opt_params, sizeof(m_opt_params), 0);
         recv(m_py_socket, m_opt_alloc, sizeof(double_t) * m_opt_params.num_users, 0);
@@ -769,11 +768,12 @@ namespace ns3
         {
             Ptr<ClientInfo> client_info = it->second;
 
-            if(m_policy == PLUM)
+            if (m_policy == PLUM)
                 dl_alloc = m_opt_alloc[it->first];
-            else if(m_policy == FIXED)
+            else if (m_policy == FIXED)
                 dl_alloc = m_opt_params.capacities_kbps[it->first] * m_dl_percentage;
-            else dl_alloc = 0; //will not occur. just for full compiling
+            else
+                dl_alloc = 0; // will not occur. just for full compiling
             ul_alloc = m_opt_params.capacities_kbps[it->first] - dl_alloc;
 
             client_info->ul_target_rate = ul_alloc;
@@ -813,7 +813,7 @@ namespace ns3
     void
     VcaServer::UpdateCapacities()
     {
-        // realize updating the capacities
+        // updating the network capacities
 
         double change_rate = 0;
         for (auto it = m_client_info_map.begin(); it != m_client_info_map.end(); it++)
@@ -832,7 +832,7 @@ namespace ns3
             m_opt_params.capacities_kbps[it->first] = new_bitrate;
             change_rate = std::max(change_rate, abs(new_bitrate - old_bitrate) / old_bitrate);
         }
-        double rearrange_threshold = 0.2; // 暂时采用变化率>0.2作为判断标准，写定后可以写到.h中
+        double rearrange_threshold = 0.2; // a threshold to decide the network condtion changes
         if (change_rate > rearrange_threshold)
             Simulator::ScheduleNow(&VcaServer::OptimizeAllocation, this);
 

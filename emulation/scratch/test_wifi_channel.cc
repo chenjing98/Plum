@@ -170,9 +170,10 @@ int main(int argc, char *argv[])
   if (mode == "p2p")
   {
     NS_LOG_ERROR("[Scratch] P2P mode emulation started.");
-    // 创建节点
-    uint8_t nWifi[nClient];                     // 每个AP管多少Nodes
-    uint32_t num = (nClient - 1) * nClient / 2; // AP之间的信道数量
+
+    // create the nodes
+    uint8_t nWifi[nClient];                     // number of stations in each BSS
+    uint32_t num = (nClient - 1) * nClient / 2; // number of mesh links between APs
     NodeContainer p2pNodes, wifiStaNodes[nClient], wifiApNode[nClient];
     for (uint32_t i = 0; i < nClient; i++)
       nWifi[i] = 1;
@@ -183,7 +184,7 @@ int main(int argc, char *argv[])
       wifiApNode[i] = p2pNodes.Get(i);
     }
 
-    // 创建AP之间的信道
+    // Create P2P channels between APs (backhaul links)
     PointToPointHelper pointToPoint[num];
     for (uint32_t i = 0; i < num; i++)
     {
@@ -191,23 +192,17 @@ int main(int argc, char *argv[])
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("20ms"));
     }
 
-    // 在AP的p2p信道上安装NetDevice
+    // Install NetDevice for the backhaul links
     NetDeviceContainer p2pDevices[num];
     uint32_t p = 0;
-    //    int dev[100][100];
     for (uint32_t i = 0; i < nClient; i++)
       for (uint32_t j = i + 1; j < nClient; j++)
       {
         p2pDevices[p] = pointToPoint[p].Install(p2pNodes.Get(i), p2pNodes.Get(j));
-        //        dev[i][j] = p;
-        //        dev[j][i] = p;
         p++;
       }
-    // for(int i=0;i<nClient;i++)
-    //   for(int j=0;j<nClient;j++)
-    //     NS_LOG_DEBUG("dev[%d][%d]=%d\nClient",i,j,dev[i][j]);
 
-    // 抄一些WifiAP和WifiNodes之间建立联系的代码
+    // Establish WLAN channels
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     YansWifiPhyHelper phy;
     WifiMacHelper mac;
@@ -216,13 +211,10 @@ int main(int argc, char *argv[])
     NetDeviceContainer staDevices[nClient];
     NetDeviceContainer apDevices[nClient];
 
-    // 每次的SSID、PHY要不同
     for (uint32_t i = 0; i < nClient; i++)
     {
       std::string id = "ssid" + std::to_string(i + 1);
-      //      std::cout<<id<<std::endl;
       ssid = Ssid(id);
-      //      std::cout<<ssid<<std::endl;
       phy.SetChannel(channel.Create());
 
       mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid), "ActiveProbing", BooleanValue(false));
@@ -265,7 +257,7 @@ int main(int argc, char *argv[])
     for (uint32_t i = 0; i < nClient; i++)
       stack.Install(wifiStaNodes[i]);
 
-    // 给NetDevices分配IPv4地址
+    // Assign IPv4 addresses for NetDevices
     Ipv4AddressHelper P2Paddress[num];
     Ipv4InterfaceContainer BackhaulIf[num];
     for (uint32_t i = 0; i < num; i++)
@@ -280,14 +272,12 @@ int main(int argc, char *argv[])
     for (uint32_t i = 0; i < nClient; i++)
     {
       std::string ip = "10.1." + std::to_string(i + 1 + num) + ".0";
-      //      std::cout<<"ip = "<<ip<<std::endl;
       Wifiaddress[i].SetBase(ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
       Stainterfaces[i] = Wifiaddress[i].Assign(staDevices[i]);
       APinterfaces[i] = Wifiaddress[i].Assign(apDevices[i]);
       NS_LOG_DEBUG("APinterfaces[" << i << "].getAddress(0) = " << APinterfaces[i].GetAddress(0));
     }
 
-    // 给AP的每个User装上Client
     std::vector<Ipv4Address> staAddr_all;
     for (uint32_t id = 0; id < nClient; id++)
     {
@@ -298,6 +288,7 @@ int main(int argc, char *argv[])
       }
     }
 
+    // Install VcaClient Application for each user
     uint16_t port_ul = 81;
     uint16_t port_dl = 80;
     for (uint32_t id = 0; id < nClient; id++)
@@ -338,7 +329,8 @@ int main(int argc, char *argv[])
     NS_LOG_DEBUG("[Scratch] SFU mode emulation started.");
 
     double_t showPositionDeltaTime = 1; // in s
-    // 创建节点
+
+    // create the nodes
     // nClient of VcaClient, each in a different BSS
     NodeContainer p2pNodes, sfuCenter, wifiStaNodes[nClient], wifiApNode[nClient];
     uint8_t nWifi[nClient]; // number of stations in each BSS
@@ -357,7 +349,7 @@ int main(int argc, char *argv[])
     }
     sfuCenter = p2pNodes.Get(nClient);
 
-    // 创建AP到Center之间的信道
+    // Create P2P channels between APs (backhaul links)
     PointToPointHelper pointToPoint[nClient];
     for (uint32_t i = 0; i < nClient; i++)
     {
@@ -365,15 +357,12 @@ int main(int argc, char *argv[])
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("10ms"));
     }
 
-    // 在AP的p2p信道上安装NetDevice
+    // Install NetDevice for the backhaul links
     NetDeviceContainer backhaulDevices[nClient];
     for (uint32_t i = 0; i < nClient; i++)
       backhaulDevices[i] = pointToPoint[i].Install(wifiApNode[i].Get(0), sfuCenter.Get(0));
-    // for(int i=0;i<nClient;i++)
-    //   for(int j=0;j<nClient;j++)
-    //     NS_LOG_DEBUG("dev[%d][%d]=%d\nClient",i,j,dev[i][j]);
 
-    // Wifi AP和stations之间建立channel
+    // Establish WLAN channels
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     YansWifiPhyHelper phy;
     WifiMacHelper mac;
@@ -402,7 +391,6 @@ int main(int argc, char *argv[])
 
       std::string id = "ssid" + std::to_string(i + 1);
       ssid = Ssid(id);
-      NS_LOG_DEBUG("[Scratch] Ssid= " << ssid);
       phy.SetChannel(channel.Create());
 
       mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid), "ActiveProbing", BooleanValue(false));
@@ -455,7 +443,7 @@ int main(int argc, char *argv[])
     }
     stack.Install(sfuCenter);
 
-    // 给NetDevices分配IPv4地址
+    // Assign IPv4 addresses for NetDevices
     Ipv4AddressHelper P2Paddress[nClient];
     Ipv4InterfaceContainer BackhaulIf[nClient];
     for (uint32_t i = 0; i < nClient; i++)
@@ -476,7 +464,7 @@ int main(int argc, char *argv[])
       NS_LOG_DEBUG("APinterfaces[" << i << "].getAddress(0) = " << APinterfaces[i].GetAddress(0));
     }
 
-    // 把每个node的每个接口的ip地址打印出来
+    // Print the assigned addresses
     for (uint32_t i = 0; i < nClient; i++)
     {
       Ptr<Ipv4> ippp = wifiApNode[i].Get(0)->GetObject<Ipv4>();
@@ -488,12 +476,12 @@ int main(int argc, char *argv[])
       }
     }
 
-    // 给每个user(WifiSta)装上VcaClient，给Center装上VcaServer
     uint16_t client_ul = 80;
     uint16_t client_dl = 8080; // dl_port may increase in VcaServer, make sure it doesn't overlap with ul_port
     uint16_t client_peer = 80;
 
-    Ipv4Address serverAddr = BackhaulIf[0].GetAddress(1); // sfuCenter
+    // Install VcaServer Application for the central server
+    Ipv4Address serverAddr = BackhaulIf[0].GetAddress(1);
     Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
     vcaServerApp->SetLocalAddress(serverAddr);
     vcaServerApp->SetLocalUlPort(client_peer);
@@ -508,6 +496,7 @@ int main(int argc, char *argv[])
     vcaServerApp->SetStartTime(Seconds(0.0));
     vcaServerApp->SetStopTime(Seconds(simulationDuration + 2));
 
+    // Install VcaClient Application for each user
     for (uint32_t id = 0; id < nClient; id++)
     {
 
@@ -571,32 +560,30 @@ int main(int argc, char *argv[])
     NS_LOG_DEBUG("[Scratch] SFU mode emulation started.");
 
     double_t showPositionDeltaTime = 1; // in s
-    // 创建节点
+
+    // Create the nodes
     // nClient of VcaClient, each in a different BSS
     uint32_t nBss = nClient - 1;
     NodeContainer p2pNodes, sfuCenter, wifiStaNodes[nBss], wifiApNode[nBss];
     uint8_t nWifi[nBss]; // number of stations in each BSS
     nWifi[0] = 2;
     for (uint32_t i = 1; i < nBss; i++)
-      nWifi[i] = 0;
+      nWifi[i] = 1;
 
     p2pNodes.Create(nBss + 1);
     for (uint8_t i = 0; i < nBss; i++)
     {
       wifiStaNodes[i].Create(nWifi[i]);
       wifiApNode[i] = p2pNodes.Get(i);
-      if (printPosition && i == 0)
+      if (printPosition)
       {
-        // Simulator::Schedule(Seconds(0.0), &showPosition, wifiStaNodes[i].Get(0), showPositionDeltaTime);
         Simulator::Schedule(Seconds(0.0), &showPosition, wifiStaNodes[i].Get(0), showPositionDeltaTime);
-        Simulator::Schedule(Seconds(0.0), &showPosition, wifiStaNodes[0].Get(1), showPositionDeltaTime);
         Simulator::Schedule(Seconds(0.0), &showPosition, wifiApNode[i].Get(0), showPositionDeltaTime);
       }
     }
+    sfuCenter = p2pNodes.Get(nBss + 1);
 
-    sfuCenter = p2pNodes.Get(nBss);
-
-    // 创建AP到Center之间的信道
+    // Create P2P channels between APs (backhaul links)
     PointToPointHelper pointToPoint[nBss];
     for (uint32_t i = 0; i < nBss; i++)
     {
@@ -604,15 +591,12 @@ int main(int argc, char *argv[])
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("10ms"));
     }
 
-    // 在AP的p2p信道上安装NetDevice
+    // Install NetDevice for the backhaul links
     NetDeviceContainer backhaulDevices[nBss];
     for (uint32_t i = 0; i < nBss; i++)
       backhaulDevices[i] = pointToPoint[i].Install(wifiApNode[i].Get(0), sfuCenter.Get(0));
-    // for(int i=0;i<nClient;i++)
-    //   for(int j=0;j<nClient;j++)
-    //     NS_LOG_DEBUG("dev[%d][%d]=%d\nClient",i,j,dev[i][j]);
 
-    // Wifi AP和stations之间建立channel
+    // Establish WLAN channels
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     YansWifiPhyHelper phy;
     WifiMacHelper mac;
@@ -626,7 +610,7 @@ int main(int argc, char *argv[])
     phy.Set("ChannelSettings", StringValue("{0, 10, BAND_5GHZ, 0}"));
 
     // Set different SSID (+ PHY channel) for each BSS
-    for (uint32_t i = 0; i < 1; i++)
+    for (uint32_t i = 0; i < nBss; i++)
     {
       std::string id = "ssid" + std::to_string(i + 1);
       ssid = Ssid(id);
@@ -640,45 +624,47 @@ int main(int argc, char *argv[])
     }
 
     MobilityHelper mobility;
-    // mobility.SetPositionAllocator("ns3::GridPositionAllocator",
-    //                               "MinX",
-    //                               DoubleValue(0.0),
-    //                               "MinY",
-    //                               DoubleValue(0.0),
-    //                               "DeltaX",
-    //                               DoubleValue(100.0),
-    //                               "DeltaY",
-    //                               DoubleValue(1.0),
-    //                               "GridWidth",
-    //                               UintegerValue(nBss),
-    //                               "LayoutType",
-    //                               StringValue("RowFirst"));
+    mobility.SetPositionAllocator("ns3::GridPositionAllocator",
+                                  "MinX",
+                                  DoubleValue(0.0),
+                                  "MinY",
+                                  DoubleValue(0.0),
+                                  "DeltaX",
+                                  DoubleValue(100.0),
+                                  "DeltaY",
+                                  DoubleValue(1.0),
+                                  "GridWidth",
+                                  UintegerValue(nBss),
+                                  "LayoutType",
+                                  StringValue("RowFirst"));
 
     mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
                               "Bounds",
                               RectangleValue(Rectangle(-15, 15, -15, 15)));
+    // for (uint32_t i = 0; i < nClient; i++)
+    // {
+    //   mobility.Install(wifiStaNodes[i]);
+    // }
 
     mobility.Install(wifiStaNodes[0].Get(0));
 
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
 
-    // for (uint32_t i = 1; i < nBss; i++)
-    // {
-    //     mobility.Install(wifiStaNodes[i]);
-    // }
+    for (uint32_t i = 1; i < nBss; i++)
+    {
+      mobility.Install(wifiStaNodes[i]);
+    }
 
-    // for (uint32_t i = 0; i < nBss; i++)
-    // {
-    //     mobility.Install(wifiApNode[i]);
-    // }
+    for (uint32_t i = 0; i < nBss; i++)
+    {
+      mobility.Install(wifiApNode[i]);
+    }
 
     // sharedAP
     mobility.Install(wifiStaNodes[0].Get(1));
-    mobility.Install(wifiApNode[0]);
-    Vector PositionSta0(2, 0.0, 0.0), PositionSta1(2, 0.0, 1.0), PositionAP(0.0, 1.0, 0.0);
-    wifiStaNodes[0].Get(0)->GetObject<MobilityModel>()->SetPosition(PositionSta0);
-    wifiStaNodes[0].Get(1)->GetObject<MobilityModel>()->SetPosition(PositionSta1);
-    wifiApNode[0].Get(0)->GetObject<MobilityModel>()->SetPosition(PositionAP);
+    Ptr<MobilityModel> mobilityModel = wifiStaNodes[0].Get(1)->GetObject<MobilityModel>();
+    Vector Position(0.1, 0.0, 0.0);
+    mobilityModel->SetPosition(Position);
 
     InternetStackHelper stack;
     for (uint32_t i = 0; i < nBss; i++)
@@ -688,7 +674,7 @@ int main(int argc, char *argv[])
     }
     stack.Install(sfuCenter);
 
-    // 给NetDevices分配IPv4地址
+    // Assign IPv4 addresses for NetDevices
     Ipv4AddressHelper P2Paddress[nBss];
     Ipv4InterfaceContainer BackhaulIf[nBss];
     for (uint32_t i = 0; i < nBss; i++)
@@ -700,7 +686,7 @@ int main(int argc, char *argv[])
     Ipv4AddressHelper Wifiaddress[nBss];
     Ipv4InterfaceContainer APinterfaces[nBss];
     Ipv4InterfaceContainer Stainterfaces[nBss];
-    for (uint32_t i = 0; i < 1; i++)
+    for (uint32_t i = 0; i < nBss; i++)
     {
       std::string ip = "10.1." + std::to_string(i + 1 + nBss) + ".0";
       Wifiaddress[i].SetBase(ns3::Ipv4Address(ip.c_str()), "255.255.255.0");
@@ -709,7 +695,7 @@ int main(int argc, char *argv[])
       NS_LOG_DEBUG("APinterfaces[" << i << "].getAddress(0) = " << APinterfaces[i].GetAddress(0));
     }
 
-    // 把每个node的每个接口的ip地址打印出来
+    // Print the assigned addresses
     for (uint32_t i = 0; i < nBss; i++)
     {
       Ptr<Ipv4> ippp = wifiApNode[i].Get(0)->GetObject<Ipv4>();
@@ -721,12 +707,12 @@ int main(int argc, char *argv[])
       }
     }
 
-    // 给每个user(WifiSta)装上VcaClient，给Center装上VcaServer
     uint16_t client_ul = 80;
     uint16_t client_dl = 8080; // dl_port may increase in VcaServer, make sure it doesn't overlap with ul_port
     uint16_t client_peer = 80;
 
-    Ipv4Address serverAddr = BackhaulIf[0].GetAddress(1); // sfuCenter
+    // Install VcaServer Application for the central server
+    Ipv4Address serverAddr = BackhaulIf[0].GetAddress(1);
     Ptr<VcaServer> vcaServerApp = CreateObject<VcaServer>();
     vcaServerApp->SetLocalAddress(serverAddr);
     vcaServerApp->SetLocalUlPort(client_peer);
@@ -741,53 +727,27 @@ int main(int argc, char *argv[])
     vcaServerApp->SetStartTime(Seconds(0.0));
     vcaServerApp->SetStopTime(Seconds(simulationDuration + 2));
 
+    // Install VcaClient Application for each user
     for (uint32_t id = 0; id < nBss; id++)
     {
-
-      Ipv4Address staAddr, apAddr;
-
-      Ipv4Address local;
-      Ptr<Node> local_node;
-      if (id == 0)
+      for (uint8_t i = 0; i < nWifi[id]; i++)
       {
-        for (uint8_t i = 0; i < nWifi[id]; i++)
+        Ipv4Address staAddr = Stainterfaces[id].GetAddress(i);
+        Ipv4Address apAddr = BackhaulIf[id].GetAddress(i);
+
+        Ipv4Address local;
+        Ptr<Node> local_node;
+        if (id == 0)
         {
-          staAddr = Stainterfaces[id].GetAddress(i);
-          apAddr = BackhaulIf[id].GetAddress(i);
           local = staAddr;
           local_node = wifiStaNodes[id].Get(i);
-
-          NS_LOG_DEBUG("SFU VCA NodeId " << local_node->GetId() << " " << sfuCenter.Get(0)->GetId());
-          Ptr<VcaClient> vcaClientApp = CreateObject<VcaClient>();
-          vcaClientApp->SetFps(20);
-          vcaClientApp->SetLocalAddress(local);
-          vcaClientApp->SetPeerAddress(std::vector<Ipv4Address>{serverAddr});
-          vcaClientApp->SetLocalUlPort(client_ul);
-          vcaClientApp->SetLocalDlPort(client_dl);
-          vcaClientApp->SetPeerPort(client_peer);
-          vcaClientApp->SetNodeId(local_node->GetId());
-          vcaClientApp->SetNumNode(nClient);
-          vcaClientApp->SetPolicy(static_cast<POLICY>(policy));
-          vcaClientApp->SetUlDlParams(kUlImprove, kDlYield);
-          vcaClientApp->SetUlThresh(kLowUlThresh, kHighUlThresh);
-          vcaClientApp->SetMaxBitrate(maxBitrateKbps);
-          vcaClientApp->SetMinBitrate(minBitrateKbps);
-          // vcaClientApp->SetLogFile("../../../evaluation/results/transient_rate_debug_" + std::to_string(nClient) + "_node_" + std::to_string(local_node->GetId()) + ".txt");
-          // wifiApNode[id].Get(0)->AddApplication(vcaClientApp);
-          // wifiStaNodes[id].Get(i)->AddApplication(vcaClientApp);
-          local_node->AddApplication(vcaClientApp);
-
-          Simulator::Schedule(Seconds(simulationDuration), &VcaClient::StopEncodeFrame, vcaClientApp);
-          vcaClientApp->SetStartTime(Seconds(0.0));
-          vcaClientApp->SetStopTime(Seconds(simulationDuration + 4));
         }
-      }
-      else
-      {
-        apAddr = BackhaulIf[id].GetAddress(0);
-        local = apAddr;
-        local_node = wifiApNode[id].Get(0);
-
+        else
+        {
+          local = apAddr;
+          local_node = wifiApNode[id].Get(i);
+        }
+        Ptr<Node> node = wifiStaNodes[id].Get(i);
         NS_LOG_DEBUG("SFU VCA NodeId " << local_node->GetId() << " " << sfuCenter.Get(0)->GetId());
         Ptr<VcaClient> vcaClientApp = CreateObject<VcaClient>();
         vcaClientApp->SetFps(20);

@@ -225,7 +225,7 @@ namespace ns3
 
         // latency statistics related
         bool m_turn_on_latency_stats;
-        
+
     }; // class VcaClient
 
 }; // namespace ns3
