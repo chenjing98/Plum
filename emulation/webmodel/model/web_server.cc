@@ -359,10 +359,10 @@ namespace ns3
             if (client_info->read_status == 4)
             {
 
-                uint8_t *buffer = new uint8_t[client_info->half_payload->GetSize()];               // 创建一个buffer，用于存储packet元素
-                client_info->half_payload->CopyData(buffer, client_info->half_payload->GetSize()); // 将packet元素复制到buffer中
+                uint8_t *buffer = new uint8_t[client_info->half_payload->GetSize()];               // create a buffer to store packet
+                client_info->half_payload->CopyData(buffer, client_info->half_payload->GetSize()); // copy the packet to the buffer
                 // for (int i = 0; i < m_half_payload[socket_id]->GetSize(); i++){
-                //     uint8_t element = buffer[i]; // 获取第i个元素
+                //     uint8_t element = buffer[i]; // i-th element
                 // if(element != 0)
                 //     NS_LOG_UNCOND("i = " <<i<<"  ele = "<<(uint32_t)element);
                 // }

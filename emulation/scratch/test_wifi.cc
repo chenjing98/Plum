@@ -13,7 +13,7 @@
 #include "ns3/ssid.h"
 #include "ns3/yans-wifi-helper.h"
 
-//改编自first.cc
+// adapted from first.cc
 //
 // Default Network Topology
 //
@@ -44,10 +44,9 @@ main (int argc, char *argv[])
   
   if(mode == "p2p"){
     printf("Now it's p2p+WiFi!\n");
-    //创建节点
-    int n = 3;//AP的数量
-    int nWifi[n];//每个AP管多少Nodes
-    int num = (n-1)*n/2;//AP之间的信道数量
+    int n = 3;
+    int nWifi[n];
+    int num = (n-1)*n/2;
     NodeContainer p2pNodes,wifiStaNodes[n],wifiApNode[n];
     for(int i = 0; i < n; i++) 
       nWifi[i] = 1;
@@ -57,14 +56,12 @@ main (int argc, char *argv[])
       wifiApNode[i] = p2pNodes.Get(i);
     }
 
-    //创建AP之间的信道
     PointToPointHelper pointToPoint[num];
     for(int i = 0; i < num; i ++){
       pointToPoint[i].SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
       pointToPoint[i].SetChannelAttribute ("Delay", StringValue ("2ms"));
     }
 
-    //在AP的p2p信道上安装NetDevice
     NetDeviceContainer p2pDevices[num];
     int p = 0;
     int dev[100][100];
@@ -79,7 +76,6 @@ main (int argc, char *argv[])
     //   for(int j=0;j<n;j++)
     //     printf("dev[%d][%d]=%d\n",i,j,dev[i][j]);
 
-    //抄一些WifiAP和WifiNodes之间建立联系的代码
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     YansWifiPhyHelper phy;
     WifiMacHelper mac;
@@ -88,7 +84,6 @@ main (int argc, char *argv[])
     NetDeviceContainer staDevices[n];
     NetDeviceContainer apDevices[n];
 
-    //每次的SSID、PHY要不同
     for(int i = 0; i < n; i++){
       std::string id = "ssid" + std::to_string(i+1);
 //      std::cout<<id<<std::endl;
@@ -136,7 +131,6 @@ main (int argc, char *argv[])
       stack.Install (wifiStaNodes[i]);
 
 
-    //给NetDevices分配IPv4地址
     Ipv4AddressHelper P2Paddress[num];
     Ipv4InterfaceContainer interfaces[num];
     for(int i = 0; i < num; i++){
@@ -157,7 +151,6 @@ main (int argc, char *argv[])
     }
 
 
-     //给AP两两之间安装CS
     int port_c = 9;
     for(int i = 0; i < n; i++){
       for(int j = 0; j < n; j++){
@@ -183,7 +176,6 @@ main (int argc, char *argv[])
       }
     }
 
-    //给每个AP内的点都安装Client，以AP作为Server
     for(int id = 0; id < n; id ++){
       for(int i = 0; i < nWifi[id]; i ++){
         UdpEchoServerHelper echoServer(port_c);
@@ -233,9 +225,8 @@ main (int argc, char *argv[])
 
   else if(mode == "sfu"){
     printf("Now it's sfu!\n");
-    //创建节点
-    int n = 2;//AP的数量
-    int nWifi[n];//每个AP管多少Nodes
+    int n = 2;
+    int nWifi[n];
     NodeContainer p2pNodes,sfuCenter,wifiStaNodes[n],wifiApNode[n];
     for(int i = 0; i < n; i++) nWifi[i] = 1;
     p2pNodes.Create (n+1);
@@ -246,14 +237,12 @@ main (int argc, char *argv[])
     sfuCenter = p2pNodes.Get(n);
 
 
-    //创建AP到Center之间的信道
     PointToPointHelper pointToPoint[n];
     for(int i = 0; i < n; i ++){
       pointToPoint[i].SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
       pointToPoint[i].SetChannelAttribute ("Delay", StringValue ("2ms"));
     }
 
-    //在AP的p2p信道上安装NetDevice
     NetDeviceContainer sfuDevices[n];
     for(int i = 0; i < n; i++)
       sfuDevices[i] = pointToPoint[i].Install (wifiApNode[i].Get(0),sfuCenter.Get(0));
@@ -261,7 +250,6 @@ main (int argc, char *argv[])
     //   for(int j=0;j<n;j++)
     //     printf("dev[%d][%d]=%d\n",i,j,dev[i][j]);
 
-    //抄一些WifiAP和WifiNodes之间建立联系的代码
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     YansWifiPhyHelper phy;
     WifiMacHelper mac;
@@ -271,7 +259,6 @@ main (int argc, char *argv[])
     NetDeviceContainer apDevices[n];
 
 
-    //每次的SSID、PHY要不同
     for(int i = 0; i < n; i++){
       std::string id = "ssid" + std::to_string(i+1);
 //      std::cout<<id<<std::endl;
@@ -320,7 +307,6 @@ main (int argc, char *argv[])
     stack.Install (sfuCenter);
 
 
-    //给NetDevices分配IPv4地址
     Ipv4AddressHelper P2Paddress[n];
     Ipv4InterfaceContainer interfaces[n];
     for(int i = 0; i < n; i++){
@@ -340,7 +326,6 @@ main (int argc, char *argv[])
       std::cout<<"APinterfaces["<<i<<"].getAddress(0) = "<<APinterfaces[i].GetAddress(0)<<std::endl;
     }
 
-     //Debug：把每个node的每个接口的ip地址打印出来
     for(int i = 0; i < n; i ++){
       Ptr<Ipv4> ippp = wifiApNode[i].Get(0)->GetObject<Ipv4>();
       int interfacenumber = ippp->GetNInterfaces();
@@ -350,7 +335,6 @@ main (int argc, char *argv[])
       }
     }
 
-    //给所有点与选择转发单元安装CS
     int port_c = 9;
     for(int i = 0; i < n; i++){
       //Client:AP -> Server:Center
@@ -390,7 +374,6 @@ main (int argc, char *argv[])
       }
     }
 
-    //给每个AP内的点都安装Client，以AP作为Server
     for(int id = 0; id < n; id ++){
       for(int i = 0; i < nWifi[id]; i ++){
         UdpEchoServerHelper echoServer(port_c);

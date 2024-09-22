@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
   }
   sfuCenter = p2pNodes.Get(nClient);
 
-  // 创建AP到Center之间的信道
+  // create p2p channel from AP to Center
   PointToPointHelper pointToPoint[nClient];
   for (uint32_t i = 0; i < nClient; i++)
   {
@@ -192,12 +192,12 @@ int main(int argc, char *argv[])
     pointToPoint[i].SetChannelAttribute("Delay", StringValue("10ms"));
   }
 
-  // 在AP的p2p信道上安装NetDevice
+  // install NetDevice on the p2p channel
   NetDeviceContainer backhaulDevices[nClient];
   for (uint32_t i = 0; i < nClient; i++)
     backhaulDevices[i] = pointToPoint[i].Install(wifiApNode[i].Get(0), sfuCenter.Get(0));
 
-  // Wifi AP和stations之间建立channel
+  // channel between Wifi AP and stations
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
   YansWifiPhyHelper phy;
   WifiMacHelper mac;
@@ -266,7 +266,7 @@ int main(int argc, char *argv[])
   }
   stack.Install(sfuCenter);
 
-  // 给NetDevices分配IPv4地址
+  // allocate IPv4 address for NetDevices
   Ipv4AddressHelper P2Paddress[nClient];
   Ipv4InterfaceContainer BackhaulIf[nClient];
   for (uint32_t i = 0; i < nClient; i++)
@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
     NS_LOG_DEBUG("APinterfaces[" << i << "].getAddress(0) = " << APinterfaces[i].GetAddress(0));
   }
 
-  // 把每个node的每个接口的ip地址打印出来
+  // print IPv4 address of each node
   for (uint32_t i = 0; i < nClient; i++)
   {
     Ptr<Ipv4> ippp = wifiApNode[i].Get(0)->GetObject<Ipv4>();
@@ -299,7 +299,7 @@ int main(int argc, char *argv[])
     }
   }
 
-  // 给每个user(WifiSta)装上WebClient，给Center装上WebServer
+  // install VCA server and clients app
   uint16_t client_ul = 80;
   uint16_t client_dl = 8080; // dl_port may increase in WebServer, make sure it doesn't overlap with ul_port
   uint16_t client_peer = 80;

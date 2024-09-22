@@ -458,7 +458,6 @@ int main(int argc, char *argv[])
     stack.Install(clientNodes);
     stack.Install(sfuCenter);
 
-    // 给NetDevices分配IPv4地址
     Ipv4AddressHelper ipAddr;
     std::string ip;
     Ipv4InterfaceContainer ulIpIfaces[nClient], dlIpIfaces[nClient];
@@ -477,7 +476,6 @@ int main(int argc, char *argv[])
         dlIpIfaces[i] = ipAddr.Assign(dlDevices[i]);
     }
 
-    // 给每个user(WifiSta)装上VcaClient，给Center装上VcaServer
     uint16_t client_ul = 80;
     uint16_t client_dl = 8080; // dl_port may increase in VcaServer, make sure it doesn't overlap with ul_port
     uint16_t client_peer = 80;

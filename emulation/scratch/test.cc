@@ -8,7 +8,7 @@
 #include "ns3/flow-monitor-helper.h"
 #include "ns3/ipv4-address.h"
 
-//改编自first.cc
+// adapted from first.cc
 //
 // Default Network Topology
 //
@@ -41,19 +41,16 @@ main (int argc, char *argv[])
   
   if(mode == "p2p"){
     printf("Now it's p2p!\n");
-    //创建节点
     int num = (n-1)*n/2;
     NodeContainer nodes;
     nodes.Create (n);
 
-    //创建节点之间的信道
     PointToPointHelper pointToPoint[num];
     for(int i = 0; i < num; i ++){
       pointToPoint[i].SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
       pointToPoint[i].SetChannelAttribute ("Delay", StringValue ("2ms"));
     }
 
-    //在信道上安装NetDevice
     NetDeviceContainer devices[num];
     int p = 0;
     int dev[100][100];
@@ -71,7 +68,6 @@ main (int argc, char *argv[])
     InternetStackHelper stack;
     stack.Install (nodes);
 
-    //给NetDevices分配IPv4地址
     Ipv4AddressHelper address[num];
     Ipv4InterfaceContainer interfaces[num];
     for(int i = 0; i < num; i++){
@@ -80,7 +76,6 @@ main (int argc, char *argv[])
       interfaces[i] = address[i].Assign (devices[i]);
     }
 
-    //Debug：把每个node的每个接口的ip地址打印出来
     for(int i = 0; i < n; i ++){
       Ptr<Ipv4> ippp = nodes.Get(i)->GetObject<Ipv4>();
       int interfacenumber = ippp->GetNInterfaces();
@@ -90,7 +85,6 @@ main (int argc, char *argv[])
       }
     }
 
-    //给所有点两两之间安装CS
     int port_c = 9;
     for(int i = 0; i < n; i++){
       for(int j = 0; j < n; j++){
@@ -128,26 +122,21 @@ main (int argc, char *argv[])
 
   else if(mode == "sfu"){
     printf("Now it's sfu!\n");
-    //创建节点
     NodeContainer nodes;
     nodes.Create (n+1);
-    //0,1,2,3,4,5...n-1都连到中间的选择转发单元n上
 
-    //创建节点之间的信道
     PointToPointHelper pointToPoint[n];
     for(int i = 0; i < n; i ++){
       pointToPoint[i].SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
       pointToPoint[i].SetChannelAttribute ("Delay", StringValue ("2ms"));
     }
 
-    //在信道上安装NetDevice
     NetDeviceContainer devices[n];
     for(int i = 0; i < n; i++)
         devices[i] = pointToPoint[i].Install (nodes.Get(i),nodes.Get(n));
     InternetStackHelper stack;
     stack.Install (nodes);
 
-    //给NetDevices分配IPv4地址
     Ipv4AddressHelper address[n];
     Ipv4InterfaceContainer interfaces[n];
     for(int i = 0; i < n; i++){
@@ -157,7 +146,6 @@ main (int argc, char *argv[])
       interfaces[i] = address[i].Assign (devices[i]);
     }
 
-     //Debug：把每个node的每个接口的ip地址打印出来
     for(int i = 0; i <= n; i ++){
       Ptr<Ipv4> ippp = nodes.Get(i)->GetObject<Ipv4>();
       int interfacenumber = ippp->GetNInterfaces();
@@ -167,7 +155,6 @@ main (int argc, char *argv[])
       }
     }
 
-    //给所有点与选择转发单元安装CS
     int port_c = 9;
     for(int i = 0; i < n; i++){
       for(int op = 0; op <= 1; op++){

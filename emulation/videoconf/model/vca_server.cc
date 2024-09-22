@@ -885,7 +885,7 @@ namespace ns3
             m_opt_params.capacities_kbps[it->first] = new_bitrate;
             change_rate = std::max(change_rate, abs(new_bitrate - old_bitrate) / old_bitrate);
         }
-        double rearrange_threshold = 0.2; // 暂时采用变化率>0.2作为判断标准，写定后可以写到.h中
+        double rearrange_threshold = 0.2; //use 0.2 as the threshold temporarily
         if (change_rate > rearrange_threshold)
             Simulator::ScheduleNow(&VcaServer::OptimizeAllocation, this);
 

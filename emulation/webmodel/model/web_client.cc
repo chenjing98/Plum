@@ -287,7 +287,7 @@ namespace ns3
 
         m_total_packet_bit += packet->GetSize() * 8;
 
-        Address from;//Todo This from !!!!原先的RecvFrom有from值，但是改用Recv之后就没有了！
+        Address from;//Todo This from : RecvFrom has the value of 'from', but Recv don't
 
         if (InetSocketAddress::IsMatchingType(from))
         {
@@ -409,8 +409,8 @@ namespace ns3
             if (client_info->read_status == 4)
             {
 
-                uint8_t *buffer = new uint8_t[client_info->half_payload->GetSize()];               // 创建一个buffer，用于存储packet元素
-                client_info->half_payload->CopyData(buffer, client_info->half_payload->GetSize()); // 将packet元素复制到buffer中
+                uint8_t *buffer = new uint8_t[client_info->half_payload->GetSize()];               // create a buffer for store packet
+                client_info->half_payload->CopyData(buffer, client_info->half_payload->GetSize()); // copy the packet to the buffer
 
                 HandleRead2(client_info->half_payload);
                 client_info->read_status = 0;

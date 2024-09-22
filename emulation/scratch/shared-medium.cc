@@ -171,7 +171,6 @@ int main(int argc, char *argv[])
     {
         NS_LOG_DEBUG("[Scratch] SFU mode emulation started.");
 
-        // 创建节点
         NodeContainer p2pNodes, sfuCenter, wifiStaNodes, wifiApNode;
 
         p2pNodes.Create(2);
@@ -180,20 +179,19 @@ int main(int argc, char *argv[])
         sfuCenter = p2pNodes.Get(1);
         wifiApNode = p2pNodes.Get(0);
 
-        // 创建AP到Center之间的信道
+        // create p2p channel from AP to Center
         PointToPointHelper pointToPoint;
         pointToPoint.SetDeviceAttribute("DataRate", StringValue("50Mbps"));
         pointToPoint.SetChannelAttribute("Delay", StringValue("10ms"));
 
-
-        // 在AP的p2p信道上安装NetDevice
+        // install NetDevice on the p2p channel
         NetDeviceContainer backhaulDevices;
         backhaulDevices = pointToPoint.Install(wifiApNode.Get(0), sfuCenter.Get(0));
         // for(int i=0;i<nClient;i++)
         //   for(int j=0;j<nClient;j++)
         //     NS_LOG_DEBUG("dev[%d][%d]=%d\nClient",i,j,dev[i][j]);
 
-        // Wifi AP和stations之间建立channel
+        // channel between Wifi AP and stations
         YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
         YansWifiPhyHelper phy;
         WifiMacHelper mac;
@@ -255,7 +253,7 @@ int main(int argc, char *argv[])
         }
         stack.Install(sfuCenter);
 
-        // 给NetDevices分配IPv4地址
+        // allocate IPv4 address for NetDevices
         Ipv4AddressHelper P2Paddress;
         Ipv4InterfaceContainer BackhaulIf;
 
@@ -272,7 +270,7 @@ int main(int argc, char *argv[])
         Stainterfaces = Wifiaddress.Assign(staDevices);
         APinterfaces = Wifiaddress.Assign(apDevices);
 
-        // 把每个node的每个接口的ip地址打印出来
+        // print IPv4 address of each node
         for (uint32_t i = 0; i < nClient; i++)
         {
             Ptr<Ipv4> ippp = wifiApNode.Get(0)->GetObject<Ipv4>();
@@ -284,7 +282,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        // 给每个user(WifiSta)装上VcaClient，给Center装上VcaServer
+        // install VCA server and clients app
         uint16_t client_ul = 80;
         uint16_t client_dl = 8080; // dl_port may increase in VcaServer, make sure it doesn't overlap with ul_port
         uint16_t client_peer = 80;

@@ -170,9 +170,8 @@ int main(int argc, char *argv[])
   if (mode == "p2p")
   {
     NS_LOG_ERROR("[Scratch] P2P mode emulation started.");
-    // 创建节点
-    uint8_t nWifi[nClient];                     // 每个AP管多少Nodes
-    uint32_t num = (nClient - 1) * nClient / 2; // AP之间的信道数量
+    uint8_t nWifi[nClient];
+    uint32_t num = (nClient - 1) * nClient / 2; 
     NodeContainer p2pNodes, wifiStaNodes[nClient], wifiApNode[nClient];
     for (uint32_t i = 0; i < nClient; i++)
       nWifi[i] = 1;
@@ -183,7 +182,6 @@ int main(int argc, char *argv[])
       wifiApNode[i] = p2pNodes.Get(i);
     }
 
-    // 创建AP之间的信道
     PointToPointHelper pointToPoint[num];
     for (uint32_t i = 0; i < num; i++)
     {
@@ -191,7 +189,6 @@ int main(int argc, char *argv[])
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("20ms"));
     }
 
-    // 在AP的p2p信道上安装NetDevice
     NetDeviceContainer p2pDevices[num];
     uint32_t p = 0;
     //    int dev[100][100];
@@ -207,7 +204,6 @@ int main(int argc, char *argv[])
     //   for(int j=0;j<nClient;j++)
     //     NS_LOG_DEBUG("dev[%d][%d]=%d\nClient",i,j,dev[i][j]);
 
-    // 抄一些WifiAP和WifiNodes之间建立联系的代码
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     YansWifiPhyHelper phy;
     WifiMacHelper mac;
@@ -216,7 +212,6 @@ int main(int argc, char *argv[])
     NetDeviceContainer staDevices[nClient];
     NetDeviceContainer apDevices[nClient];
 
-    // 每次的SSID、PHY要不同
     for (uint32_t i = 0; i < nClient; i++)
     {
       std::string id = "ssid" + std::to_string(i + 1);
@@ -265,7 +260,6 @@ int main(int argc, char *argv[])
     for (uint32_t i = 0; i < nClient; i++)
       stack.Install(wifiStaNodes[i]);
 
-    // 给NetDevices分配IPv4地址
     Ipv4AddressHelper P2Paddress[num];
     Ipv4InterfaceContainer BackhaulIf[num];
     for (uint32_t i = 0; i < num; i++)
@@ -287,7 +281,6 @@ int main(int argc, char *argv[])
       NS_LOG_DEBUG("APinterfaces[" << i << "].getAddress(0) = " << APinterfaces[i].GetAddress(0));
     }
 
-    // 给AP的每个User装上Client
     std::vector<Ipv4Address> staAddr_all;
     for (uint32_t id = 0; id < nClient; id++)
     {
@@ -338,7 +331,6 @@ int main(int argc, char *argv[])
     NS_LOG_DEBUG("[Scratch] SFU mode emulation started.");
 
     double_t showPositionDeltaTime = 1; // in s
-    // 创建节点
     // nClient of VcaClient, each in a different BSS
     NodeContainer p2pNodes, sfuCenter, wifiStaNodes[nClient], wifiApNode[nClient];
     uint8_t nWifi[nClient]; // number of stations in each BSS
@@ -357,7 +349,7 @@ int main(int argc, char *argv[])
     }
     sfuCenter = p2pNodes.Get(nClient);
 
-    // 创建AP到Center之间的信道
+    // create p2p channel from AP to Center
     PointToPointHelper pointToPoint[nClient];
     for (uint32_t i = 0; i < nClient; i++)
     {
@@ -365,7 +357,7 @@ int main(int argc, char *argv[])
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("10ms"));
     }
 
-    // 在AP的p2p信道上安装NetDevice
+    // install NetDevice on the p2p channel
     NetDeviceContainer backhaulDevices[nClient];
     for (uint32_t i = 0; i < nClient; i++)
       backhaulDevices[i] = pointToPoint[i].Install(wifiApNode[i].Get(0), sfuCenter.Get(0));
@@ -373,7 +365,7 @@ int main(int argc, char *argv[])
     //   for(int j=0;j<nClient;j++)
     //     NS_LOG_DEBUG("dev[%d][%d]=%d\nClient",i,j,dev[i][j]);
 
-    // Wifi AP和stations之间建立channel
+    // channel between Wifi AP and stations
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     YansWifiPhyHelper phy;
     WifiMacHelper mac;
@@ -455,7 +447,7 @@ int main(int argc, char *argv[])
     }
     stack.Install(sfuCenter);
 
-    // 给NetDevices分配IPv4地址
+    // allocate IPv4 address for NetDevices
     Ipv4AddressHelper P2Paddress[nClient];
     Ipv4InterfaceContainer BackhaulIf[nClient];
     for (uint32_t i = 0; i < nClient; i++)
@@ -476,7 +468,7 @@ int main(int argc, char *argv[])
       NS_LOG_DEBUG("APinterfaces[" << i << "].getAddress(0) = " << APinterfaces[i].GetAddress(0));
     }
 
-    // 把每个node的每个接口的ip地址打印出来
+    // print IPv4 address of each node
     for (uint32_t i = 0; i < nClient; i++)
     {
       Ptr<Ipv4> ippp = wifiApNode[i].Get(0)->GetObject<Ipv4>();
@@ -487,8 +479,8 @@ int main(int argc, char *argv[])
         NS_LOG_DEBUG("Node(" << i << ") Interface(" << k << ") IPAddress= " << ipaddress);
       }
     }
-
-    // 给每个user(WifiSta)装上VcaClient，给Center装上VcaServer
+  
+    // install VCA server and clients app
     uint16_t client_ul = 80;
     uint16_t client_dl = 8080; // dl_port may increase in VcaServer, make sure it doesn't overlap with ul_port
     uint16_t client_peer = 80;
@@ -571,7 +563,6 @@ int main(int argc, char *argv[])
     NS_LOG_DEBUG("[Scratch] SFU mode emulation started.");
 
     double_t showPositionDeltaTime = 1; // in s
-    // 创建节点
     // nClient of VcaClient, each in a different BSS
     uint32_t nBss = nClient - 1;
     NodeContainer p2pNodes, sfuCenter, wifiStaNodes[nBss], wifiApNode[nBss];
@@ -596,7 +587,7 @@ int main(int argc, char *argv[])
 
     sfuCenter = p2pNodes.Get(nBss);
 
-    // 创建AP到Center之间的信道
+    // create p2p channel from AP to Center
     PointToPointHelper pointToPoint[nBss];
     for (uint32_t i = 0; i < nBss; i++)
     {
@@ -604,7 +595,7 @@ int main(int argc, char *argv[])
       pointToPoint[i].SetChannelAttribute("Delay", StringValue("10ms"));
     }
 
-    // 在AP的p2p信道上安装NetDevice
+    // install NetDevice on the p2p channel
     NetDeviceContainer backhaulDevices[nBss];
     for (uint32_t i = 0; i < nBss; i++)
       backhaulDevices[i] = pointToPoint[i].Install(wifiApNode[i].Get(0), sfuCenter.Get(0));
@@ -612,7 +603,7 @@ int main(int argc, char *argv[])
     //   for(int j=0;j<nClient;j++)
     //     NS_LOG_DEBUG("dev[%d][%d]=%d\nClient",i,j,dev[i][j]);
 
-    // Wifi AP和stations之间建立channel
+    // channel between Wifi AP and stations
     YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
     YansWifiPhyHelper phy;
     WifiMacHelper mac;
@@ -688,7 +679,7 @@ int main(int argc, char *argv[])
     }
     stack.Install(sfuCenter);
 
-    // 给NetDevices分配IPv4地址
+    // allocate IPv4 address for NetDevices
     Ipv4AddressHelper P2Paddress[nBss];
     Ipv4InterfaceContainer BackhaulIf[nBss];
     for (uint32_t i = 0; i < nBss; i++)
@@ -709,7 +700,7 @@ int main(int argc, char *argv[])
       NS_LOG_DEBUG("APinterfaces[" << i << "].getAddress(0) = " << APinterfaces[i].GetAddress(0));
     }
 
-    // 把每个node的每个接口的ip地址打印出来
+    // print IPv4 address of each node
     for (uint32_t i = 0; i < nBss; i++)
     {
       Ptr<Ipv4> ippp = wifiApNode[i].Get(0)->GetObject<Ipv4>();
@@ -721,7 +712,6 @@ int main(int argc, char *argv[])
       }
     }
 
-    // 给每个user(WifiSta)装上VcaClient，给Center装上VcaServer
     uint16_t client_ul = 80;
     uint16_t client_dl = 8080; // dl_port may increase in VcaServer, make sure it doesn't overlap with ul_port
     uint16_t client_peer = 80;
