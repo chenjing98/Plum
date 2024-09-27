@@ -88,7 +88,11 @@ python solver.py -n ${Number-of-Clients}
 
 To collect the bitrate distribution (Figure 12, Figure 14(a)), please uncomment the code line  `vcaClientApp->SetLogFile(...` in the scratch files (which are under `emulation/scratch/`).
 
-To reproduce the results for policy LastN, please checkout to another branch `lastn`. We separate the code of this baseline policy, as it involves different modifications to NS-3 original modules.
+To reproduce the results for baseline policy LastN, please checkout to another branch `lastn`. We separate the code of this baseline policy, as it involves different modifications to NS-3 original modules.
+
+When switched to the `lastn` branch, please first backup the four files (`tcp-socket-base.h`, `tcp-socket-base.cc`, `tcp-tx-buffer.h`, `tcp-tx-buffer.cc`) in `emulation/ns-allinone-3.37/ns-3.37/src/internet/model/`, and replace them with our modified versions in `emulation/ns3-internet-module-replace/'. 
+
+Then, please [run the setup script](#step-2-clone-this-repository-and-setup-ns-3-environment) again to re-link the files in `emulation/`. Now, to reproduce LastN results, please use our bash script above with Vanilla policy setting.
 
 
 ### Android Program
