@@ -29,7 +29,7 @@ app_folder="videoconf"
 scratch_folder="scratch"
 socket_control_folder="socket-control"
 
-# creat soft link
+# create soft link
 if [ ! -d "${current_dir}/${app_folder}" ]
 then
     echo "${app_folder} does not exist!"
@@ -54,7 +54,7 @@ app_folder="webmodel"
 scratch_folder="scratch"
 socket_control_folder="socket-control"
 
-# creat soft link
+# create soft link
 if [ ! -d "${current_dir}/${app_folder}" ]
 then
     echo "${app_folder} does not exist!"

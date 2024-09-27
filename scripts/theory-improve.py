@@ -160,11 +160,12 @@ def main():
     parser.add_argument('-a', '--app_bw', type=float,
                         default=100, help='Application bandwidth')
     parser.add_argument('-k', type=float, default=0.5, help='k')
+    parser.add_argument('-f', '--trace_folder', type=str,
+                        default="./traces/gaming/", help='Trace folder')
     parser.add_argument
     args = parser.parse_args()
 
-    trace_folder = "./traces/wifi/"
-
+    trace_folder = args.trace_folder
     num_client = args.num_client
     app_bw = args.app_bw
     k = args.k
